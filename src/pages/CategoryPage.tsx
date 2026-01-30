@@ -26,7 +26,7 @@ export default function CategoryPage() {
         .from('seller_profiles')
         .select(`
           *,
-          profile:profiles(name, block)
+          profile:profiles!seller_profiles_user_id_fkey(name, block)
         `)
         .eq('verification_status', 'approved')
         .contains('categories', [category])

@@ -82,9 +82,9 @@ export default function AdminPage() {
     try {
       const [usersRes, sellersRes, reviewsRes, allSellersRes, paymentsRes, reportsRes, warningsRes, statsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('verification_status', 'pending'),
-        supabase.from('seller_profiles').select('*, profile:profiles(name, block, flat_number)').eq('verification_status', 'pending'),
+        supabase.from('seller_profiles').select('*, profile:profiles!seller_profiles_user_id_fkey(name, block, flat_number)').eq('verification_status', 'pending'),
         supabase.from('reviews').select('*, buyer:profiles!reviews_buyer_id_fkey(name), seller:seller_profiles(business_name)').order('created_at', { ascending: false }).limit(50),
-        supabase.from('seller_profiles').select('*, profile:profiles(name, block)').eq('verification_status', 'approved'),
+        supabase.from('seller_profiles').select('*, profile:profiles!seller_profiles_user_id_fkey(name, block)').eq('verification_status', 'approved'),
         supabase.from('payment_records').select('*, seller:seller_profiles(business_name), order:orders(buyer:profiles!orders_buyer_id_fkey(name))').order('created_at', { ascending: false }).limit(100),
         supabase.from('reports').select('*, reporter:profiles!reports_reporter_id_fkey(name), reported_seller:seller_profiles(business_name)').order('created_at', { ascending: false }).limit(50),
         supabase.from('warnings').select('*, user:profiles!warnings_user_id_fkey(name)').order('created_at', { ascending: false }).limit(50),

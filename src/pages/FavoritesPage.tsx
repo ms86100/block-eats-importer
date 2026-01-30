@@ -28,7 +28,7 @@ export default function FavoritesPage() {
         .select(`
           seller:seller_profiles(
             *,
-            profile:profiles(name, block)
+            profile:profiles!seller_profiles_user_id_fkey(name, block)
           )
         `)
         .eq('user_id', user.id)

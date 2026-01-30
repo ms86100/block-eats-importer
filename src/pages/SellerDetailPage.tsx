@@ -57,7 +57,7 @@ export default function SellerDetailPage() {
           .from('seller_profiles')
           .select(`
             *,
-            profile:profiles(name, block, flat_number, phone)
+            profile:profiles!seller_profiles_user_id_fkey(name, block, flat_number, phone)
           `)
           .eq('id', id)
           .single(),

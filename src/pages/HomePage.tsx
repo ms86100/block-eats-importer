@@ -37,7 +37,7 @@ export default function HomePage() {
       // Fetch all approved sellers once
       const { data: allSellers } = await supabase
         .from('seller_profiles')
-        .select(`*, profile:profiles(name, block)`)
+        .select(`*, profile:profiles!seller_profiles_user_id_fkey(name, block)`)
         .eq('verification_status', 'approved')
         .order('rating', { ascending: false });
 
@@ -69,7 +69,7 @@ export default function HomePage() {
       if (user) {
         const { data: favData } = await supabase
           .from('favorites')
-          .select(`seller:seller_profiles(*, profile:profiles(name, block))`)
+          .select(`seller:seller_profiles(*, profile:profiles!seller_profiles_user_id_fkey(name, block))`)
           .eq('user_id', user.id)
           .limit(5);
 
