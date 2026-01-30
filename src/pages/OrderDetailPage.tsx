@@ -40,7 +40,7 @@ export default function OrderDetailPage() {
             id, 
             business_name, 
             user_id,
-            profile:profiles(name, phone, block, flat_number)
+            profile:profiles!seller_profiles_user_id_fkey(name, phone, block, flat_number)
           ),
           buyer:profiles!orders_buyer_id_fkey(name, phone, block, flat_number),
           items:order_items(*)
