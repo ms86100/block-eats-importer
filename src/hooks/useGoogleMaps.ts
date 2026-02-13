@@ -8,11 +8,10 @@ let loadPromise: Promise<void> | null = null;
 
 function loadGoogleMapsScript(): Promise<void> {
   if (loadPromise) return loadPromise;
-  if ((window as any).google?.maps?.places) return Promise.resolve();
+  if ((window as any).google?.maps) return Promise.resolve();
 
   loadPromise = new Promise((resolve, reject) => {
     if (document.getElementById(SCRIPT_ID)) {
-      // Script tag exists but not loaded yet — wait for it
       const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement;
       existing.addEventListener('load', () => resolve());
       existing.addEventListener('error', () => reject(new Error('Failed to load Google Maps')));
@@ -32,7 +31,7 @@ function loadGoogleMapsScript(): Promise<void> {
 }
 
 export function useGoogleMaps() {
-  const [isLoaded, setIsLoaded] = useState(!!(window as any).google?.maps?.places);
+  const [isLoaded, setIsLoaded] = useState(!!(window as any).google?.maps);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,64 +66,61 @@ export function useAutocomplete() {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const searchPlaces = useCallback((input: string) => {
+  const searchPlaces = useCallback(async (input: string) => {
     if (!isLoaded || !input.trim() || input.length < 3) {
       setPredictions([]);
       return;
     }
     setIsSearching(true);
-    const service = new google.maps.places.AutocompleteService();
-    service.getPlacePredictions(
-      {
+    try {
+      // Use the new AutocompleteSuggestion API (replaces deprecated AutocompleteService)
+      const { suggestions } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
         input,
-        componentRestrictions: { country: 'in' },
-        types: ['establishment', 'geocode'],
-      },
-      (results, status) => {
-        setIsSearching(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          setPredictions(
-            results.map((r) => ({
-              placeId: r.place_id,
-              description: r.description,
-              mainText: r.structured_formatting.main_text,
-              secondaryText: r.structured_formatting.secondary_text,
-            }))
-          );
-        } else {
-          setPredictions([]);
-        }
-      }
-    );
+        includedRegionCodes: ['in'],
+      });
+
+      setPredictions(
+        suggestions
+          .filter((s): s is google.maps.places.AutocompleteSuggestion & { placePrediction: google.maps.places.PlacePrediction } => !!s.placePrediction)
+          .map((s) => ({
+            placeId: s.placePrediction.placeId,
+            description: s.placePrediction.text.toString(),
+            mainText: s.placePrediction.mainText?.toString() || s.placePrediction.text.toString(),
+            secondaryText: s.placePrediction.secondaryText?.toString() || '',
+          }))
+      );
+    } catch (err) {
+      console.error('AutocompleteSuggestion error:', err);
+      setPredictions([]);
+    } finally {
+      setIsSearching(false);
+    }
   }, [isLoaded]);
 
-  const getPlaceDetails = useCallback((placeId: string): Promise<PlaceDetails | null> => {
-    if (!isLoaded) return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const div = document.createElement('div');
-      const service = new google.maps.places.PlacesService(div);
-      service.getDetails(
-        { placeId, fields: ['name', 'formatted_address', 'address_components', 'geometry'] },
-        (place, status) => {
-          if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-            resolve(null);
-            return;
-          }
-          const components = place.address_components || [];
-          const get = (type: string) => components.find((c) => c.types.includes(type))?.long_name || '';
+  const getPlaceDetails = useCallback(async (placeId: string): Promise<PlaceDetails | null> => {
+    if (!isLoaded) return null;
+    try {
+      // Use the new Place class (replaces deprecated PlacesService)
+      const { Place } = await google.maps.importLibrary('places') as google.maps.PlacesLibrary;
+      const place = new Place({ id: placeId });
+      await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'addressComponents', 'location'] });
 
-          resolve({
-            name: place.name || '',
-            formattedAddress: place.formatted_address || '',
-            city: get('locality') || get('administrative_area_level_2'),
-            state: get('administrative_area_level_1'),
-            pincode: get('postal_code'),
-            latitude: place.geometry?.location?.lat() || 0,
-            longitude: place.geometry?.location?.lng() || 0,
-          });
-        }
-      );
-    });
+      const components = place.addressComponents || [];
+      const get = (type: string) => components.find((c) => c.types.includes(type))?.longText || '';
+
+      return {
+        name: place.displayName || '',
+        formattedAddress: place.formattedAddress || '',
+        city: get('locality') || get('administrative_area_level_2'),
+        state: get('administrative_area_level_1'),
+        pincode: get('postal_code'),
+        latitude: place.location?.lat() || 0,
+        longitude: place.location?.lng() || 0,
+      };
+    } catch (err) {
+      console.error('Place fetchFields error:', err);
+      return null;
+    }
   }, [isLoaded]);
 
   const clearPredictions = useCallback(() => setPredictions([]), []);
