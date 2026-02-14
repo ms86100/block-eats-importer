@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Shield, Search, CheckCircle, XCircle, User, Phone, Car, Clock } from 'lucide-react';
+import { Shield, Search, CheckCircle, XCircle, User, Phone, Car, Clock, Users } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WorkerGateValidation } from '@/components/workforce/WorkerGateValidation';
 
 interface VerifiedVisitor {
   id: string;
@@ -113,126 +115,139 @@ export default function GuardKioskPage() {
 
   return (
     <AppLayout headerTitle="Guard Kiosk" showLocation={false}>
-      <div className="p-4 space-y-6">
-        {/* OTP Entry - Large for guard usability */}
-        <Card className="border-2 border-primary/30">
-          <CardContent className="p-6 space-y-4">
-            <div className="text-center">
-              <Shield className="mx-auto text-primary mb-2" size={40} />
-              <h2 className="text-xl font-bold">Verify Visitor OTP</h2>
-              <p className="text-sm text-muted-foreground">Enter the 6-digit OTP shared by the resident</p>
-            </div>
+      <div className="p-4 space-y-4">
+        <Tabs defaultValue="visitor">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="visitor">Visitor OTP</TabsTrigger>
+            <TabsTrigger value="worker"><Users size={14} className="mr-1" /> Worker</TabsTrigger>
+          </TabsList>
 
-            <Input
-              value={otpInput}
-              onChange={e => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                setOtpInput(val);
-                if (val.length < 6) setVerificationStatus('idle');
-              }}
-              placeholder="Enter 6-digit OTP"
-              className="text-center text-3xl font-mono tracking-[0.5em] h-16"
-              maxLength={6}
-              inputMode="numeric"
-            />
-
-            <Button
-              onClick={handleVerifyOTP}
-              disabled={otpInput.length !== 6 || isVerifying}
-              className="w-full h-14 text-lg"
-              size="lg"
-            >
-              <Search size={20} className="mr-2" />
-              {isVerifying ? 'Verifying...' : 'Verify OTP'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Verification Result */}
-        {verificationStatus === 'failed' && (
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardContent className="p-6 text-center">
-              <XCircle className="mx-auto text-destructive mb-3" size={48} />
-              <p className="text-lg font-bold text-destructive">Invalid OTP</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                No matching visitor found. Check the OTP and try again.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {verificationStatus === 'success' && verifiedVisitor && (
-          <Card className="border-success/50 bg-success/5">
-            <CardContent className="p-6 space-y-4">
-              <div className="text-center">
-                <CheckCircle className="mx-auto text-success mb-2" size={48} />
-                <p className="text-lg font-bold text-success">OTP Verified</p>
-              </div>
-
-              <div className="space-y-3 bg-background rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <User size={18} className="text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Visitor</p>
-                    <p className="font-bold text-lg">{verifiedVisitor.visitor_name}</p>
-                  </div>
+          <TabsContent value="visitor" className="mt-4 space-y-6">
+            {/* OTP Entry - Large for guard usability */}
+            <Card className="border-2 border-primary/30">
+              <CardContent className="p-6 space-y-4">
+                <div className="text-center">
+                  <Shield className="mx-auto text-primary mb-2" size={40} />
+                  <h2 className="text-xl font-bold">Verify Visitor OTP</h2>
+                  <p className="text-sm text-muted-foreground">Enter the 6-digit OTP shared by the resident</p>
                 </div>
 
-                {verifiedVisitor.visitor_phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone size={18} className="text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phone</p>
-                      <p className="font-medium">{verifiedVisitor.visitor_phone}</p>
-                    </div>
-                  </div>
-                )}
+                <Input
+                  value={otpInput}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setOtpInput(val);
+                    if (val.length < 6) setVerificationStatus('idle');
+                  }}
+                  placeholder="Enter 6-digit OTP"
+                  className="text-center text-3xl font-mono tracking-[0.5em] h-16"
+                  maxLength={6}
+                  inputMode="numeric"
+                />
 
-                <div className="flex items-center gap-3">
-                  <Shield size={18} className="text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Visiting</p>
-                    <p className="font-medium">
-                      {verifiedVisitor.resident_name || 'Unknown'} 
-                      {verifiedVisitor.flat_number && ` • Flat ${verifiedVisitor.flat_number}`}
-                    </p>
-                  </div>
-                </div>
-
-                {verifiedVisitor.vehicle_number && (
-                  <div className="flex items-center gap-3">
-                    <Car size={18} className="text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Vehicle</p>
-                      <p className="font-medium font-mono">{verifiedVisitor.vehicle_number}</p>
-                    </div>
-                  </div>
-                )}
-
-                {verifiedVisitor.expected_time && (
-                  <div className="flex items-center gap-3">
-                    <Clock size={18} className="text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Expected</p>
-                      <p className="font-medium">{verifiedVisitor.expected_time}</p>
-                    </div>
-                  </div>
-                )}
-
-                <Badge variant="outline" className="capitalize">{verifiedVisitor.visitor_type.replace('_', ' ')}</Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="destructive" size="lg" className="h-14 text-lg" onClick={handleDeny}>
-                  <XCircle size={20} className="mr-2" /> Deny
+                <Button
+                  onClick={handleVerifyOTP}
+                  disabled={otpInput.length !== 6 || isVerifying}
+                  className="w-full h-14 text-lg"
+                  size="lg"
+                >
+                  <Search size={20} className="mr-2" />
+                  {isVerifying ? 'Verifying...' : 'Verify OTP'}
                 </Button>
-                <Button variant="default" size="lg" className="h-14 text-lg" onClick={handleAllowEntry}>
-                  <CheckCircle size={20} className="mr-2" /> Allow
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+
+            {/* Verification Result */}
+            {verificationStatus === 'failed' && (
+              <Card className="border-destructive/50 bg-destructive/5">
+                <CardContent className="p-6 text-center">
+                  <XCircle className="mx-auto text-destructive mb-3" size={48} />
+                  <p className="text-lg font-bold text-destructive">Invalid OTP</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No matching visitor found. Check the OTP and try again.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {verificationStatus === 'success' && verifiedVisitor && (
+              <Card className="border-success/50 bg-success/5">
+                <CardContent className="p-6 space-y-4">
+                  <div className="text-center">
+                    <CheckCircle className="mx-auto text-success mb-2" size={48} />
+                    <p className="text-lg font-bold text-success">OTP Verified</p>
+                  </div>
+
+                  <div className="space-y-3 bg-background rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <User size={18} className="text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Visitor</p>
+                        <p className="font-bold text-lg">{verifiedVisitor.visitor_name}</p>
+                      </div>
+                    </div>
+
+                    {verifiedVisitor.visitor_phone && (
+                      <div className="flex items-center gap-3">
+                        <Phone size={18} className="text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="font-medium">{verifiedVisitor.visitor_phone}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <Shield size={18} className="text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Visiting</p>
+                        <p className="font-medium">
+                          {verifiedVisitor.resident_name || 'Unknown'} 
+                          {verifiedVisitor.flat_number && ` • Flat ${verifiedVisitor.flat_number}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {verifiedVisitor.vehicle_number && (
+                      <div className="flex items-center gap-3">
+                        <Car size={18} className="text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Vehicle</p>
+                          <p className="font-medium font-mono">{verifiedVisitor.vehicle_number}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {verifiedVisitor.expected_time && (
+                      <div className="flex items-center gap-3">
+                        <Clock size={18} className="text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Expected</p>
+                          <p className="font-medium">{verifiedVisitor.expected_time}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <Badge variant="outline" className="capitalize">{verifiedVisitor.visitor_type.replace('_', ' ')}</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="destructive" size="lg" className="h-14 text-lg" onClick={handleDeny}>
+                      <XCircle size={20} className="mr-2" /> Deny
+                    </Button>
+                    <Button variant="default" size="lg" className="h-14 text-lg" onClick={handleAllowEntry}>
+                      <CheckCircle size={20} className="mr-2" /> Allow
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="worker" className="mt-4">
+            <WorkerGateValidation />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
