@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   IndianRupee,
   Building2,
+  Wrench,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -96,6 +97,7 @@ export default function ProfilePage() {
     { icon: ShieldAlert, label: 'My Concerns', to: '/disputes' },
     { icon: IndianRupee, label: 'Society Finances', to: '/society/finances' },
     { icon: Building2, label: 'Construction Progress', to: '/society/progress' },
+    { icon: Wrench, label: 'Snag Reports', to: '/society/snags' },
     ...(isSeller
       ? [{ icon: Store, label: 'Seller Dashboard', to: '/seller' }]
       : [{ icon: Store, label: 'Become a Seller', to: '/become-seller' }]),

@@ -10,11 +10,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface AddMilestoneSheetProps {
-  onAdded: () => void;
+interface Tower {
+  id: string;
+  name: string;
 }
 
-export function AddMilestoneSheet({ onAdded }: AddMilestoneSheetProps) {
+interface AddMilestoneSheetProps {
+  onAdded: () => void;
+  towers?: Tower[];
+}
+
+export function AddMilestoneSheet({ onAdded, towers = [] }: AddMilestoneSheetProps) {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +28,7 @@ export function AddMilestoneSheet({ onAdded }: AddMilestoneSheetProps) {
   const [description, setDescription] = useState('');
   const [stage, setStage] = useState('foundation');
   const [completion, setCompletion] = useState([0]);
+  const [towerId, setTowerId] = useState<string>('none');
 
   const handleSubmit = async () => {
     if (!user || !profile?.society_id || !title.trim()) return;
@@ -37,6 +44,7 @@ export function AddMilestoneSheet({ onAdded }: AddMilestoneSheetProps) {
           stage,
           completion_percentage: completion[0],
           posted_by: user.id,
+          tower_id: towerId === 'none' ? null : towerId,
         });
 
       if (error) throw error;
@@ -46,6 +54,7 @@ export function AddMilestoneSheet({ onAdded }: AddMilestoneSheetProps) {
       setDescription('');
       setStage('foundation');
       setCompletion([0]);
+      setTowerId('none');
       setOpen(false);
       onAdded();
     } catch (error: any) {
@@ -67,6 +76,20 @@ export function AddMilestoneSheet({ onAdded }: AddMilestoneSheetProps) {
           <SheetTitle>Add Construction Milestone</SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">
+          {towers.length > 0 && (
+            <div>
+              <label className="text-sm font-medium">Tower (optional)</label>
+              <Select value={towerId} onValueChange={setTowerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">All / General</SelectItem>
+                  {towers.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium">Title *</label>
             <Input

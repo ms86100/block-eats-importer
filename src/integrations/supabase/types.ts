@@ -389,6 +389,7 @@ export type Database = {
           society_id: string
           stage: string
           title: string
+          tower_id: string | null
         }
         Insert: {
           completion_percentage?: number
@@ -400,6 +401,7 @@ export type Database = {
           society_id: string
           stage?: string
           title: string
+          tower_id?: string | null
         }
         Update: {
           completion_percentage?: number
@@ -411,6 +413,7 @@ export type Database = {
           society_id?: string
           stage?: string
           title?: string
+          tower_id?: string | null
         }
         Relationships: [
           {
@@ -425,6 +428,13 @@ export type Database = {
             columns: ["society_id"]
             isOneToOne: false
             referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "construction_milestones_tower_id_fkey"
+            columns: ["tower_id"]
+            isOneToOne: false
+            referencedRelation: "project_towers"
             referencedColumns: ["id"]
           },
         ]
@@ -1341,6 +1351,207 @@ export type Database = {
           },
         ]
       }
+      project_answers: {
+        Row: {
+          answer_text: string
+          answered_by: string
+          created_at: string
+          id: string
+          is_official: boolean
+          question_id: string
+        }
+        Insert: {
+          answer_text: string
+          answered_by: string
+          created_at?: string
+          id?: string
+          is_official?: boolean
+          question_id: string
+        }
+        Update: {
+          answer_text?: string
+          answered_by?: string
+          created_at?: string
+          id?: string
+          is_official?: boolean
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_answers_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "project_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_documents: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          file_url: string
+          id: string
+          is_verified: boolean
+          society_id: string
+          title: string
+          tower_id: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          file_url: string
+          id?: string
+          is_verified?: boolean
+          society_id: string
+          title: string
+          tower_id?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          file_url?: string
+          id?: string
+          is_verified?: boolean
+          society_id?: string
+          title?: string
+          tower_id?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_documents_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_documents_tower_id_fkey"
+            columns: ["tower_id"]
+            isOneToOne: false
+            referencedRelation: "project_towers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_questions: {
+        Row: {
+          asked_by: string
+          category: string
+          created_at: string
+          id: string
+          is_answered: boolean
+          is_pinned: boolean
+          question_text: string
+          society_id: string
+        }
+        Insert: {
+          asked_by: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_answered?: boolean
+          is_pinned?: boolean
+          question_text: string
+          society_id: string
+        }
+        Update: {
+          asked_by?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_answered?: boolean
+          is_pinned?: boolean
+          question_text?: string
+          society_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_questions_asked_by_fkey"
+            columns: ["asked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_questions_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_towers: {
+        Row: {
+          created_at: string
+          current_percentage: number
+          current_stage: string
+          delay_category: string | null
+          delay_reason: string | null
+          expected_completion: string | null
+          id: string
+          name: string
+          revised_completion: string | null
+          society_id: string
+          total_floors: number
+        }
+        Insert: {
+          created_at?: string
+          current_percentage?: number
+          current_stage?: string
+          delay_category?: string | null
+          delay_reason?: string | null
+          expected_completion?: string | null
+          id?: string
+          name: string
+          revised_completion?: string | null
+          society_id: string
+          total_floors?: number
+        }
+        Update: {
+          created_at?: string
+          current_percentage?: number
+          current_stage?: string
+          delay_category?: string | null
+          delay_reason?: string | null
+          expected_completion?: string | null
+          id?: string
+          name?: string
+          revised_completion?: string | null
+          society_id?: string
+          total_floors?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_towers_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           admin_notes: string | null
@@ -1712,6 +1923,82 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snag_tickets: {
+        Row: {
+          acknowledged_at: string | null
+          assigned_to_name: string | null
+          category: string
+          created_at: string
+          description: string
+          fixed_at: string | null
+          flat_number: string
+          id: string
+          photo_urls: string[] | null
+          reported_by: string
+          sla_deadline: string
+          society_id: string
+          status: string
+          tower_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          assigned_to_name?: string | null
+          category?: string
+          created_at?: string
+          description: string
+          fixed_at?: string | null
+          flat_number: string
+          id?: string
+          photo_urls?: string[] | null
+          reported_by: string
+          sla_deadline?: string
+          society_id: string
+          status?: string
+          tower_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          assigned_to_name?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          fixed_at?: string | null
+          flat_number?: string
+          id?: string
+          photo_urls?: string[] | null
+          reported_by?: string
+          sla_deadline?: string
+          society_id?: string
+          status?: string
+          tower_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snag_tickets_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snag_tickets_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snag_tickets_tower_id_fkey"
+            columns: ["tower_id"]
+            isOneToOne: false
+            referencedRelation: "project_towers"
             referencedColumns: ["id"]
           },
         ]
