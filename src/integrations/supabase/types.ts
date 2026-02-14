@@ -2767,6 +2767,33 @@ export type Database = {
           },
         ]
       }
+      trigger_errors: {
+        Row: {
+          created_at: string
+          error_detail: string | null
+          error_message: string
+          id: string
+          table_name: string
+          trigger_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_detail?: string | null
+          error_message: string
+          id?: string
+          table_name: string
+          trigger_name: string
+        }
+        Update: {
+          created_at?: string
+          error_detail?: string | null
+          error_message?: string
+          id?: string
+          table_name?: string
+          trigger_name?: string
+        }
+        Relationships: []
+      }
       user_notifications: {
         Row: {
           body: string
