@@ -2,12 +2,29 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProgressTimeline } from '@/components/progress/ProgressTimeline';
 import { MilestoneCard } from '@/components/progress/MilestoneCard';
 import { AddMilestoneSheet } from '@/components/progress/AddMilestoneSheet';
+import { TowerSelector } from '@/components/progress/TowerSelector';
+import { TowerProgressCard } from '@/components/progress/TowerProgressCard';
+import { DocumentVaultTab } from '@/components/progress/DocumentVaultTab';
+import { ProjectQATab } from '@/components/progress/ProjectQATab';
 import { HardHat, Construction } from 'lucide-react';
+
+interface Tower {
+  id: string;
+  name: string;
+  total_floors: number;
+  expected_completion: string | null;
+  revised_completion: string | null;
+  delay_reason: string | null;
+  delay_category: string | null;
+  current_stage: string;
+  current_percentage: number;
+}
 
 interface Milestone {
   id: string;
@@ -18,22 +35,41 @@ interface Milestone {
   completion_percentage: number;
   posted_by: string;
   created_at: string;
+  tower_id: string | null;
   reactions?: { thumbsup: number; concern: number; user_reaction?: string | null };
 }
 
 export default function SocietyProgressPage() {
   const { user, society, isAdmin } = useAuth();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [towers, setTowers] = useState<Tower[]>([]);
+  const [selectedTowerId, setSelectedTowerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchTowers = async () => {
+    if (!society?.id) return;
+    const { data } = await supabase
+      .from('project_towers')
+      .select('*')
+      .eq('society_id', society.id)
+      .order('name');
+    setTowers((data as any) || []);
+  };
 
   const fetchMilestones = async () => {
     if (!society?.id) return;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('construction_milestones')
       .select('*')
       .eq('society_id', society.id)
       .order('created_at', { ascending: false });
+
+    if (selectedTowerId) {
+      query = query.eq('tower_id', selectedTowerId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching milestones:', error);
@@ -41,7 +77,6 @@ export default function SocietyProgressPage() {
       return;
     }
 
-    // Fetch reactions for all milestones
     const milestoneIds = (data || []).map(m => m.id);
     let reactionsMap: Record<string, { thumbsup: number; concern: number; user_reaction?: string | null }> = {};
 
@@ -71,15 +106,17 @@ export default function SocietyProgressPage() {
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchMilestones();
-  }, [society?.id]);
+  useEffect(() => { fetchTowers(); }, [society?.id]);
+  useEffect(() => { fetchMilestones(); }, [society?.id, selectedTowerId]);
 
-  // Compute overall progress
-  const latestStage = milestones.length > 0 ? milestones[0].stage : 'foundation';
-  const overallPercentage = milestones.length > 0
-    ? Math.max(...milestones.map(m => m.completion_percentage))
-    : 0;
+  // Compute progress - use tower data if available, otherwise milestones
+  const overallPercentage = towers.length > 0
+    ? Math.round(towers.reduce((sum, t) => sum + t.current_percentage, 0) / towers.length)
+    : milestones.length > 0 ? Math.max(...milestones.map(m => m.completion_percentage)) : 0;
+
+  const latestStage = selectedTowerId
+    ? towers.find(t => t.id === selectedTowerId)?.current_stage || 'foundation'
+    : towers.length > 0 ? towers[0].current_stage : (milestones.length > 0 ? milestones[0].stage : 'foundation');
 
   const isUnderConstruction = (society as any)?.is_under_construction;
 
@@ -88,7 +125,6 @@ export default function SocietyProgressPage() {
       <AppLayout headerTitle="Construction Progress" showLocation={false}>
         <div className="p-4 space-y-4">
           <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />
         </div>
       </AppLayout>
@@ -118,41 +154,67 @@ export default function SocietyProgressPage() {
             <HardHat className="text-primary" size={20} />
             <h2 className="font-semibold text-sm">{society?.name}</h2>
           </div>
-          {isAdmin && <AddMilestoneSheet onAdded={fetchMilestones} />}
+          <TowerSelector towers={towers} selectedTowerId={selectedTowerId} onSelect={setSelectedTowerId} />
         </div>
 
-        {/* Timeline Overview */}
-        <Card>
-          <CardContent className="p-4">
-            <ProgressTimeline
-              currentStage={latestStage}
-              overallPercentage={overallPercentage}
-            />
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="timeline">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
+            <TabsTrigger value="qa" className="text-xs">Q&A</TabsTrigger>
+          </TabsList>
 
-        {/* Milestones List */}
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          Updates ({milestones.length})
-        </h3>
+          <TabsContent value="timeline" className="space-y-4 mt-3">
+            {/* Progress Overview */}
+            <Card>
+              <CardContent className="p-4">
+                <ProgressTimeline currentStage={latestStage} overallPercentage={overallPercentage} />
+              </CardContent>
+            </Card>
 
-        {milestones.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <HardHat className="mx-auto mb-3" size={32} />
-            <p className="text-sm">No milestone updates yet</p>
-            {isAdmin && <p className="text-xs mt-1">Tap "Add Milestone" to post the first update</p>}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {milestones.map(milestone => (
-              <MilestoneCard
-                key={milestone.id}
-                milestone={milestone}
-                onReactionChange={fetchMilestones}
-              />
-            ))}
-          </div>
-        )}
+            {/* Tower Cards */}
+            {towers.length > 0 && !selectedTowerId && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Towers ({towers.length})</h3>
+                {towers.map(t => <TowerProgressCard key={t.id} tower={t} />)}
+              </div>
+            )}
+
+            {selectedTowerId && towers.find(t => t.id === selectedTowerId) && (
+              <TowerProgressCard tower={towers.find(t => t.id === selectedTowerId)!} />
+            )}
+
+            {/* Milestones */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                Updates ({milestones.length})
+              </h3>
+              {isAdmin && <AddMilestoneSheet onAdded={fetchMilestones} towers={towers} />}
+            </div>
+
+            {milestones.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <HardHat className="mx-auto mb-3" size={32} />
+                <p className="text-sm">No milestone updates yet</p>
+                {isAdmin && <p className="text-xs mt-1">Tap "Add Milestone" to post the first update</p>}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {milestones.map(milestone => (
+                  <MilestoneCard key={milestone.id} milestone={milestone} onReactionChange={fetchMilestones} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-3">
+            <DocumentVaultTab />
+          </TabsContent>
+
+          <TabsContent value="qa" className="mt-3">
+            <ProjectQATab />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
