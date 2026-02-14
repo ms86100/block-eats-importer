@@ -59,6 +59,7 @@ const VisitorManagementPage = lazy(() => import("./pages/VisitorManagementPage")
 const PaymentMilestonesPage = lazy(() => import("./pages/PaymentMilestonesPage"));
 const InspectionChecklistPage = lazy(() => import("./pages/InspectionChecklistPage"));
 const DomesticHelpPage = lazy(() => import("./pages/DomesticHelpPage"));
+const WorkforceManagementPage = lazy(() => import("./pages/WorkforceManagementPage"));
 const ParcelManagementPage = lazy(() => import("./pages/ParcelManagementPage"));
 const GuardKioskPage = lazy(() => import("./pages/GuardKioskPage"));
 const GateEntryPage = lazy(() => import("./pages/GateEntryPage"));
@@ -189,6 +190,7 @@ function AppRoutes() {
         <Route path="/payment-milestones" element={<ProtectedRoute><PaymentMilestonesPage /></ProtectedRoute>} />
         <Route path="/inspection" element={<ProtectedRoute><InspectionChecklistPage /></ProtectedRoute>} />
         <Route path="/domestic-help" element={<ProtectedRoute><DomesticHelpPage /></ProtectedRoute>} />
+        <Route path="/workforce" element={<ProtectedRoute><WorkforceManagementPage /></ProtectedRoute>} />
         <Route path="/parcels" element={<ProtectedRoute><ParcelManagementPage /></ProtectedRoute>} />
         <Route path="/guard-kiosk" element={<ProtectedRoute><GuardKioskPage /></ProtectedRoute>} />
         <Route path="/gate-entry" element={<ProtectedRoute><GateEntryPage /></ProtectedRoute>} />

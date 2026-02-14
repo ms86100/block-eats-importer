@@ -3984,17 +3984,77 @@ export type Database = {
           },
         ]
       }
-      society_workers: {
+      society_worker_categories: {
         Row: {
           created_at: string
+          display_order: number | null
+          entry_type: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requires_background_check: boolean | null
+          requires_security_training: boolean | null
+          society_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          entry_type?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requires_background_check?: boolean | null
+          requires_security_training?: boolean | null
+          society_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          entry_type?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requires_background_check?: boolean | null
+          requires_security_training?: boolean | null
+          society_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "society_worker_categories_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      society_workers: {
+        Row: {
+          active_days: string[] | null
+          allowed_shift_end: string | null
+          allowed_shift_start: string | null
+          category_id: string | null
+          created_at: string
           deactivated_at: string | null
+          emergency_contact_phone: string | null
+          entry_frequency: string | null
           id: string
           is_available: boolean | null
           is_verified: boolean | null
           languages: string[] | null
+          photo_url: string | null
           rating: number | null
+          registered_by: string | null
           skills: Json | null
           society_id: string
+          status: string
+          suspension_reason: string | null
           total_jobs: number | null
           total_ratings: number | null
           updated_at: string
@@ -4002,15 +4062,25 @@ export type Database = {
           worker_type: string
         }
         Insert: {
+          active_days?: string[] | null
+          allowed_shift_end?: string | null
+          allowed_shift_start?: string | null
+          category_id?: string | null
           created_at?: string
           deactivated_at?: string | null
+          emergency_contact_phone?: string | null
+          entry_frequency?: string | null
           id?: string
           is_available?: boolean | null
           is_verified?: boolean | null
           languages?: string[] | null
+          photo_url?: string | null
           rating?: number | null
+          registered_by?: string | null
           skills?: Json | null
           society_id: string
+          status?: string
+          suspension_reason?: string | null
           total_jobs?: number | null
           total_ratings?: number | null
           updated_at?: string
@@ -4018,15 +4088,25 @@ export type Database = {
           worker_type?: string
         }
         Update: {
+          active_days?: string[] | null
+          allowed_shift_end?: string | null
+          allowed_shift_start?: string | null
+          category_id?: string | null
           created_at?: string
           deactivated_at?: string | null
+          emergency_contact_phone?: string | null
+          entry_frequency?: string | null
           id?: string
           is_available?: boolean | null
           is_verified?: boolean | null
           languages?: string[] | null
+          photo_url?: string | null
           rating?: number | null
+          registered_by?: string | null
           skills?: Json | null
           society_id?: string
+          status?: string
+          suspension_reason?: string | null
           total_jobs?: number | null
           total_ratings?: number | null
           updated_at?: string
@@ -4034,6 +4114,20 @@ export type Database = {
           worker_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "society_workers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "society_worker_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "society_workers_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "society_workers_society_id_fkey"
             columns: ["society_id"]
@@ -4385,6 +4479,136 @@ export type Database = {
           },
         ]
       }
+      worker_entry_logs: {
+        Row: {
+          created_at: string
+          denial_reason: string | null
+          entry_time: string
+          exit_time: string | null
+          gate_entry_id: string | null
+          id: string
+          society_id: string
+          validation_result: string
+          verified_by: string | null
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          denial_reason?: string | null
+          entry_time?: string
+          exit_time?: string | null
+          gate_entry_id?: string | null
+          id?: string
+          society_id: string
+          validation_result?: string
+          verified_by?: string | null
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          denial_reason?: string | null
+          entry_time?: string
+          exit_time?: string | null
+          gate_entry_id?: string | null
+          id?: string
+          society_id?: string
+          validation_result?: string
+          verified_by?: string | null
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_entry_logs_gate_entry_id_fkey"
+            columns: ["gate_entry_id"]
+            isOneToOne: false
+            referencedRelation: "gate_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_entry_logs_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_entry_logs_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_entry_logs_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "society_workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      worker_flat_assignments: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          flat_number: string
+          id: string
+          is_active: boolean | null
+          resident_id: string | null
+          society_id: string
+          worker_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          flat_number: string
+          id?: string
+          is_active?: boolean | null
+          resident_id?: string | null
+          society_id: string
+          worker_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          flat_number?: string
+          id?: string
+          is_active?: boolean | null
+          resident_id?: string | null
+          society_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_flat_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_flat_assignments_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_flat_assignments_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_flat_assignments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "society_workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_job_requests: {
         Row: {
           accepted_at: string | null
@@ -4487,6 +4711,61 @@ export type Database = {
             columns: ["society_id"]
             isOneToOne: false
             referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      worker_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          month: string
+          rated_by: string
+          rating: number
+          review: string | null
+          society_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: string
+          rated_by: string
+          rating: number
+          review?: string | null
+          society_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: string
+          rated_by?: string
+          rating?: number
+          review?: string | null
+          society_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_ratings_rated_by_fkey"
+            columns: ["rated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_ratings_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_ratings_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "society_workers"
             referencedColumns: ["id"]
           },
         ]
@@ -4596,6 +4875,10 @@ export type Database = {
               user_id: string
             }[]
           }
+      validate_worker_entry: {
+        Args: { _society_id: string; _worker_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       order_status:
