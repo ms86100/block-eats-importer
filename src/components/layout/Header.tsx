@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Bell, ShoppingCart } from 'lucide-react';
+import { MapPin, Bell, ShoppingCart, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +20,7 @@ export function Header({
   title,
   className 
 }: HeaderProps) {
-  const { profile, isApproved, society, user } = useAuth();
+  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, setViewAsSociety, isAdmin, isBuilderMember } = useAuth();
   const { itemCount } = useCart();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -53,56 +53,71 @@ export function Header({
     setUnreadCount(count || 0);
   };
 
-  return (
-    <header className={cn('sticky top-0 z-40 glass border-b border-border safe-top', className)}>
-      <div className="flex items-center justify-between px-4 py-3">
-      {showLocation && profile ? (
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <MapPin className="text-primary shrink-0" size={20} />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">
-                {profile.block}, {profile.flat_number}
-              </p>
-              <p className="text-xs text-muted-foreground">{society?.name || 'Community Market'}</p>
-            </div>
-          </div>
-        ) : title ? (
-          <h1 className="text-lg font-bold">{title}</h1>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-primary">Sociva</span>
-          </div>
-        )}
+  const displaySociety = effectiveSociety || society;
+  const isViewingAs = viewAsSocietyId && (isAdmin || isBuilderMember);
 
-        <div className="flex items-center gap-2">
-          {isApproved && (
-            <>
-              <Link to="/notifications/inbox">
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell size={20} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
-              {showCart && (
-                <Link to="/cart">
+  return (
+    <>
+      <header className={cn('sticky top-0 z-40 glass border-b border-border safe-top', className)}>
+        <div className="flex items-center justify-between px-4 py-3">
+        {showLocation && profile ? (
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <MapPin className="text-primary shrink-0" size={20} />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">
+                  {profile.block}, {profile.flat_number}
+                </p>
+                <p className="text-xs text-muted-foreground">{displaySociety?.name || 'Community Market'}</p>
+              </div>
+            </div>
+          ) : title ? (
+            <h1 className="text-lg font-bold">{title}</h1>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-primary">Sociva</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {isApproved && (
+              <>
+                <Link to="/notifications/inbox">
                   <Button variant="ghost" size="icon" className="relative">
-                    <ShoppingCart size={20} />
-                    {itemCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        {itemCount > 9 ? '9+' : itemCount}
+                    <Bell size={20} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}
                   </Button>
                 </Link>
-              )}
-            </>
-          )}
+                {showCart && (
+                  <Link to="/cart">
+                    <Button variant="ghost" size="icon" className="relative">
+                      <ShoppingCart size={20} />
+                      {itemCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                          {itemCount > 9 ? '9+' : itemCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      {isViewingAs && (
+        <div className="sticky top-[52px] z-39 bg-warning/15 border-b border-warning/30 px-4 py-1.5 flex items-center justify-between">
+          <p className="text-xs font-medium text-warning-foreground">
+            Viewing: <span className="font-bold">{effectiveSociety?.name}</span>
+          </p>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setViewAsSociety(null)}>
+            <X size={14} />
+          </Button>
+        </div>
+      )}
+    </>
   );
 }

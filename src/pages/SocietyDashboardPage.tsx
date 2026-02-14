@@ -20,7 +20,7 @@ interface DashboardStat {
 }
 
 export default function SocietyDashboardPage() {
-  const { profile, society, isAdmin, isSocietyAdmin } = useAuth();
+  const { profile, effectiveSociety, effectiveSocietyId, isAdmin, isSocietyAdmin } = useAuth();
   const [stats, setStats] = useState({
     openSnags: 0,
     openDisputes: 0,
@@ -33,13 +33,13 @@ export default function SocietyDashboardPage() {
   const [avgResponseHours, setAvgResponseHours] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!profile?.society_id) return;
+    if (!effectiveSocietyId) return;
     fetchStats();
     fetchCommitteeResponseTime();
-  }, [profile?.society_id]);
+  }, [effectiveSocietyId]);
 
   const fetchStats = async () => {
-    const sid = profile!.society_id!;
+    const sid = effectiveSocietyId!;
     const [snags, disputes, expenses, milestones, docs, questions, dues] = await Promise.all([
       supabase.from('snag_tickets').select('id', { count: 'exact', head: true }).eq('society_id', sid).not('status', 'in', '("fixed","verified","closed")'),
       supabase.from('dispute_tickets').select('id', { count: 'exact', head: true }).eq('society_id', sid).not('status', 'in', '("resolved","closed")'),
@@ -62,7 +62,7 @@ export default function SocietyDashboardPage() {
   };
 
   const fetchCommitteeResponseTime = async () => {
-    const sid = profile!.society_id!;
+    const sid = effectiveSocietyId!;
     // Get disputes that have been acknowledged (within last 90 days)
     const { data: disputes } = await supabase
       .from('dispute_tickets')
@@ -106,7 +106,7 @@ export default function SocietyDashboardPage() {
   ];
 
   return (
-    <AppLayout headerTitle={society?.name || 'Society'} showLocation={false}>
+    <AppLayout headerTitle={effectiveSociety?.name || 'Society'} showLocation={false}>
       <div className="p-4 space-y-4">
         {/* Trust Badge */}
         <SocietyTrustBadge />

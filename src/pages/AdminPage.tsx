@@ -32,7 +32,7 @@ import { LicenseManager } from '@/components/admin/LicenseManager';
 import { AdminDisputesTab } from '@/components/admin/AdminDisputesTab';
 import { EmergencyBroadcastSheet } from '@/components/admin/EmergencyBroadcastSheet';
 import { logAudit } from '@/lib/audit';
-
+import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
 interface Report {
   id: string;
   reporter_id: string;
@@ -285,6 +285,9 @@ export default function AdminPage() {
   return (
     <AppLayout headerTitle="Admin Panel" showLocation={false}>
       <div className="p-4 space-y-4">
+        {/* Society Switcher */}
+        <SocietySwitcher />
+
         {/* Emergency Broadcast */}
         <EmergencyBroadcastSheet />
 

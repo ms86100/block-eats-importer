@@ -2781,6 +2781,41 @@ export type Database = {
           },
         ]
       }
+      society_features: {
+        Row: {
+          config: Json
+          created_at: string
+          feature_key: string
+          id: string
+          is_enabled: boolean
+          society_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          feature_key: string
+          id?: string
+          is_enabled?: boolean
+          society_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean
+          society_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "society_features_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       society_income: {
         Row: {
           added_by: string
@@ -3005,6 +3040,7 @@ export type Database = {
           is_read: boolean
           reference_id: string | null
           reference_path: string | null
+          society_id: string | null
           title: string
           type: string
           user_id: string
@@ -3016,6 +3052,7 @@ export type Database = {
           is_read?: boolean
           reference_id?: string | null
           reference_path?: string | null
+          society_id?: string | null
           title: string
           type?: string
           user_id: string
@@ -3027,11 +3064,19 @@ export type Database = {
           is_read?: boolean
           reference_id?: string | null
           reference_path?: string | null
+          society_id?: string | null
           title?: string
           type?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_notifications_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_notifications_user_id_fkey"
             columns: ["user_id"]
