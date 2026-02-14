@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +47,12 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub;
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'generate';
+
+    // Rate limit: 30 requests per minute per user
+    const { allowed } = await checkRateLimit(`gate-token:${userId}`, 30, 60);
+    if (!allowed) {
+      return rateLimitResponse(corsHeaders);
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,

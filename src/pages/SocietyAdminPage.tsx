@@ -17,6 +17,7 @@ import { Check, X, Users, Store, Settings, Shield, UserPlus, Trash2, ToggleLeft,
 import { toast } from 'sonner';
 import { logAudit } from '@/lib/audit';
 import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
+import { SecurityStaffManager } from '@/components/admin/SecurityStaffManager';
 import { useEffectiveFeatures } from '@/hooks/useEffectiveFeatures';
 import type { FeatureKey } from '@/hooks/useEffectiveFeatures';
 
@@ -225,10 +226,11 @@ export default function SocietyAdminPage() {
         </div>
 
         <Tabs defaultValue="users">
-          <TabsList className="w-full grid grid-cols-5">
+          <TabsList className="w-full grid grid-cols-6">
             <TabsTrigger value="users" className="text-xs">Users</TabsTrigger>
             <TabsTrigger value="sellers" className="text-xs">Sellers</TabsTrigger>
             <TabsTrigger value="admins" className="text-xs">Admins</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs">Security</TabsTrigger>
             <TabsTrigger value="features" className="text-xs">Features</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
           </TabsList>
@@ -328,6 +330,11 @@ export default function SocietyAdminPage() {
               </CardContent></Card>
             ))}
             {societyAdmins.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">No admins appointed yet</p>}
+          </TabsContent>
+
+          {/* Security Staff */}
+          <TabsContent value="security" className="mt-4">
+            <SecurityStaffManager />
           </TabsContent>
 
           <TabsContent value="features" className="space-y-2 mt-4">

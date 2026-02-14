@@ -22,7 +22,9 @@ interface VerifiedResident {
 }
 
 export default function SecurityVerifyPage() {
-  const { profile, effectiveSocietyId } = useAuth();
+  const { profile, effectiveSocietyId, isSocietyAdmin, isAdmin, roles } = useAuth();
+  const isSecurityOfficer = roles?.includes('security_officer' as any);
+
   const [tokenInput, setTokenInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifiedResident, setVerifiedResident] = useState<VerifiedResident | null>(null);
@@ -36,6 +38,19 @@ export default function SecurityVerifyPage() {
 
   // Recent entries
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
+
+  // Route guard: only security officers and society admins
+  if (!isSocietyAdmin && !isAdmin && !isSecurityOfficer) {
+    return (
+      <AppLayout headerTitle="Security Verify" showLocation={false}>
+        <div className="p-4 text-center py-20 text-muted-foreground">
+          <Shield size={48} className="mx-auto mb-4 opacity-50" />
+          <p className="font-medium">Access Restricted</p>
+          <p className="text-sm">Only security officers and society admins can access this page.</p>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const handleValidateToken = async (tokenValue?: string) => {
     const token = tokenValue || tokenInput;
