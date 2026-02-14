@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SellerProfile, Order } from '@/types/database';
 import { Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { logAudit } from '@/lib/audit';
 import { startOfDay, startOfWeek, isAfter, parseISO } from 'date-fns';
 
 // Import refactored components
@@ -149,6 +150,16 @@ export default function SellerDashboardPage() {
       toast.success(
         sellerProfile.is_available ? 'Store is now closed' : 'Store is now open'
       );
+
+      // Audit log
+      if ((sellerProfile as any).society_id) {
+        logAudit(
+          sellerProfile.is_available ? 'store_closed' : 'store_opened',
+          'seller_profile',
+          sellerProfile.id,
+          (sellerProfile as any).society_id
+        );
+      }
     } catch (error) {
       console.error('Error toggling availability:', error);
       toast.error('Failed to update availability');

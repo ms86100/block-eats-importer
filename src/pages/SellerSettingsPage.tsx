@@ -19,6 +19,7 @@ import { ParentGroup, ServiceCategory } from '@/types/categories';
 import { ArrowLeft, Loader2, PauseCircle, PlayCircle, Clock, Smartphone, Banknote, AlertTriangle, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { logAudit } from '@/lib/audit';
 import { LicenseUpload } from '@/components/seller/LicenseUpload';
 
 function LicenseUploadSection({ sellerId, primaryGroup }: { sellerId: string; primaryGroup: string }) {
@@ -176,6 +177,16 @@ export default function SellerSettingsPage() {
 
       if (error) throw error;
       toast.success(newAvailability ? 'Store is now open!' : 'Store paused temporarily');
+
+      // Audit log
+      if ((sellerProfile as any).society_id) {
+        logAudit(
+          newAvailability ? 'store_resumed' : 'store_paused',
+          'seller_profile',
+          sellerProfile.id,
+          (sellerProfile as any).society_id
+        );
+      }
     } catch (error) {
       setFormData({ ...formData, is_available: !newAvailability });
       toast.error('Failed to update store status');
@@ -226,6 +237,17 @@ export default function SellerSettingsPage() {
       if (error) throw error;
 
       toast.success('Settings saved successfully');
+
+      // Audit log for profile changes
+      if ((sellerProfile as any).society_id) {
+        logAudit(
+          'seller_settings_updated',
+          'seller_profile',
+          sellerProfile.id,
+          (sellerProfile as any).society_id,
+          { business_name: formData.business_name, categories: formData.categories }
+        );
+      }
     } catch (error: any) {
       console.error('Error saving:', error);
       toast.error(error.message || 'Failed to save settings');
