@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, UserRole, SellerProfile, Society, SocietyAdmin } from '@/types/database';
@@ -22,6 +22,11 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setCurrentSellerId: (id: string | null) => void;
+  // Context switching
+  viewAsSocietyId: string | null;
+  setViewAsSociety: (id: string | null) => void;
+  effectiveSocietyId: string | null;
+  effectiveSociety: Society | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,10 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [societyAdminRole, setSocietyAdminRole] = useState<SocietyAdmin | null>(null);
   const [managedBuilderIds, setManagedBuilderIds] = useState<string[]>([]);
+  const [viewAsSocietyId, setViewAsSocietyIdState] = useState<string | null>(null);
+  const [viewAsSociety, setViewAsSocietyData] = useState<Society | null>(null);
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Single consolidated query instead of 6 sequential calls
       const { data, error } = await supabase.rpc('get_user_auth_context', {
         _user_id: userId,
       });
@@ -78,15 +84,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Fetch viewed society data when switching context
+  const setViewAsSociety = useCallback(async (id: string | null) => {
+    setViewAsSocietyIdState(id);
+    if (!id) {
+      setViewAsSocietyData(null);
+      return;
+    }
+    const { data } = await supabase
+      .from('societies')
+      .select('*')
+      .eq('id', id)
+      .single();
+    setViewAsSocietyData(data as Society | null);
+  }, []);
+
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer profile fetch with setTimeout to avoid deadlock
           setTimeout(() => {
             fetchProfile(session.user.id);
           }, 0);
@@ -98,12 +117,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setCurrentSellerId(null);
           setSocietyAdminRole(null);
           setManagedBuilderIds([]);
+          setViewAsSocietyIdState(null);
+          setViewAsSocietyData(null);
         }
         setIsLoading(false);
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -128,6 +148,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentSellerId(null);
     setSocietyAdminRole(null);
     setManagedBuilderIds([]);
+    setViewAsSocietyIdState(null);
+    setViewAsSocietyData(null);
   };
 
   const isApproved = profile?.verification_status === 'approved';
@@ -135,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = roles.includes('admin');
   const isSocietyAdmin = !!societyAdminRole || isAdmin;
   const isBuilderMember = managedBuilderIds.length > 0;
+
+  const effectiveSocietyId = viewAsSocietyId || profile?.society_id || null;
+  const effectiveSociety = viewAsSocietyId ? viewAsSociety : society;
 
   return (
     <AuthContext.Provider
@@ -157,6 +182,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshProfile,
         setCurrentSellerId,
+        viewAsSocietyId,
+        setViewAsSociety,
+        effectiveSocietyId,
+        effectiveSociety,
       }}
     >
       {children}

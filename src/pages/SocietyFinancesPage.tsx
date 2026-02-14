@@ -35,7 +35,7 @@ interface Income {
 }
 
 export default function SocietyFinancesPage() {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, effectiveSocietyId } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [income, setIncome] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,16 +47,17 @@ export default function SocietyFinancesPage() {
   const [flagging, setFlagging] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!profile?.society_id) return;
+    const sid = effectiveSocietyId;
+    if (!sid) return;
     setLoading(true);
     const [expRes, incRes] = await Promise.all([
-      supabase.from('society_expenses').select('*').eq('society_id', profile.society_id).order('expense_date', { ascending: false }),
-      supabase.from('society_income').select('*').eq('society_id', profile.society_id).order('income_date', { ascending: false }),
+      supabase.from('society_expenses').select('*').eq('society_id', sid).order('expense_date', { ascending: false }),
+      supabase.from('society_income').select('*').eq('society_id', sid).order('income_date', { ascending: false }),
     ]);
     setExpenses((expRes.data as any) || []);
     setIncome((incRes.data as any) || []);
     setLoading(false);
-  }, [profile?.society_id]);
+  }, [effectiveSocietyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

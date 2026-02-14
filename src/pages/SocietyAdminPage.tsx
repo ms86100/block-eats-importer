@@ -12,12 +12,24 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { Profile, SellerProfile, VerificationStatus, SocietyAdmin } from '@/types/database';
-import { Check, X, Users, Store, Settings, Shield, UserPlus, Trash2 } from 'lucide-react';
+import { Check, X, Users, Store, Settings, Shield, UserPlus, Trash2, ToggleLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { logAudit } from '@/lib/audit';
+import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
+import { useSocietyFeatures, FeatureKey } from '@/hooks/useSocietyFeatures';
+
+const FEATURE_LABELS: Record<FeatureKey, { label: string; description: string }> = {
+  marketplace: { label: 'Marketplace', description: 'Buy & sell within the society' },
+  bulletin: { label: 'Community Bulletin', description: 'Announcements, polls, events' },
+  disputes: { label: 'Dispute System', description: 'Raise and track concerns' },
+  finances: { label: 'Society Finances', description: 'Income & expense tracking' },
+  construction_progress: { label: 'Construction Progress', description: 'Builder updates & milestones' },
+  snag_management: { label: 'Snag Management', description: 'Report construction defects' },
+  help_requests: { label: 'Help Requests', description: 'Community help board' },
+};
 
 export default function SocietyAdminPage() {
-  const { profile, society, isSocietyAdmin, isAdmin } = useAuth();
+  const { profile, effectiveSociety, effectiveSocietyId, isSocietyAdmin, isAdmin } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<Profile[]>([]);
   const [pendingSellers, setPendingSellers] = useState<SellerProfile[]>([]);
   const [societyAdmins, setSocietyAdmins] = useState<(SocietyAdmin & { user?: { name: string } })[]>([]);
@@ -27,20 +39,21 @@ export default function SocietyAdminPage() {
   const [appointOpen, setAppointOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const { isFeatureEnabled, toggleFeature } = useSocietyFeatures();
 
-  const societyId = profile?.society_id;
+  const societyId = effectiveSocietyId;
 
   useEffect(() => {
-    if (!societyId || !isSocietyAdmin) return;
+    if (!societyId || (!isSocietyAdmin && !isAdmin)) return;
     fetchData();
-  }, [societyId, isSocietyAdmin]);
+  }, [societyId, isSocietyAdmin, isAdmin]);
 
   useEffect(() => {
-    if (society) {
-      setAutoApprove(society.auto_approve_residents || false);
-      setApprovalMethod(society.approval_method || 'manual');
+    if (effectiveSociety) {
+      setAutoApprove(effectiveSociety.auto_approve_residents || false);
+      setApprovalMethod(effectiveSociety.approval_method || 'manual');
     }
-  }, [society]);
+  }, [effectiveSociety]);
 
   const fetchData = async () => {
     if (!societyId) return;
@@ -153,7 +166,7 @@ export default function SocietyAdminPage() {
     }
   };
 
-  if (!isSocietyAdmin) {
+  if (!isSocietyAdmin && !isAdmin) {
     return (
       <AppLayout headerTitle="Society Admin" showLocation={false}>
         <div className="p-4 text-center text-muted-foreground py-20">
@@ -176,8 +189,11 @@ export default function SocietyAdminPage() {
   }
 
   return (
-    <AppLayout headerTitle={`${society?.name || 'Society'} Admin`} showLocation={false}>
+    <AppLayout headerTitle={`${effectiveSociety?.name || 'Society'} Admin`} showLocation={false}>
       <div className="p-4 space-y-4">
+        {/* Society Switcher for admins */}
+        {(isAdmin) && <SocietySwitcher />}
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           <Card><CardContent className="p-3 text-center">
@@ -198,10 +214,11 @@ export default function SocietyAdminPage() {
         </div>
 
         <Tabs defaultValue="users">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="users" className="text-xs">Users</TabsTrigger>
             <TabsTrigger value="sellers" className="text-xs">Sellers</TabsTrigger>
             <TabsTrigger value="admins" className="text-xs">Admins</TabsTrigger>
+            <TabsTrigger value="features" className="text-xs">Features</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
           </TabsList>
 
@@ -302,6 +319,28 @@ export default function SocietyAdminPage() {
             {societyAdmins.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">No admins appointed yet</p>}
           </TabsContent>
 
+          {/* Features Tab */}
+          <TabsContent value="features" className="space-y-2 mt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ToggleLeft size={16} className="text-primary" />
+              <h3 className="text-sm font-semibold text-muted-foreground">Society Features</h3>
+            </div>
+            <Card><CardContent className="p-4 space-y-4">
+              {(Object.keys(FEATURE_LABELS) as FeatureKey[]).map((key) => (
+                <div key={key} className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">{FEATURE_LABELS[key].label}</Label>
+                    <p className="text-xs text-muted-foreground">{FEATURE_LABELS[key].description}</p>
+                  </div>
+                  <Switch
+                    checked={isFeatureEnabled(key)}
+                    onCheckedChange={(checked) => toggleFeature.mutate({ key, enabled: checked })}
+                  />
+                </div>
+              ))}
+            </CardContent></Card>
+          </TabsContent>
+
           {/* Settings */}
           <TabsContent value="settings" className="space-y-4 mt-4">
             <Card><CardContent className="p-4 space-y-4">
@@ -336,10 +375,10 @@ export default function SocietyAdminPage() {
                 </Select>
               </div>
 
-              {society?.invite_code && (
+              {effectiveSociety?.invite_code && (
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground">Society Invite Code</p>
-                  <p className="font-mono font-bold text-lg">{society.invite_code}</p>
+                  <p className="font-mono font-bold text-lg">{effectiveSociety.invite_code}</p>
                 </div>
               )}
             </CardContent></Card>

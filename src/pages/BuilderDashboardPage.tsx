@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Builder } from '@/types/database';
-import { Building2, Users, Shield, Store, AlertTriangle, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Building2, Users, Shield, AlertTriangle, ChevronRight, IndianRupee, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useBuilderStats } from '@/hooks/queries/useBuilderStats';
 
 interface BuilderSociety {
   id: string;
@@ -29,10 +30,14 @@ interface BuilderSociety {
 }
 
 export default function BuilderDashboardPage() {
-  const { isBuilderMember, managedBuilderIds, isAdmin } = useAuth();
+  const { isBuilderMember, managedBuilderIds, isAdmin, setViewAsSociety } = useAuth();
+  const navigate = useNavigate();
   const [builder, setBuilder] = useState<Builder | null>(null);
   const [societies, setSocieties] = useState<BuilderSociety[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const societyIds = societies.map(s => s.id);
+  const { data: builderStats } = useBuilderStats(societyIds);
 
   useEffect(() => {
     if (managedBuilderIds.length === 0 && !isAdmin) return;
@@ -42,7 +47,6 @@ export default function BuilderDashboardPage() {
   const fetchBuilderData = async () => {
     try {
       if (managedBuilderIds.length > 0) {
-        // Single aggregated call replaces N+1 pattern
         const { data, error } = await supabase.rpc('get_builder_dashboard', {
           _builder_id: managedBuilderIds[0],
         });
@@ -61,6 +65,11 @@ export default function BuilderDashboardPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSocietyClick = (societyId: string, targetPath: string = '/society') => {
+    setViewAsSociety(societyId);
+    navigate(targetPath);
   };
 
   if (!isBuilderMember && !isAdmin) {
@@ -117,32 +126,74 @@ export default function BuilderDashboardPage() {
           </CardContent></Card>
         </div>
 
+        {/* Builder-level aggregate metrics */}
+        {builderStats && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4 grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <IndianRupee size={14} className="mx-auto text-primary mb-1" />
+                <p className="text-sm font-bold">₹{builderStats.totalRevenue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">Total Revenue</p>
+              </div>
+              <div className="text-center">
+                <Clock size={14} className="mx-auto text-warning mb-1" />
+                <p className="text-sm font-bold">{builderStats.breachedSLAs}</p>
+                <p className="text-[10px] text-muted-foreground">SLA Breached</p>
+              </div>
+              <div className="text-center">
+                <Shield size={14} className="mx-auto text-primary mb-1" />
+                <p className="text-sm font-bold">{builderStats.onTrackSLAs}</p>
+                <p className="text-[10px] text-muted-foreground">On Track</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Societies List */}
         <h3 className="font-semibold text-sm text-muted-foreground">Managed Societies</h3>
         <div className="space-y-3">
           {societies.map((s) => (
-            <Link key={s.id} to={`/society`}>
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <Building2 size={20} />
+            <Card key={s.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleSocietyClick(s.id)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Building2 size={20} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {s.total_members} members • {s.active_sellers} sellers
+                  </p>
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {s.is_verified && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">Verified</span>}
+                    {s.pending_users > 0 && (
+                      <button
+                        className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded hover:bg-warning/20 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleSocietyClick(s.id, '/society/admin'); }}
+                      >
+                        {s.pending_users} pending
+                      </button>
+                    )}
+                    {s.open_disputes > 0 && (
+                      <button
+                        className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded hover:bg-destructive/20 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleSocietyClick(s.id, '/disputes'); }}
+                      >
+                        {s.open_disputes} disputes
+                      </button>
+                    )}
+                    {s.open_snags > 0 && (
+                      <button
+                        className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded hover:bg-destructive/20 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleSocietyClick(s.id, '/society/snags'); }}
+                      >
+                        {s.open_snags} snags
+                      </button>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.total_members} members • {s.active_sellers} sellers
-                    </p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
-                      {s.is_verified && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">Verified</span>}
-                      {s.pending_users > 0 && <span className="text-[10px] bg-warning/10 text-warning px-1.5 py-0.5 rounded">{s.pending_users} pending</span>}
-                      {s.open_disputes > 0 && <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">{s.open_disputes} disputes</span>}
-                      {s.open_snags > 0 && <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">{s.open_snags} snags</span>}
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </CardContent>
+            </Card>
           ))}
           {societies.length === 0 && (
             <p className="text-center text-muted-foreground py-8 text-sm">No societies assigned to this builder yet</p>
