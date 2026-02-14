@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { QrCode, RefreshCw, Shield, Clock, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import QRCode from '@/components/security/QRCodeDisplay';
+import { ManualEntryApproval } from '@/components/security/ManualEntryApproval';
 
 export default function GateEntryPage() {
   const { profile, effectiveSocietyId } = useAuth();
@@ -48,17 +49,19 @@ export default function GateEntryPage() {
     }
   }, []);
 
-  // Countdown timer
+  // Countdown timer with auto-refresh
   useEffect(() => {
     if (timeLeft <= 0) { setToken(null); return; }
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) { setToken(null); return 0; }
+        // Auto-refresh when 5 seconds remaining
+        if (prev === 6) { generateToken(); }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [timeLeft]);
+  }, [timeLeft, generateToken]);
 
   // Fetch recent entries
   useEffect(() => {
@@ -140,6 +143,9 @@ export default function GateEntryPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Manual Entry Approval (shows pending requests for this resident) */}
+        <ManualEntryApproval />
 
         {/* Recent Entries */}
         {recentEntries.length > 0 && (

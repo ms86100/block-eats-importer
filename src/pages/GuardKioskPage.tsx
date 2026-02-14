@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,8 +22,23 @@ interface VerifiedVisitor {
 }
 
 export default function GuardKioskPage() {
-  const { effectiveSocietyId, isSocietyAdmin, isAdmin, roles } = useAuth();
-  const isSecurityOfficer = roles?.includes('security_officer' as any);
+  const { effectiveSocietyId, isSocietyAdmin, isAdmin } = useAuth();
+  const [isSecurityOfficer, setIsSecurityOfficer] = useState(false);
+
+  // Check security_staff table (not just user_roles) for proper society-scoped check
+  useEffect(() => {
+    const checkSecurityAccess = async () => {
+      if (!effectiveSocietyId) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.rpc('is_security_officer', {
+        _user_id: user.id,
+        _society_id: effectiveSocietyId,
+      });
+      setIsSecurityOfficer(!!data);
+    };
+    checkSecurityAccess();
+  }, [effectiveSocietyId]);
   const [otpInput, setOtpInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifiedVisitor, setVerifiedVisitor] = useState<VerifiedVisitor | null>(null);
