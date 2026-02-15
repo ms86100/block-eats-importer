@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { ProductGridCard } from '@/components/product/ProductGridCard';
+import { ProductGridCard, ProductWithSeller } from '@/components/product/ProductGridCard';
+import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
 import { SellerCard } from '@/components/seller/SellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import { SORT_OPTIONS, SortKey } from '@/lib/marketplace-constants';
 import { ArrowLeft, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type ProductWithSeller = Product & {
+type ProductWithSellerLocal = Product & {
   seller_id: string;
   seller?: {
     id: string;
@@ -32,11 +33,13 @@ export default function CategoryPage() {
   const { configs } = useCategoryConfigs();
   const { effectiveSocietyId } = useAuth();
   const [sellers, setSellers] = useState<SellerProfile[]>([]);
-  const [products, setProducts] = useState<ProductWithSeller[]>([]);
+  const [products, setProducts] = useState<ProductWithSellerLocal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('relevance');
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithSeller | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   const categoryInfo = configs.find((c) => c.category === category);
 
@@ -86,14 +89,8 @@ export default function CategoryPage() {
       }
 
       const res = await q;
-      
       const prodResults = (res.data || []).filter((p: any) => p.seller != null) as any[];
-
-      const enriched = prodResults.map((p: any) => ({
-        ...p,
-        seller: p.seller,
-      }));
-
+      const enriched = prodResults.map((p: any) => ({ ...p, seller: p.seller }));
       setProducts(enriched);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -104,30 +101,25 @@ export default function CategoryPage() {
 
   const displayProducts = useMemo(() => {
     let filtered = products;
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q)
+        (p) => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
       );
     }
-
     const sorted = [...filtered];
     switch (sortBy) {
-      case 'price_low':
-        sorted.sort((a, b) => a.price - b.price);
-        break;
-      case 'price_high':
-        sorted.sort((a, b) => b.price - a.price);
-        break;
-      case 'popular':
-        sorted.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0));
-        break;
+      case 'price_low': sorted.sort((a, b) => a.price - b.price); break;
+      case 'price_high': sorted.sort((a, b) => b.price - a.price); break;
+      case 'popular': sorted.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0)); break;
     }
     return sorted;
   }, [products, searchQuery, sortBy]);
+
+  const handleProductTap = (product: ProductWithSeller) => {
+    setSelectedProduct(product);
+    setDetailSheetOpen(true);
+  };
 
   return (
     <AppLayout showHeader={false}>
@@ -154,10 +146,7 @@ export default function CategoryPage() {
               className="pl-9 pr-8 h-9 bg-muted border-0 rounded-lg text-sm"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <X size={14} />
               </button>
             )}
@@ -172,9 +161,7 @@ export default function CategoryPage() {
               onClick={() => setSortBy(opt.key)}
               className={cn(
                 'px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors',
-                sortBy === opt.key
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted/60 text-muted-foreground'
+                sortBy === opt.key ? 'bg-foreground text-background' : 'bg-muted/60 text-muted-foreground'
               )}
             >
               {opt.label}
@@ -186,9 +173,9 @@ export default function CategoryPage() {
       {/* Content */}
       <div className="p-4 pb-6">
         {isLoading || isLoadingProducts ? (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              <Skeleton key={i} className="h-56 w-full rounded-xl" />
             ))}
           </div>
         ) : displayProducts.length > 0 ? (
@@ -196,12 +183,13 @@ export default function CategoryPage() {
             <p className="text-xs text-muted-foreground mb-3">
               {displayProducts.length} item{displayProducts.length !== 1 ? 's' : ''}
             </p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {displayProducts.map((product) => (
                 <ProductGridCard
                   key={product.id}
                   product={product as any}
                   behavior={categoryInfo?.behavior}
+                  onTap={handleProductTap}
                 />
               ))}
             </div>
@@ -238,6 +226,32 @@ export default function CategoryPage() {
           </div>
         )}
       </div>
+
+      {/* Product Detail Sheet */}
+      <ProductDetailSheet
+        product={selectedProduct ? {
+          product_id: selectedProduct.id,
+          product_name: selectedProduct.name,
+          price: selectedProduct.price,
+          image_url: selectedProduct.image_url,
+          is_veg: selectedProduct.is_veg,
+          category: selectedProduct.category,
+          description: selectedProduct.description || null,
+          action_type: (selectedProduct as any).action_type || null,
+          contact_phone: (selectedProduct as any).contact_phone || null,
+          seller_id: selectedProduct.seller_id,
+          seller_name: selectedProduct.seller_name || '',
+          seller_rating: selectedProduct.seller_rating || 0,
+          seller_reviews: 0,
+          society_name: null,
+          distance_km: null,
+          is_same_society: true,
+        } : null}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        categoryIcon={categoryInfo?.icon}
+        categoryName={categoryInfo?.displayName}
+      />
     </AppLayout>
   );
 }
