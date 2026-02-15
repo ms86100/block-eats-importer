@@ -519,27 +519,27 @@ export type Database = {
           display_name: string
           display_order: number | null
           duration_label: string | null
-          enquiry_only: boolean | null
-          has_date_range: boolean | null
-          has_duration: boolean | null
-          has_quantity: boolean | null
+          enquiry_only: boolean
+          has_date_range: boolean
+          has_duration: boolean
+          has_quantity: boolean
           icon: string
           id: string
-          is_active: boolean | null
-          is_negotiable: boolean | null
-          is_physical_product: boolean | null
+          is_active: boolean
+          is_negotiable: boolean
+          is_physical_product: boolean
           name_placeholder: string | null
           parent_group: string
           price_label: string | null
           primary_button_label: string
           requires_availability: boolean
-          requires_delivery: boolean | null
-          requires_preparation: boolean | null
+          requires_delivery: boolean
+          requires_preparation: boolean
           requires_price: boolean
-          requires_time_slot: boolean | null
-          show_duration_field: boolean | null
-          show_veg_toggle: boolean | null
-          supports_cart: boolean | null
+          requires_time_slot: boolean
+          show_duration_field: boolean
+          show_veg_toggle: boolean
+          supports_cart: boolean
           transaction_type: string
           updated_at: string | null
         }
@@ -551,27 +551,27 @@ export type Database = {
           display_name: string
           display_order?: number | null
           duration_label?: string | null
-          enquiry_only?: boolean | null
-          has_date_range?: boolean | null
-          has_duration?: boolean | null
-          has_quantity?: boolean | null
+          enquiry_only?: boolean
+          has_date_range?: boolean
+          has_duration?: boolean
+          has_quantity?: boolean
           icon: string
           id?: string
-          is_active?: boolean | null
-          is_negotiable?: boolean | null
-          is_physical_product?: boolean | null
+          is_active?: boolean
+          is_negotiable?: boolean
+          is_physical_product?: boolean
           name_placeholder?: string | null
           parent_group: string
           price_label?: string | null
           primary_button_label?: string
           requires_availability?: boolean
-          requires_delivery?: boolean | null
-          requires_preparation?: boolean | null
+          requires_delivery?: boolean
+          requires_preparation?: boolean
           requires_price?: boolean
-          requires_time_slot?: boolean | null
-          show_duration_field?: boolean | null
-          show_veg_toggle?: boolean | null
-          supports_cart?: boolean | null
+          requires_time_slot?: boolean
+          show_duration_field?: boolean
+          show_veg_toggle?: boolean
+          supports_cart?: boolean
           transaction_type?: string
           updated_at?: string | null
         }
@@ -583,27 +583,27 @@ export type Database = {
           display_name?: string
           display_order?: number | null
           duration_label?: string | null
-          enquiry_only?: boolean | null
-          has_date_range?: boolean | null
-          has_duration?: boolean | null
-          has_quantity?: boolean | null
+          enquiry_only?: boolean
+          has_date_range?: boolean
+          has_duration?: boolean
+          has_quantity?: boolean
           icon?: string
           id?: string
-          is_active?: boolean | null
-          is_negotiable?: boolean | null
-          is_physical_product?: boolean | null
+          is_active?: boolean
+          is_negotiable?: boolean
+          is_physical_product?: boolean
           name_placeholder?: string | null
           parent_group?: string
           price_label?: string | null
           primary_button_label?: string
           requires_availability?: boolean
-          requires_delivery?: boolean | null
-          requires_preparation?: boolean | null
+          requires_delivery?: boolean
+          requires_preparation?: boolean
           requires_price?: boolean
-          requires_time_slot?: boolean | null
-          show_duration_field?: boolean | null
-          show_veg_toggle?: boolean | null
-          supports_cart?: boolean | null
+          requires_time_slot?: boolean
+          show_duration_field?: boolean
+          show_veg_toggle?: boolean
+          supports_cart?: boolean
           transaction_type?: string
           updated_at?: string | null
         }
