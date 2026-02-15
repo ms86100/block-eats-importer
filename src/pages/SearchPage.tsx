@@ -4,21 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
 import { SearchFilters, FilterState, defaultFilters } from '@/components/search/SearchFilters';
 import { FilterPresets } from '@/components/search/FilterPresets';
 import { Skeleton } from '@/components/ui/skeleton';
-import { VegBadge } from '@/components/ui/veg-badge';
 import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
-import { ProductCarousel } from '@/components/product/ProductCarousel';
 import { ProductGridCard, ProductWithSeller } from '@/components/product/ProductGridCard';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
-import { ArrowLeft, Search as SearchIcon, X, Globe, Star, MapPin, Home, Tag, ShoppingBag, Plus, Minus, Clock, MessageCircle, Calendar, Phone, Send, Handshake } from 'lucide-react';
-import { ContactSellerModal } from '@/components/product/ContactSellerModal';
-import { ProductActionType } from '@/types/database';
+import { ArrowLeft, Search as SearchIcon, X, Globe, ShoppingBag } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -505,38 +499,19 @@ export default function SearchPage() {
 
         {/* ─── Results ─── */}
         {showLoading ? (
-          <div className="space-y-3 mt-2">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          <div className="grid grid-cols-3 gap-2.5 mt-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-44 w-full rounded-xl" />
             ))}
           </div>
-        ) : !isSearchActive && displayProducts.length > 0 ? (
-          /* Carousel view for browsing mode */
-          <PopularCarousels
+        ) : displayProducts.length > 0 ? (
+          <ProductGridByCategory
             products={displayProducts}
             categoryMap={categoryMap}
             categoryConfigs={categoryConfigs}
             onProductTap={handleProductTap}
+            showCount={isSearchActive}
           />
-        ) : displayProducts.length > 0 ? (
-          <div className="space-y-2 mt-2">
-            {isSearchActive && (
-              <p className="text-xs text-muted-foreground px-1">
-                {results.length} product{results.length !== 1 && 's'} found
-              </p>
-            )}
-            {displayProducts.map((p) => (
-              <ProductResultCard
-                key={p.product_id}
-                product={p}
-                categoryMap={categoryMap}
-                cartItems={cartItems}
-                onAddToCart={addItem}
-                onUpdateQuantity={updateQuantity}
-                onProductTap={handleProductTap}
-              />
-            ))}
-          </div>
         ) : isSearchActive ? (
           <EmptyState />
         ) : (
@@ -608,219 +583,20 @@ function CategoryBubbleRow({
   );
 }
 
-// ── Product Result Card (Redesigned with trust signals) ──
-function ProductResultCard({
-  product: p,
-  categoryMap,
-  cartItems,
-  categoryConfigs,
-  onAddToCart,
-  onUpdateQuantity,
-  onProductTap,
-}: {
-  product: ProductSearchResult;
-  categoryMap: Record<string, { icon: string; displayName: string; supportsCart?: boolean; enquiryOnly?: boolean; requiresTimeSlot?: boolean }>;
-  cartItems: any[];
-  categoryConfigs?: any[];
-  onAddToCart: (product: any) => void;
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onProductTap: (p: ProductSearchResult) => void;
-}) {
-  const [contactOpen, setContactOpen] = useState(false);
-  const catInfo = p.category ? categoryMap[p.category] : null;
-  const cartItem = cartItems.find((item) => item.product_id === p.product_id);
-  const quantity = cartItem?.quantity || 0;
-  const isNewSeller = p.seller_reviews === 0 || p.seller_rating === 0;
-
-  // Product-level action_type overrides category behavior
-  const ACTION_CONFIG: Record<string, { label: string; icon: typeof Plus; isCart: boolean }> = {
-    add_to_cart: { label: 'Add +', icon: Plus, isCart: true },
-    buy_now: { label: 'Buy', icon: ShoppingBag, isCart: true },
-    book: { label: 'Book', icon: Calendar, isCart: false },
-    request_service: { label: 'Request', icon: Send, isCart: false },
-    request_quote: { label: 'Quote', icon: MessageCircle, isCart: false },
-    contact_seller: { label: 'Contact', icon: Phone, isCart: false },
-    schedule_visit: { label: 'Visit', icon: Home, isCart: false },
-    make_offer: { label: 'Offer', icon: Handshake, isCart: false },
-  };
-
-  const actionType: ProductActionType = (p.action_type as ProductActionType) || 'add_to_cart';
-  const config = ACTION_CONFIG[actionType] || ACTION_CONFIG.add_to_cart;
-  const canAddToCart = config.isCart;
-  const ActionIcon = config.icon;
-
-  const handleAdd = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (actionType === 'contact_seller' && p.contact_phone) {
-      setContactOpen(true);
-      return;
-    }
-    if (!canAddToCart) {
-      onProductTap(p);
-      return;
-    }
-    onAddToCart({
-      id: p.product_id,
-      seller_id: p.seller_id,
-      name: p.product_name,
-      price: p.price,
-      image_url: p.image_url,
-      is_veg: p.is_veg ?? true,
-      is_available: true,
-      category: p.category,
-      description: null,
-      is_bestseller: false,
-      is_recommended: false,
-      is_urgent: false,
-      created_at: '',
-      updated_at: '',
-    });
-  };
-
-  return (
-    <>
-    <div
-      onClick={() => onProductTap(p)}
-      className="flex gap-3 bg-card border border-border/50 rounded-xl p-3 hover:shadow-sm transition-all cursor-pointer"
-    >
-      {/* Product Image */}
-      <div className="relative w-22 h-22 shrink-0 rounded-lg overflow-hidden">
-        {p.image_url ? (
-          <img
-            src={p.image_url}
-            alt={p.product_name}
-            className="w-20 h-20 rounded-lg object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
-            {catInfo ? (
-              <span className="text-2xl">{catInfo.icon}</span>
-            ) : (
-              <Tag className="text-muted-foreground" size={20} />
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-        {/* Name + Price */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {p.is_veg !== null && <VegBadge isVeg={p.is_veg} size="sm" />}
-            <span className="font-semibold text-sm truncate">{p.product_name}</span>
-          </div>
-          <span className="text-sm font-bold text-primary whitespace-nowrap">₹{p.price}</span>
-        </div>
-
-        {/* Seller identity - humanized */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-          <span className="truncate max-w-[120px]">by {p.seller_name}</span>
-          {isNewSeller && (
-            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-secondary text-secondary-foreground">
-              New
-            </Badge>
-          )}
-          {p.prep_time_minutes && (
-            <span className="flex items-center gap-0.5 text-[10px]">
-              <Clock size={9} /> {p.prep_time_minutes}m
-            </span>
-          )}
-        </div>
-
-        {/* Location + Community info */}
-        <div className="flex items-center gap-2 mt-1">
-          {p.is_same_society ? (
-            <span className="flex items-center gap-0.5 text-[10px] text-primary font-medium">
-              <Home size={9} /> Your neighbor
-            </span>
-          ) : (
-            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-              <MapPin size={9} />
-              {p.distance_km != null ? `${p.distance_km} km` : p.society_name}
-            </span>
-          )}
-          {p.fulfillment_mode && (
-            <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-              <ShoppingBag size={8} />
-              {p.fulfillment_mode === 'self_pickup' ? 'Pickup' : p.fulfillment_mode === 'delivery' ? 'Delivery' : 'Pickup/Delivery'}
-            </span>
-          )}
-        </div>
-
-        {/* Action button row */}
-        <div className="flex items-center justify-end mt-1.5" onClick={(e) => e.stopPropagation()}>
-          {canAddToCart ? (
-            quantity === 0 ? (
-              <Button
-                size="sm"
-                variant="default"
-                className="h-7 px-4 text-xs font-semibold"
-                onClick={handleAdd}
-              >
-                <ActionIcon size={12} className="mr-1" /> {config.label}
-              </Button>
-            ) : (
-              <div className="flex items-center gap-1 bg-primary rounded-lg px-1.5">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20"
-                  onClick={(e) => { e.stopPropagation(); onUpdateQuantity(p.product_id, quantity - 1); }}
-                >
-                  <Minus size={12} />
-                </Button>
-                <span className="text-xs font-bold text-primary-foreground w-4 text-center">{quantity}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20"
-                  onClick={(e) => { e.stopPropagation(); onUpdateQuantity(p.product_id, quantity + 1); }}
-                >
-                  <Plus size={12} />
-                </Button>
-              </div>
-            )
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-4 text-xs font-semibold border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              onClick={handleAdd}
-            >
-              <ActionIcon size={12} className="mr-1" /> {config.label}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-
-      {/* Contact Seller Modal */}
-      {actionType === 'contact_seller' && (
-        <ContactSellerModal
-          open={contactOpen}
-          onOpenChange={setContactOpen}
-          sellerName={p.seller_name}
-          phone={p.contact_phone || ''}
-        />
-      )}
-    </>
-  );
-}
-
-// ── Popular Carousels (browse mode) ───────────────────
-function PopularCarousels({
+// ── Product Grid By Category (Blinkit-style) ──────────
+function ProductGridByCategory({
   products,
   categoryMap,
   categoryConfigs,
   onProductTap,
+  showCount,
 }: {
   products: ProductSearchResult[];
   categoryMap: Record<string, { icon: string; displayName: string; color: string }>;
   categoryConfigs: { category: string; displayName: string; icon: string; behavior?: any }[];
   onProductTap: (p: ProductSearchResult) => void;
+  showCount?: boolean;
 }) {
-  // Group products by category
   const grouped = useMemo(() => {
     const g: Record<string, ProductSearchResult[]> = {};
     products.forEach((p) => {
@@ -833,7 +609,6 @@ function PopularCarousels({
 
   const categories = Object.keys(grouped);
 
-  // Convert ProductSearchResult to ProductWithSeller for the carousel
   const toProductWithSeller = (p: ProductSearchResult): ProductWithSeller => ({
     id: p.product_id,
     seller_id: p.seller_id,
@@ -857,28 +632,44 @@ function PopularCarousels({
     contact_phone: p.contact_phone || null,
   } as ProductWithSeller);
 
-  const handleProductTap = (pw: ProductWithSeller) => {
+  const handleGridProductTap = (pw: ProductWithSeller) => {
     const original = products.find((p) => p.product_id === pw.id);
     if (original) onProductTap(original);
   };
 
+  const totalCount = products.length;
+
   return (
-    <div className="mt-2 -mx-4 space-y-4">
+    <div className="mt-2 space-y-5">
+      {showCount && (
+        <p className="text-xs text-muted-foreground">
+          {totalCount} item{totalCount !== 1 ? 's' : ''} found
+        </p>
+      )}
       {categories.map((cat) => {
         const items = grouped[cat];
         const catInfo = categoryMap[cat];
         const config = categoryConfigs.find((c) => c.category === cat);
         return (
-          <ProductCarousel
-            key={cat}
-            title={catInfo?.displayName || cat}
-            emoji={catInfo?.icon}
-            itemCount={items.length}
-            products={items.map(toProductWithSeller)}
-            behavior={config?.behavior || null}
-            onProductTap={handleProductTap}
-            variant="compact"
-          />
+          <div key={cat}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base leading-none">{catInfo?.icon || '📦'}</span>
+              <h3 className="font-semibold text-sm text-foreground">
+                {catInfo?.displayName || cat}
+              </h3>
+              <span className="text-xs text-muted-foreground">({items.length})</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {items.map((p) => (
+                <ProductGridCard
+                  key={p.product_id}
+                  product={toProductWithSeller(p)}
+                  behavior={config?.behavior || null}
+                  onTap={handleGridProductTap}
+                />
+              ))}
+            </div>
+          </div>
         );
       })}
     </div>
