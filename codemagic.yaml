@@ -52,6 +52,12 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
           
+      - name: Increment build number
+        script: |
+          cd ios/App
+          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST_BUILD + 1))
+          
       - name: Build iOS app
         script: |
           cd ios/App
@@ -166,6 +172,12 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
           
+      - name: Increment build number
+        script: |
+          cd ios/App
+          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST_BUILD + 1))
+
       - name: Build iOS IPA
         script: |
           cd ios/App
