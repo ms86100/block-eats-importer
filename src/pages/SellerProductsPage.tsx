@@ -687,7 +687,7 @@ export default function SellerProductsPage() {
           <div className="space-y-3">
             {products.map((product) => {
               const approvalStatus = (product as any).approval_status || 'approved';
-              const isEditable = approvalStatus === 'draft' || approvalStatus === 'rejected';
+              const isEditable = approvalStatus !== 'pending'; // Allow edit on draft, rejected, and approved
 
               return (
               <div
@@ -805,7 +805,7 @@ export default function SellerProductsPage() {
                         </>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">
-                          {approvalStatus === 'pending' ? 'Awaiting admin review' : 'Live — contact admin to edit'}
+                          Awaiting admin review
                         </span>
                       )}
                     </div>

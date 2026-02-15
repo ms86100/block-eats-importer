@@ -111,19 +111,19 @@ export default function SellerEarningsPage() {
             <h3 className="font-semibold">Earnings Overview</h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/50 rounded-lg p-3 text-center">
+            <div className="bg-background/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">Today</p>
               <p className="text-xl font-bold text-success">₹{stats.today}</p>
             </div>
-            <div className="bg-white/50 rounded-lg p-3 text-center">
+            <div className="bg-background/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">This Week</p>
               <p className="text-xl font-bold text-success">₹{stats.thisWeek}</p>
             </div>
-            <div className="bg-white/50 rounded-lg p-3 text-center">
+            <div className="bg-background/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">This Month</p>
               <p className="text-xl font-bold text-success">₹{stats.thisMonth}</p>
             </div>
-            <div className="bg-white/50 rounded-lg p-3 text-center">
+            <div className="bg-background/50 rounded-lg p-3 text-center">
               <p className="text-xs text-muted-foreground">All Time</p>
               <p className="text-xl font-bold text-success">₹{stats.allTime}</p>
             </div>
