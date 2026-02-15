@@ -515,8 +515,10 @@ export type Database = {
           category: string
           color: string
           created_at: string | null
+          description_placeholder: string | null
           display_name: string
           display_order: number | null
+          duration_label: string | null
           enquiry_only: boolean | null
           has_date_range: boolean | null
           has_duration: boolean | null
@@ -526,10 +528,14 @@ export type Database = {
           is_active: boolean | null
           is_negotiable: boolean | null
           is_physical_product: boolean | null
+          name_placeholder: string | null
           parent_group: string
+          price_label: string | null
           requires_delivery: boolean | null
           requires_preparation: boolean | null
           requires_time_slot: boolean | null
+          show_duration_field: boolean | null
+          show_veg_toggle: boolean | null
           supports_cart: boolean | null
           updated_at: string | null
         }
@@ -537,8 +543,10 @@ export type Database = {
           category: string
           color: string
           created_at?: string | null
+          description_placeholder?: string | null
           display_name: string
           display_order?: number | null
+          duration_label?: string | null
           enquiry_only?: boolean | null
           has_date_range?: boolean | null
           has_duration?: boolean | null
@@ -548,10 +556,14 @@ export type Database = {
           is_active?: boolean | null
           is_negotiable?: boolean | null
           is_physical_product?: boolean | null
+          name_placeholder?: string | null
           parent_group: string
+          price_label?: string | null
           requires_delivery?: boolean | null
           requires_preparation?: boolean | null
           requires_time_slot?: boolean | null
+          show_duration_field?: boolean | null
+          show_veg_toggle?: boolean | null
           supports_cart?: boolean | null
           updated_at?: string | null
         }
@@ -559,8 +571,10 @@ export type Database = {
           category?: string
           color?: string
           created_at?: string | null
+          description_placeholder?: string | null
           display_name?: string
           display_order?: number | null
+          duration_label?: string | null
           enquiry_only?: boolean | null
           has_date_range?: boolean | null
           has_duration?: boolean | null
@@ -570,10 +584,14 @@ export type Database = {
           is_active?: boolean | null
           is_negotiable?: boolean | null
           is_physical_product?: boolean | null
+          name_placeholder?: string | null
           parent_group?: string
+          price_label?: string | null
           requires_delivery?: boolean | null
           requires_preparation?: boolean | null
           requires_time_slot?: boolean | null
+          show_duration_field?: boolean | null
+          show_veg_toggle?: boolean | null
           supports_cart?: boolean | null
           updated_at?: string | null
         }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { VegBadge } from '@/components/ui/veg-badge';
 import { Plus, Trash2, Loader2, Package, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 
 interface DraftProduct {
   id?: string;
@@ -36,6 +37,7 @@ export function DraftProductManager({
 }: DraftProductManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { configs } = useCategoryConfigs();
   const [newProduct, setNewProduct] = useState<DraftProduct>({
     name: '',
     price: 0,
@@ -45,6 +47,14 @@ export function DraftProductManager({
     image_url: '',
     prep_time_minutes: null,
   });
+
+  // Get form hints for the selected category
+  const activeConfig = useMemo(() => {
+    return configs.find(c => c.category === newProduct.category) || null;
+  }, [configs, newProduct.category]);
+
+  const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
+  const showDurationField = activeConfig?.formHints.showDurationField ?? false;
 
   const handleAddProduct = async () => {
     if (!newProduct.name.trim()) {
@@ -124,45 +134,49 @@ export function DraftProductManager({
       </div>
 
       {/* Existing Products */}
-      {products.map((product, index) => (
-        <Card key={product.id || index} className="bg-muted/30">
-          <CardContent className="p-3">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <Package size={20} className="text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <VegBadge isVeg={product.is_veg} size="sm" />
-                  <span className="font-medium text-sm truncate">{product.name}</span>
+      {products.map((product, index) => {
+        const prodConfig = configs.find(c => c.category === product.category);
+        const showVeg = prodConfig?.formHints.showVegToggle ?? false;
+        return (
+          <Card key={product.id || index} className="bg-muted/30">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  ) : (
+                    <Package size={20} className="text-muted-foreground" />
+                  )}
                 </div>
-                <p className="text-sm font-bold text-primary mt-0.5">₹{product.price}</p>
-                {product.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                    {product.description}
-                  </p>
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {showVeg && <VegBadge isVeg={product.is_veg} size="sm" />}
+                    <span className="font-medium text-sm truncate">{product.name}</span>
+                  </div>
+                  <p className="text-sm font-bold text-primary mt-0.5">₹{product.price}</p>
+                  {product.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                      {product.description}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  onClick={() => handleRemoveProduct(index)}
+                >
+                  <Trash2 size={14} />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                onClick={() => handleRemoveProduct(index)}
-              >
-                <Trash2 size={14} />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Add New Product Form */}
       {isAdding ? (
@@ -173,14 +187,14 @@ export function DraftProductManager({
               <Label htmlFor="prod-name" className="text-xs">Name *</Label>
               <Input
                 id="prod-name"
-                placeholder="e.g., Paneer Butter Masala"
+                placeholder={activeConfig?.formHints.namePlaceholder || "e.g., Product Name"}
                 value={newProduct.name}
                 onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="prod-price" className="text-xs">Price (₹) *</Label>
+                <Label htmlFor="prod-price" className="text-xs">{activeConfig?.formHints.priceLabel || 'Price'} (₹) *</Label>
                 <Input
                   id="prod-price"
                   type="number"
@@ -202,11 +216,14 @@ export function DraftProductManager({
                       setNewProduct({ ...newProduct, category: e.target.value })
                     }
                   >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c.replace(/_/g, ' ')}
-                      </option>
-                    ))}
+                    {categories.map((c) => {
+                      const catConfig = configs.find(cfg => cfg.category === c);
+                      return (
+                        <option key={c} value={c}>
+                          {catConfig ? `${catConfig.icon} ${catConfig.displayName}` : c.replace(/_/g, ' ')}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -215,7 +232,7 @@ export function DraftProductManager({
               <Label htmlFor="prod-desc" className="text-xs">Description</Label>
               <Textarea
                 id="prod-desc"
-                placeholder="Short description..."
+                placeholder={activeConfig?.formHints.descriptionPlaceholder || "Short description..."}
                 rows={2}
                 value={newProduct.description}
                 onChange={(e) =>
@@ -238,28 +255,32 @@ export function DraftProductManager({
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={newProduct.is_veg}
-                onCheckedChange={(checked) =>
-                  setNewProduct({ ...newProduct, is_veg: checked as boolean })
-                }
-              />
-              <span className="text-sm">Vegetarian</span>
-            </label>
-            <div className="space-y-2">
-              <Label htmlFor="prod-prep" className="text-xs">Preparation Time (minutes)</Label>
-              <Input
-                id="prod-prep"
-                type="number"
-                min={1}
-                placeholder="e.g., 30"
-                value={newProduct.prep_time_minutes || ''}
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, prep_time_minutes: e.target.value ? Number(e.target.value) : null })
-                }
-              />
-            </div>
+            {showVegToggle && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={newProduct.is_veg}
+                  onCheckedChange={(checked) =>
+                    setNewProduct({ ...newProduct, is_veg: checked as boolean })
+                  }
+                />
+                <span className="text-sm">Vegetarian</span>
+              </label>
+            )}
+            {showDurationField && (
+              <div className="space-y-2">
+                <Label htmlFor="prod-prep" className="text-xs">{activeConfig?.formHints.durationLabel || 'Duration (min)'}</Label>
+                <Input
+                  id="prod-prep"
+                  type="number"
+                  min={1}
+                  placeholder="e.g., 30"
+                  value={newProduct.prep_time_minutes || ''}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, prep_time_minutes: e.target.value ? Number(e.target.value) : null })
+                  }
+                />
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1">
               <Button

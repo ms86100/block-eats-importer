@@ -30,6 +30,12 @@ interface CategoryConfigRow {
   is_negotiable: boolean;
   display_order: number;
   is_active: boolean;
+  name_placeholder: string | null;
+  description_placeholder: string | null;
+  price_label: string | null;
+  duration_label: string | null;
+  show_veg_toggle: boolean | null;
+  show_duration_field: boolean | null;
 }
 
 export function useCategoryConfigs() {
@@ -68,6 +74,14 @@ export function useCategoryConfigs() {
           hasDuration: row.has_duration,
           hasDateRange: row.has_date_range,
           isNegotiable: row.is_negotiable,
+        },
+        formHints: {
+          namePlaceholder: row.name_placeholder,
+          descriptionPlaceholder: row.description_placeholder,
+          priceLabel: row.price_label || 'Price',
+          durationLabel: row.duration_label,
+          showVegToggle: row.show_veg_toggle ?? false,
+          showDurationField: row.show_duration_field ?? false,
         },
         displayOrder: row.display_order,
         isActive: row.is_active,

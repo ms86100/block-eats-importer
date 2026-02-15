@@ -63,6 +63,12 @@ interface CategoryConfigRow {
   parent_group: string;
   display_order: number;
   is_active: boolean;
+  name_placeholder?: string | null;
+  description_placeholder?: string | null;
+  price_label?: string | null;
+  duration_label?: string | null;
+  show_veg_toggle?: boolean | null;
+  show_duration_field?: boolean | null;
 }
 
 const COLOR_PRESETS = [
@@ -248,7 +254,7 @@ export function CategoryManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGroupSlug, setSelectedGroupSlug] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<CategoryConfigRow | null>(null);
-  const [editForm, setEditForm] = useState({ display_name: '', icon: '', color: '' });
+  const [editForm, setEditForm] = useState({ display_name: '', icon: '', color: '', name_placeholder: '', description_placeholder: '', price_label: '', duration_label: '', show_veg_toggle: false, show_duration_field: false });
   const [isSaving, setIsSaving] = useState(false);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -309,7 +315,17 @@ export function CategoryManager() {
 
   const openEditDialog = (category: CategoryConfigRow) => {
     setEditingCategory(category);
-    setEditForm({ display_name: category.display_name, icon: category.icon, color: category.color });
+    setEditForm({
+      display_name: category.display_name,
+      icon: category.icon,
+      color: category.color,
+      name_placeholder: category.name_placeholder || '',
+      description_placeholder: category.description_placeholder || '',
+      price_label: category.price_label || 'Price',
+      duration_label: category.duration_label || '',
+      show_veg_toggle: category.show_veg_toggle ?? false,
+      show_duration_field: category.show_duration_field ?? false,
+    });
   };
 
   const saveEditedCategory = async () => {
@@ -319,7 +335,17 @@ export function CategoryManager() {
     try {
       const { error } = await supabase
         .from('category_config')
-        .update({ display_name: editForm.display_name.trim(), icon: editForm.icon.trim(), color: editForm.color.trim() })
+        .update({
+          display_name: editForm.display_name.trim(),
+          icon: editForm.icon.trim(),
+          color: editForm.color.trim(),
+          name_placeholder: editForm.name_placeholder.trim() || null,
+          description_placeholder: editForm.description_placeholder.trim() || null,
+          price_label: editForm.price_label.trim() || 'Price',
+          duration_label: editForm.duration_label.trim() || null,
+          show_veg_toggle: editForm.show_veg_toggle,
+          show_duration_field: editForm.show_duration_field,
+        })
         .eq('id', editingCategory.id);
       if (error) throw error;
       setCategories(categories.map((c) => c.id === editingCategory.id ? { ...c, ...editForm } : c));
@@ -676,6 +702,40 @@ export function CategoryManager() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Form Hint Settings */}
+            <div className="border-t pt-4 mt-2">
+              <Label className="text-xs text-muted-foreground mb-3 block font-semibold">Seller Form Hints</Label>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Name Placeholder</Label>
+                  <Input value={editForm.name_placeholder} onChange={(e) => setEditForm({ ...editForm, name_placeholder: e.target.value })} placeholder="e.g., Paneer Butter Masala" className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Description Placeholder</Label>
+                  <Input value={editForm.description_placeholder} onChange={(e) => setEditForm({ ...editForm, description_placeholder: e.target.value })} placeholder="e.g., Describe the dish..." className="h-8 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Price Label</Label>
+                    <Input value={editForm.price_label} onChange={(e) => setEditForm({ ...editForm, price_label: e.target.value })} placeholder="Price" className="h-8 text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Duration Label</Label>
+                    <Input value={editForm.duration_label} onChange={(e) => setEditForm({ ...editForm, duration_label: e.target.value })} placeholder="Prep Time (min)" className="h-8 text-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs">Show Veg/Non-Veg Toggle</span>
+                  <Switch checked={editForm.show_veg_toggle} onCheckedChange={(v) => setEditForm({ ...editForm, show_veg_toggle: v })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs">Show Duration Field</span>
+                  <Switch checked={editForm.show_duration_field} onCheckedChange={(v) => setEditForm({ ...editForm, show_duration_field: v })} />
+                </div>
+              </div>
+            </div>
+
             <div className="p-4 bg-muted rounded-lg">
               <Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
               <div className="flex items-center gap-3">
