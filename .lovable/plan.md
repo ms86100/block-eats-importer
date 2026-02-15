@@ -1,112 +1,148 @@
 
 
-# Marketplace Discovery Redesign: "So Easy a 5-Year-Old Can Find It"
+# Comprehensive Product Improvement Plan
 
-## The Problem
+Based on a thorough audit of the codebase, database state, and the product strategy analysis, here are the prioritized tasks to address the critical gaps -- organized from highest impact to lowest.
 
-The current search page is a **blank screen with a search bar**. A user must already know what they want and type it in. There is no visual browsing, no category exploration, and no "trending" or "popular" section. This is the opposite of intuitive -- it's like walking into a mall with no signs, no storefronts, and just a blank reception desk.
+---
 
-## The Solution: A Visual-First Marketplace
+## Phase 1: Fix the Broken Product Discovery Flow (Critical)
 
-Transform the search page into a **marketplace home** with three layers of discovery:
+### Task 1.1: Add Product Detail Sheet
+**Problem:** Tapping a product on the search page redirects to `/seller/:id` (the entire seller storefront). A buyer searching for "biryani" doesn't want to land on a seller's full menu -- they want to see that specific product's details and add it to cart instantly.
 
-1. **Category Bubbles** -- Colorful, tappable icons at the top (pulled from the admin-configured `category_config` table). Tapping one instantly filters results.
-2. **Popular / Trending Products** -- On page load (before any search), show a curated grid of products from all categories so users immediately see what's available.
-3. **Search + Filter** -- The existing search bar remains, but now it overlays on top of a page that already has content.
+**Solution:** Create a `ProductDetailSheet` (bottom sheet) that opens when tapping any `ProductResultCard` on the Search page. It shows:
+- Full product image (large)
+- Product name, price, veg/non-veg badge
+- Product description
+- Seller name (tappable link to seller page)
+- Seller rating + review count
+- Society/distance badge
+- "Add to Cart" button with quantity stepper
+- "View Seller's Full Menu" link at the bottom
 
-Think of it like a kid's app store: big icons, bright colors, instant results.
+**Files:**
+- New: `src/components/product/ProductDetailSheet.tsx`
+- Modified: `src/pages/SearchPage.tsx` (replace `Link to={/seller/...}` with sheet trigger)
 
-## What Changes
+### Task 1.2: Add "Add to Cart" Button on Search Result Cards
+**Problem:** Currently, the only way to add a product to cart is to navigate to the seller page, find the product, then add it. This is 3 clicks for what should be 1.
 
-### 1. Idle State becomes "Browse Everything"
+**Solution:** Add an inline "Add +" button directly on each `ProductResultCard`. When tapped, it adds the product to the cart with quantity 1. If already in cart, show the +/- quantity stepper inline (same pattern as `ProductCard`).
 
-Instead of showing "Search for products across sellers" when the user hasn't typed anything, the page will:
-- Show a **scrollable row of category icons** (from `category_config`) at the top
-- Tapping a category icon sets a category filter and shows all products in that category
-- Below the categories, show a **"Popular Near You"** section with products loaded from the database immediately on mount
-- This means the page is never empty -- there's always something to explore
+**Files:**
+- Modified: `src/pages/SearchPage.tsx` (ProductResultCard component -- add cart integration)
 
-### 2. Category Quick-Filter Row
+---
 
-A horizontally scrollable row of the admin-configured categories with their emoji icons (from `category_config`):
-```
-[Home Food] [Bakery] [Yoga] [Tuition] [Electrician] [Tailoring] [Pet Grooming] [Rentals] ...
-```
-- Tapping one filters results to that category
-- Tapping again deselects it
-- Active category is highlighted with a colored background
+## Phase 2: Remove Fake Trust Signals (Trust-Critical)
 
-### 3. "Popular Near You" Default Results
+### Task 2.1: Reset Seeded Ratings to Zero
+**Problem:** We seeded fake ratings (4.2, 4.5, 4.8, etc.) on seller profiles that have zero real orders. This is deceptive. Any user who orders from a "4.8 rated" seller and gets a bad experience will never come back.
 
-On page load, fetch products without a search term -- just the top ~20 products from same-society sellers (and cross-society if toggled on), sorted by seller rating. This gives the page instant content.
+**Solution:**
+- Run a SQL update to set `rating = 0` and `total_reviews = 0` on all seller profiles that have no actual reviews in the `reviews` table
+- In the UI, when a seller has 0 reviews, show a "New Seller" badge instead of empty stars
+- Show "X families ordered this week" computed from real `orders` data (count of distinct buyer_ids in last 7 days)
 
-### 4. Seed Dummy Data for Empty Categories
+**Files:**
+- Database migration: Reset fake ratings
+- Modified: `src/components/ui/rating-stars.tsx` (handle 0-review state)
+- Modified: `src/pages/SearchPage.tsx` (ProductResultCard -- show "New" badge when 0 reviews)
+- Modified: `src/pages/SellerDetailPage.tsx` (show "New Seller" badge, show real order count)
 
-Currently, 37 categories have zero products. The plan will seed products across the most important empty categories to ensure a rich browsing experience:
-- **Services**: Plumber, AC Service, Carpenter, Pest Control, Maid, Cook
-- **Personal**: Beauty, Salon, Laundry, Mehendi  
-- **Classes**: Dance, Music, Art & Craft, Language, Coaching
-- **Events**: Catering, Decoration, DJ & Music
-- **Resale**: Toys, Kitchen, Clothing
-- **Pets**: Pet Food
-- **Rentals**: Vehicle, Baby Gear
-- **Professional**: IT Support, Tax Consultant, Tutoring
+---
 
-This requires creating new seller profiles for categories that don't have sellers yet, and adding products to them.
+## Phase 3: Seller Transparency & Confidence (Seller-Side)
 
-### 5. Product Card Enhancement
+### Task 3.1: Add Preparation Time to Products
+**Problem:** Buyers have zero idea how long an order will take. There's no delivery/preparation ETA anywhere in the system.
 
-Each product card already shows good info. Minor improvements:
-- Show the category emoji icon next to the category label for visual scanning
-- Make the category label use the `display_name` from `category_config` (dynamic, not hardcoded)
+**Solution:**
+- Add `prep_time_minutes` column to `products` table (nullable integer, default null)
+- Seller can set this per product in the product manager
+- Display on ProductResultCard, ProductDetailSheet, and CartPage as "Ready in ~30 min"
+- Cart shows the longest prep time across all items: "Estimated ready time: ~45 min"
 
-## Technical Details
+**Files:**
+- Database migration: `ALTER TABLE products ADD COLUMN prep_time_minutes integer`
+- Modified: `src/components/seller/DraftProductManager.tsx` (add prep time input)
+- Modified: `src/pages/SearchPage.tsx` (show prep time on cards)
+- Modified: `src/pages/CartPage.tsx` (show estimated ready time)
 
-### Files Modified
+### Task 3.2: Add Seller Analytics Dashboard
+**Problem:** Sellers have no visibility into who's viewing their products, what's popular, or when their peak hours are. Without data, sellers can't improve.
 
-**`src/pages/SearchPage.tsx`** (significant changes):
-- Import `useCategoryConfigs` hook to get dynamic category list with icons/colors
-- Add a `selectedCategory` state that filters products by category
-- Add a category icon row component (horizontally scrollable, uses category_config data)
-- Modify the idle state: instead of showing a static message, call a new `loadPopularProducts()` function on mount that fetches top-rated products without a search term
-- When a category is tapped, set `selectedCategory` and trigger search with empty query but category filter
-- Remove hardcoded `CATEGORY_LABELS` map -- use `category_config` display names dynamically
-- Update `ProductResultCard` to show category emoji from config
+**Solution:** Add a simple analytics section to the Seller Dashboard showing:
+- Product-level view proxy: "Most ordered items" (from real order_items data)
+- Peak ordering hours (group orders by hour of day)
+- Repeat customer count (distinct buyers who ordered 2+ times)
+- Cancellation rate (cancelled orders / total orders)
 
-**`loadPopularProducts()` logic:**
-- Query `products` table directly (joined with `seller_profiles` and `societies`), filtered by `is_available = true` and `verification_status = 'approved'`
-- Scoped to user's society (and nearby if browse-beyond is on)
-- Sorted by seller rating descending
-- Limited to 30 items
-- This replaces the empty idle state
+All computed from existing `orders` and `order_items` tables -- no new tables needed.
 
-**`category icon row` logic:**
-- Uses `useCategoryConfigs()` to get all active categories
-- Only shows categories that have at least 1 available product (filter client-side after fetching product counts, or show all and let empty results speak)
-- Scrollable horizontal row with emoji + name
+**Files:**
+- New: `src/components/seller/SellerAnalytics.tsx`
+- Modified: `src/pages/SellerDashboardPage.tsx` (add analytics section)
+- New: `src/hooks/queries/useSellerAnalytics.ts`
 
-### Database Changes (Migration)
+---
 
-**Seed new seller profiles and products** for empty categories. This requires:
+## Phase 4: Cart & Checkout Trust (Buyer-Side)
 
-1. New seller profiles in Shriram Greenfield (and some in nearby societies) for service categories like plumber, carpenter, beauty, salon, etc.
-2. Products for each new seller with realistic names, prices, and Unsplash image URLs
-3. Approved seller licenses where needed (food group sellers)
+### Task 4.1: Cross-Society Cart Warning
+**Problem:** If a buyer has items from a seller in another society, there's no indication that delivery might take longer or work differently. The cart treats all orders identically.
 
-Approximately:
-- 8-10 new seller profiles across Shriram Greenfield and nearby societies
-- 60-80 new products covering 25+ currently-empty categories
-- Each product with a realistic image URL, price, and description
+**Solution:** In CartPage, for each seller group, check if `seller.society_id !== profile.society_id`. If cross-society:
+- Show a subtle banner: "This seller is from [Society Name] (X km away)"
+- Show estimated prep time if available
 
-### No Schema Changes Needed
-- The `category_config`, `products`, `seller_profiles` tables already support everything needed
-- The `search_marketplace` and `search_nearby_sellers` RPCs already support category filtering
+**Files:**
+- Modified: `src/pages/CartPage.tsx` (add cross-society indicators per seller group)
+- Modified: `src/hooks/useCart.tsx` (include society info in cart item joins)
 
-### Search Flow After Changes
+### Task 4.2: Empty Cart Improvement
+**Problem:** Empty cart page says "Add items from your favorite sellers" with a "Browse Sellers" button. This is generic and unhelpful.
 
-1. **Page loads** -> Category icons appear at top -> "Popular Near You" products load below (never empty)
-2. **User taps a category** (e.g., "Plumber") -> Results filter to plumber services only
-3. **User types in search** -> Works as before, but now also respects selected category
-4. **User taps category again** -> Deselects, shows all results again
-5. **Browse beyond toggle** -> Expands results to include nearby societies (persisted to DB)
+**Solution:** Show personalized content:
+- "Your recent orders" (last 3 completed orders with quick reorder buttons)
+- "Popular in your community" (top 5 products by order count)
+- Better CTA: "Explore Marketplace" linking to search page
+
+**Files:**
+- Modified: `src/pages/CartPage.tsx` (enhance empty state)
+
+---
+
+## Phase 5: Micro-Improvements (Polish)
+
+### Task 5.1: "New Seller" Badge
+When seller has fewer than 5 completed orders, show a "New" badge in green on their profile and search cards. Remove it automatically once they cross 5.
+
+### Task 5.2: Category Icon on Product Cards
+Show the category emoji next to the category label on all ProductCards and in the cart, so items are visually scannable.
+
+### Task 5.3: Seller Response Time Display
+Compute average time between order `placed` and `accepted` statuses from real order data. Show "Usually responds in ~X min" on seller detail page.
+
+### Task 5.4: "Your Neighbor" Tag
+On seller detail page and search results, if the seller is in the same block as the buyer, show "Your Neighbor - Block X" instead of just the address.
+
+### Task 5.5: Price Range on Seller Cards
+On HomePage seller cards, show the price range of their products (e.g., "₹80 - ₹250") so buyers know upfront if it's in their budget.
+
+---
+
+## Technical Summary
+
+| Phase | Tasks | New Files | Modified Files | DB Changes |
+|-------|-------|-----------|----------------|------------|
+| 1 | 2 | 1 | 1 | None |
+| 2 | 1 | 0 | 3 | 1 migration (reset ratings) |
+| 3 | 2 | 2 | 3 | 1 migration (prep_time column) |
+| 4 | 2 | 0 | 2 | None |
+| 5 | 5 | 0 | 4 | None |
+
+### Implementation Order
+Phase 1 first (unblocks the core shopping flow), then Phase 2 (trust), then 3-5 in parallel.
 
