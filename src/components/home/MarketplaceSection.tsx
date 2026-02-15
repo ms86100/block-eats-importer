@@ -279,7 +279,7 @@ function LocalProductsTab({
   );
 }
 
-// ── Nearby Tab ──
+// ── Nearby Tab (product grid like My Society) ──
 function NearbyTab({
   radius,
   onRadiusChange,
@@ -292,6 +292,36 @@ function NearbyTab({
   isLoading: boolean;
 }) {
   const navigate = useNavigate();
+
+  // Transform nearby sellers' matching_products into category-grouped product cards
+  const nearbyCategories = useMemo(() => {
+    if (!sellers.length) return [];
+
+    const catMap: Record<string, { products: ProductWithSeller[] }> = {};
+
+    for (const seller of sellers) {
+      const products = (seller.matching_products as any[]) || [];
+      for (const p of products) {
+        const cat = p.category || 'other';
+        if (!catMap[cat]) catMap[cat] = { products: [] };
+        catMap[cat].products.push({
+          ...p,
+          seller_id: seller.seller_id,
+          seller_name: seller.business_name,
+          seller_rating: seller.rating || 0,
+          fulfillment_mode: null,
+          delivery_note: `${seller.distance_km} km · ${seller.society_name}`,
+        });
+      }
+    }
+
+    return Object.entries(catMap).map(([cat, data]) => ({
+      category: cat,
+      displayName: cat.replace(/_/g, ' '),
+      icon: '📦',
+      products: data.products.sort((a, b) => a.price - b.price),
+    }));
+  }, [sellers]);
 
   return (
     <div className="px-4 space-y-4 pb-4">
@@ -314,41 +344,50 @@ function NearbyTab({
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+        <div className="space-y-4">
+          {[1, 2].map(i => (
+            <div key={i}>
+              <Skeleton className="h-6 w-40 mb-3" />
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-52 rounded-xl" />
+                <Skeleton className="h-52 rounded-xl" />
+              </div>
+            </div>
           ))}
         </div>
-      ) : sellers.length === 0 ? (
+      ) : nearbyCategories.length === 0 ? (
         <div className="text-center py-12">
           <Globe className="mx-auto text-muted-foreground/40 mb-3" size={32} />
-          <p className="text-sm text-muted-foreground">No sellers found nearby</p>
+          <p className="text-sm text-muted-foreground">No products found nearby</p>
           <p className="text-xs text-muted-foreground mt-1">Try increasing the search radius</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {sellers.map((seller: any) => (
-            <Link key={seller.seller_id} to={`/seller/${seller.seller_id}`}>
-              <div className="bg-card rounded-xl border border-border/50 p-3 hover:shadow-sm transition-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Store className="text-primary" size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{seller.business_name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                        <MapPin size={9} />
-                        {seller.distance_km} km away
-                      </span>
-                      <span className="text-[10px] text-muted-foreground truncate">{seller.society_name}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+        <div className="space-y-6">
+          {nearbyCategories.map(cat => {
+            const minPrice = Math.min(...cat.products.map(p => p.price));
+            return (
+              <div key={cat.category}>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="font-bold text-sm text-foreground capitalize">{cat.displayName}</h3>
+                  <span className="text-xs text-muted-foreground">({cat.products.length})</span>
+                  <span className="text-xs font-semibold text-success">Starting ₹{minPrice}</span>
                 </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {cat.products.slice(0, 4).map((product, idx) => (
+                    <ProductGridCard key={`${product.id || idx}`} product={product} />
+                  ))}
+                </div>
+                {cat.products.length > 4 && (
+                  <button
+                    onClick={() => navigate(`/category/${cat.category}`)}
+                    className="block text-center text-xs text-primary font-medium py-2 mt-2 w-full"
+                  >
+                    View all {cat.products.length} items →
+                  </button>
+                )}
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
