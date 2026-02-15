@@ -25,13 +25,14 @@ interface ProfileData {
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [signupStep, setSignupStep] = useState<SignupStep>('credentials');
   const [societySubStep, setSocietySubStep] = useState<SocietySubStep>('search');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
     name: '', flat_number: '', block: '', phase: '', phone: '',
   });
@@ -161,6 +162,23 @@ export default function AuthPage() {
       if (error.message.includes('Invalid login')) toast.error('Invalid email or password');
       else if (error.message.includes('Email not confirmed')) toast.error('Please verify your email address first. Check your inbox.');
       else toast.error(error.message || 'Failed to login');
+    } finally { setIsLoading(false); }
+  };
+
+  const handlePasswordReset = async () => {
+    const trimmedEmail = email.trim();
+    setEmail(trimmedEmail);
+    if (!validateEmail(trimmedEmail)) { toast.error('Please enter a valid email address'); return; }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      setResetEmailSent(true);
+      toast.success('Password reset email sent! Check your inbox.');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send reset email');
     } finally { setIsLoading(false); }
   };
 
@@ -370,6 +388,15 @@ export default function AuthPage() {
                   <p className="text-sm text-muted-foreground mt-1">Sign in to your community</p>
                 </>
               )}
+              {authMode === 'reset' && (
+                <>
+                  <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-3">
+                    <Key className="text-primary" size={26} />
+                  </div>
+                  <h2 className="text-xl font-bold">Reset Password</h2>
+                  <p className="text-sm text-muted-foreground mt-1">We'll send you a reset link</p>
+                </>
+              )}
               {authMode === 'signup' && signupStep === 'credentials' && (
                 <>
                   <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-3">
@@ -424,7 +451,7 @@ export default function AuthPage() {
                     <div className="relative">
                       <Input id="login-email" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="h-12 rounded-xl pr-10" />
                       {email.length > 0 && validateEmail(email) && (
-                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />
                       )}
                     </div>
                   </div>
@@ -436,6 +463,11 @@ export default function AuthPage() {
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => { setAuthMode('reset'); setResetEmailSent(false); }} className="text-xs text-primary hover:underline">
+                      Forgot password?
+                    </button>
                   </div>
                   <Button onClick={handleLogin} disabled={!email || !password || isLoading} className="w-full h-12 rounded-xl text-base font-semibold">
                     {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : <ArrowRight className="mr-2" size={18} />}
@@ -449,6 +481,43 @@ export default function AuthPage() {
                 </motion.div>
               )}
 
+              {/* Password Reset */}
+              {authMode === 'reset' && (
+                <motion.div key="reset" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25, ease: 'easeInOut' }} className="space-y-4">
+                  {resetEmailSent ? (
+                    <div className="text-center py-4 space-y-4">
+                      <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <Mail className="text-primary" size={32} />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-semibold">Check your email</p>
+                        <p className="text-sm text-muted-foreground">We've sent a password reset link to:</p>
+                        <p className="text-sm font-semibold text-primary">{email}</p>
+                      </div>
+                      <Button onClick={() => { setAuthMode('login'); setResetEmailSent(false); }} className="w-full h-12 rounded-xl text-base font-semibold">
+                        Back to Login
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <Input id="reset-email" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="h-12 rounded-xl" />
+                      </div>
+                      <Button onClick={handlePasswordReset} disabled={!email || isLoading} className="w-full h-12 rounded-xl text-base font-semibold">
+                        {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Mail className="mr-2" size={18} />}
+                        Send Reset Link
+                      </Button>
+                      <div className="text-center pt-1">
+                        <button type="button" onClick={() => setAuthMode('login')} className="text-sm text-primary font-medium hover:underline">
+                          Back to Sign In
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              )}
+
               {/* Signup Step 1: Credentials */}
               {authMode === 'signup' && signupStep === 'credentials' && (
                 <motion.div key="signup-credentials" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25, ease: 'easeInOut' }} className="space-y-4">
@@ -457,7 +526,7 @@ export default function AuthPage() {
                     <div className="relative">
                       <Input id="signup-email" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="h-12 rounded-xl pr-10" />
                       {email.length > 0 && validateEmail(email) && (
-                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />
                       )}
                     </div>
                   </div>
@@ -638,8 +707,8 @@ export default function AuthPage() {
                         {selectedSociety && (
                           <div className="space-y-2">
                             <button onClick={verifyGpsLocation} disabled={gpsStatus === 'loading'} className={`w-full flex items-center gap-2 p-3 rounded-xl border text-sm transition-colors ${
-                              gpsStatus === 'verified' ? 'border-green-300 bg-green-50 text-green-700' :
-                              gpsStatus === 'failed' ? 'border-orange-300 bg-orange-50 text-orange-700' :
+                              gpsStatus === 'verified' ? 'border-primary/30 bg-primary/5 text-primary' :
+                              gpsStatus === 'failed' ? 'border-warning/30 bg-warning/5 text-warning' :
                               'border-border hover:border-primary/30 text-muted-foreground hover:text-foreground'
                             }`}>
                               <Navigation size={16} className={gpsStatus === 'loading' ? 'animate-spin' : ''} />
