@@ -107,12 +107,12 @@ export default function LandingPage() {
         <p className="text-muted-foreground mb-6">From your neighbors, for your community.</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: Utensils, title: 'Home Food', desc: 'Fresh meals & snacks', color: 'bg-orange-500/10 text-orange-500' },
-            { icon: GraduationCap, title: 'Classes', desc: 'Yoga, dance, tutoring', color: 'bg-purple-500/10 text-purple-500' },
-            { icon: Wrench, title: 'Services', desc: 'Electrician, plumber...', color: 'bg-blue-500/10 text-blue-500' },
-            { icon: Package, title: 'Rentals', desc: 'Party supplies & more', color: 'bg-pink-500/10 text-pink-500' },
-            { icon: ShoppingBag, title: 'Buy & Sell', desc: 'Pre-loved items', color: 'bg-green-500/10 text-green-500' },
-            { icon: Ticket, title: 'Coupons', desc: 'Exclusive deals', color: 'bg-amber-500/10 text-amber-500' },
+            { icon: Utensils, title: 'Home Food', desc: 'Fresh meals & snacks', color: 'bg-primary/10 text-primary' },
+            { icon: GraduationCap, title: 'Classes', desc: 'Yoga, dance, tutoring', color: 'bg-secondary/30 text-secondary-foreground' },
+            { icon: Wrench, title: 'Services', desc: 'Electrician, plumber...', color: 'bg-accent/20 text-accent-foreground' },
+            { icon: Package, title: 'Rentals', desc: 'Party supplies & more', color: 'bg-muted text-muted-foreground' },
+            { icon: ShoppingBag, title: 'Buy & Sell', desc: 'Pre-loved items', color: 'bg-primary/10 text-primary' },
+            { icon: Ticket, title: 'Coupons', desc: 'Exclusive deals', color: 'bg-warning/10 text-warning' },
           ].map(({ icon: Icon, title, desc, color }) => (
             <div key={title} className="p-4 rounded-xl bg-card border border-border">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${color}`}>
@@ -167,17 +167,17 @@ export default function LandingPage() {
 
         <div className="flex justify-around mb-8 bg-card rounded-xl p-4 border border-border">
           <div>
-            <p className="text-2xl font-bold text-primary">{stats.societies || '10'}+</p>
+            <p className="text-2xl font-bold text-primary">{stats.societies > 0 ? `${stats.societies}+` : '—'}</p>
             <p className="text-xs text-muted-foreground">Societies</p>
           </div>
           <div className="w-px bg-border" />
           <div>
-            <p className="text-2xl font-bold text-primary">{stats.sellers || '50'}+</p>
+            <p className="text-2xl font-bold text-primary">{stats.sellers > 0 ? `${stats.sellers}+` : '—'}</p>
             <p className="text-xs text-muted-foreground">Sellers</p>
           </div>
           <div className="w-px bg-border" />
           <div>
-            <p className="text-2xl font-bold text-primary">{stats.categories || '12'}+</p>
+            <p className="text-2xl font-bold text-primary">{stats.categories > 0 ? `${stats.categories}+` : '—'}</p>
             <p className="text-xs text-muted-foreground">Categories</p>
           </div>
         </div>

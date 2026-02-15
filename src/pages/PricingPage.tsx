@@ -71,9 +71,9 @@ export default function PricingPage() {
     <AppLayout showHeader={false}>
       <div className="p-4 pb-8">
         <div className="flex items-center gap-3 mb-6">
-          <Link to="/welcome">
+          <button onClick={() => window.history.back()}>
             <ArrowLeft size={24} />
-          </Link>
+          </button>
           <div>
             <h1 className="text-xl font-bold">Pricing</h1>
             <p className="text-sm text-muted-foreground">Simple, transparent pricing for everyone</p>
@@ -108,7 +108,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 {plan.price !== 'Free' && (
-                  <Button className="w-full mt-4" variant={plan.badge === 'Popular' ? 'default' : 'outline'}>
+                  <Button className="w-full mt-4" variant={plan.badge === 'Popular' ? 'default' : 'outline'} onClick={() => window.open('mailto:support@sociva.com?subject=Inquiry about ' + plan.name, '_blank')}>
                     Contact Us
                   </Button>
                 )}
