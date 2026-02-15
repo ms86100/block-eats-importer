@@ -30,8 +30,9 @@ import { Product, ProductCategory, SellerProfile } from '@/types/database';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { ParentGroup } from '@/types/categories';
 import { SellerSwitcher } from '@/components/seller/SellerSwitcher';
-import { ArrowLeft, Plus, Edit, Trash2, Loader2, Star, Award, Bell, AlertTriangle, Store, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Loader2, Star, Award, Bell, AlertTriangle, Store, ShieldAlert, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { BulkProductUpload } from '@/components/seller/BulkProductUpload';
 
 export default function SellerProductsPage() {
   const { user, sellerProfiles, currentSellerId } = useAuth();
@@ -44,6 +45,7 @@ export default function SellerProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [licenseBlocked, setLicenseBlocked] = useState<{ blocked: boolean; status: string; licenseName: string } | null>(null);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -59,12 +61,24 @@ export default function SellerProductsPage() {
     image_url: null as string | null,
   });
 
-  // Determine if current category is food-related (show veg/non-veg toggle)
-  const isFoodCategory = useMemo(() => {
-    if (!formData.category) return primaryGroup === 'food';
-    const config = configs.find(c => c.category === formData.category);
-    return config?.parentGroup === 'food';
-  }, [formData.category, configs, primaryGroup]);
+  // Get the active category config for dynamic form hints
+  const activeCategoryConfig = useMemo(() => {
+    if (!formData.category) return null;
+    return configs.find(c => c.category === formData.category) || null;
+  }, [formData.category, configs]);
+
+  // Determine if current category shows veg toggle (DB-driven)
+  const showVegToggle = useMemo(() => {
+    if (activeCategoryConfig) return activeCategoryConfig.formHints.showVegToggle;
+    // Fallback: check primary group
+    return primaryGroup === 'food';
+  }, [activeCategoryConfig, primaryGroup]);
+
+  // Determine if current category shows duration field (DB-driven)
+  const showDurationField = useMemo(() => {
+    if (activeCategoryConfig) return activeCategoryConfig.formHints.showDurationField;
+    return false;
+  }, [activeCategoryConfig]);
 
   // Get only categories that belong to the seller's primary group
   const allowedCategories = useMemo(() => {
@@ -295,16 +309,21 @@ export default function SellerProductsPage() {
             <ArrowLeft size={20} />
             <span>Back</span>
           </Link>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus size={16} className="mr-1" />
-                Add Product
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setIsBulkOpen(true)}>
+              <Upload size={16} className="mr-1" />
+              Bulk Add
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus size={16} className="mr-1" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -340,7 +359,7 @@ export default function SellerProductsPage() {
                   <Label htmlFor="name">Product Name *</Label>
                   <Input
                     id="name"
-                    placeholder="e.g., Chicken Biryani"
+                    placeholder={activeCategoryConfig?.formHints.namePlaceholder || "e.g., Product Name"}
                     value={formData.name}
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
@@ -352,7 +371,7 @@ export default function SellerProductsPage() {
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    placeholder="Describe your product..."
+                    placeholder={activeCategoryConfig?.formHints.descriptionPlaceholder || "Describe your product..."}
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -363,7 +382,7 @@ export default function SellerProductsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price (₹) *</Label>
+                    <Label htmlFor="price">{activeCategoryConfig?.formHints.priceLabel || 'Price'} (₹) *</Label>
                     <Input
                       id="price"
                       type="number"
@@ -374,18 +393,20 @@ export default function SellerProductsPage() {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="prep_time">Prep Time (min)</Label>
-                    <Input
-                      id="prep_time"
-                      type="number"
-                      placeholder="e.g. 30"
-                      value={formData.prep_time_minutes}
-                      onChange={(e) =>
-                        setFormData({ ...formData, prep_time_minutes: e.target.value })
-                      }
-                    />
-                  </div>
+                  {showDurationField && (
+                    <div className="space-y-2">
+                      <Label htmlFor="prep_time">{activeCategoryConfig?.formHints.durationLabel || 'Duration (min)'}</Label>
+                      <Input
+                        id="prep_time"
+                        type="number"
+                        placeholder="e.g. 30"
+                        value={formData.prep_time_minutes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, prep_time_minutes: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
                   {/* Only show category dropdown if seller has multiple categories */}
                   {allowedCategories.length > 1 ? (
                     <div className="space-y-2">
@@ -419,8 +440,8 @@ export default function SellerProductsPage() {
                   ) : null}
                 </div>
 
-                {/* Veg/Non-Veg Toggle - Only show for food categories */}
-                {isFoodCategory && (
+                {/* Veg/Non-Veg Toggle - DB-driven via showVegToggle */}
+                {showVegToggle && (
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div className="flex items-center gap-2">
                       <VegBadge isVeg={formData.is_veg} />
@@ -505,7 +526,19 @@ export default function SellerProductsPage() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
+
+        {/* Bulk Product Upload Sheet */}
+        {sellerProfile && (
+          <BulkProductUpload
+            isOpen={isBulkOpen}
+            onClose={() => setIsBulkOpen(false)}
+            sellerId={sellerProfile.id}
+            allowedCategories={allowedCategories}
+            onSuccess={() => sellerProfile && fetchData(sellerProfile.id)}
+          />
+        )}
 
         {/* Active Business Context - Always visible */}
         {sellerProfile && (
@@ -588,8 +621,11 @@ export default function SellerProductsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 flex-wrap">
-                      {/* Only show VegBadge for food category products */}
-                      {primaryGroup === 'food' && <VegBadge isVeg={product.is_veg} size="sm" />}
+                      {/* Only show VegBadge when category has showVegToggle */}
+                      {(() => {
+                        const prodConfig = configs.find(c => c.category === product.category);
+                        return (prodConfig?.formHints.showVegToggle ?? primaryGroup === 'food') && <VegBadge isVeg={product.is_veg} size="sm" />;
+                      })()}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium truncate">{product.name}</h3>

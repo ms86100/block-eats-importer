@@ -53,6 +53,15 @@ export interface CategoryBehavior {
   isNegotiable: boolean;
 }
 
+export interface CategoryFormHints {
+  namePlaceholder: string | null;
+  descriptionPlaceholder: string | null;
+  priceLabel: string;
+  durationLabel: string | null;
+  showVegToggle: boolean;
+  showDurationField: boolean;
+}
+
 export interface CategoryConfig {
   id: string;
   category: ServiceCategory;
@@ -61,6 +70,7 @@ export interface CategoryConfig {
   color: string;
   parentGroup: ParentGroup;
   behavior: CategoryBehavior;
+  formHints: CategoryFormHints;
   displayOrder: number;
   isActive: boolean;
 }
