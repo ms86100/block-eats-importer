@@ -1,176 +1,203 @@
 
-# Marketplace Integrity Fix -- Execution Plan
+# Deep Module Reality Audit: Marketplace / Search
 
-## PHASE 1 -- Critical Integrity Fixes
+## SECTION A -- Summary Status
 
-### Fix 1: Backend Category Validation (DB Trigger)
-
-**Problem:** No database-level enforcement prevents inserting a product with a disabled or nonexistent category.
-
-**Solution:** Create a validation trigger on the `products` table that fires BEFORE INSERT and BEFORE UPDATE. It will:
-- Look up the `category` value in `category_config`
-- Reject if no matching row exists
-- Reject if `is_active = false`
-- Also reject if the parent group is inactive in `parent_groups`
-
-**Migration:**
-```sql
-CREATE OR REPLACE FUNCTION public.validate_product_category()
-  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-DECLARE
-  _cat record;
-BEGIN
-  SELECT cc.is_active, pg.is_active AS group_active
-  INTO _cat
-  FROM category_config cc
-  JOIN parent_groups pg ON pg.slug = cc.parent_group
-  WHERE cc.category = NEW.category::text;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid category: %. Category does not exist.', NEW.category;
-  END IF;
-  IF NOT _cat.is_active THEN
-    RAISE EXCEPTION 'Category "%" is currently disabled.', NEW.category;
-  END IF;
-  IF NOT _cat.group_active THEN
-    RAISE EXCEPTION 'Parent group for category "%" is currently disabled.', NEW.category;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validate_product_category
-  BEFORE INSERT OR UPDATE ON public.products
-  FOR EACH ROW EXECUTE FUNCTION public.validate_product_category();
-```
-
-**Enforcement level:** Database. Cannot be bypassed by frontend or direct API calls.
+| Area | Status |
+|---|---|
+| SearchPage.tsx | Partially implemented -- core search and grid work, but several gaps in data flow, filter enforcement, and action_type handling |
+| CategoryPage.tsx | Partially implemented -- does not filter by approval_status, lacks action_type awareness in product fetching |
+| CategoryGroupPage.tsx | Partially implemented -- same approval_status and action_type gaps |
+| HomePage.tsx (Marketplace section) | Functional but shallow -- product grid works, but behavior prop may not carry action_type |
+| ProductGridCard.tsx | Fully implemented for action_type rendering |
+| ProductDetailSheet.tsx | UI-only for non-cart action types -- always shows "Add to Cart" regardless of action_type |
+| FloatingCartBar.tsx | Fully implemented |
+| SearchFilters.tsx | Functional but has hardcoded values |
+| FilterPresets.tsx | Fully hardcoded -- not DB-driven |
+| useCart.tsx | Client-side guard exists for action_type, backend trigger also enforces |
+| search_marketplace RPC | Missing action_type and contact_phone in returned product JSON |
+| search_nearby_sellers RPC | Missing action_type, contact_phone, and approval_status filter in returned product JSON |
 
 ---
 
-### Fix 2: Product-Level Approval Workflow
+## SECTION B -- Hardcoded Logic List
 
-**Problem:** Products go live immediately. No draft/review/approve lifecycle exists.
+### B1. FilterPresets.tsx -- Entirely hardcoded
+- Four static presets (Veg Only, Under 150, Top Rated, Featured) with hardcoded thresholds.
+- Price cap of 150 is arbitrary, not derived from actual product price distribution.
+- **Risk**: If product pricing changes or new preset categories are needed, code must be redeployed.
+- **Fix**: Create a `filter_presets` table or derive presets from `category_config`.
 
-**Solution:** Add an `approval_status` column to the `products` table with states: `draft`, `pending`, `approved`, `rejected`. Default is `draft`.
+### B2. SearchFilters.tsx -- Hardcoded block list
+- Line 41: `blocks = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']` -- static array, not from DB.
+- **Risk**: Societies with different block naming (numbers, wings, towers) get wrong options.
+- **Fix**: Fetch blocks from `profiles` table grouped by society.
 
-**Database changes:**
-- Add column: `approval_status text NOT NULL DEFAULT 'draft'`
-- Add validation trigger to restrict values to the 4 allowed states
-- Update the SELECT RLS policy so that buyers only see `approval_status = 'approved'` products (sellers still see their own)
+### B3. SearchFilters.tsx -- Hardcoded price range max
+- Price slider max is hardcoded at 1000 (line 30, 54, 201, 346-348).
+- **Risk**: Products over 1000 are silently excluded from filter results.
+- **Fix**: Derive max from `MAX(price)` query or make configurable per society.
 
-**Migration:**
-```sql
-ALTER TABLE public.products ADD COLUMN approval_status text NOT NULL DEFAULT 'draft';
+### B4. Sort options duplicated across 3 pages
+- CategoryPage, CategoryGroupPage, and SearchPage each define their own sort options array inline.
+- **Risk**: Inconsistency if one is updated but others are not.
+- **Fix**: Extract to shared constant or component.
 
--- Backfill: all existing products become approved
-UPDATE public.products SET approval_status = 'approved';
+### B5. Category icon/emoji fallbacks
+- ProductGridByCategory line 656: `catInfo?.icon || '📦'` -- hardcoded fallback emoji.
+- ProductGridCard line 97: `'🍽️'` and `'🛠️'` hardcoded fallback emojis.
+- **Risk**: Cosmetic inconsistency across views.
 
--- Validation trigger
-CREATE OR REPLACE FUNCTION public.validate_product_approval_status()
-  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-BEGIN
-  IF NEW.approval_status NOT IN ('draft', 'pending', 'approved', 'rejected') THEN
-    RAISE EXCEPTION 'Invalid approval_status: %', NEW.approval_status;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validate_product_approval_status
-  BEFORE INSERT OR UPDATE ON public.products
-  FOR EACH ROW EXECUTE FUNCTION public.validate_product_approval_status();
-```
-
-**RLS update:** Modify the existing SELECT policy so non-owner queries additionally require `approval_status = 'approved'`.
-
-**Frontend changes:**
-
-*Seller side (`SellerProductsPage.tsx`):*
-- Show approval status badge on each product card (Draft / Pending / Approved / Rejected)
-- Add "Submit for Approval" button that sets status to `pending`
-- Products in `draft` and `rejected` states remain editable
-- Products in `pending` or `approved` states show read-only indicator
-
-*Admin side (`AdminPage.tsx` or new tab):*
-- Add "Product Approvals" section listing all `pending` products
-- Admin can approve (set `approved`) or reject (set `rejected`) with optional note
-- Filter by society
+### B6. "Popular" sort uses `is_bestseller` boolean only
+- CategoryPage line 129 and CategoryGroupPage line 90: sort by `is_bestseller` flag (binary 0/1).
+- **Risk**: No meaningful ranking among non-bestseller items. All tie at 0.
+- **Fix**: Use order count or a computed popularity score.
 
 ---
 
-### Fix 3: Bulk Upload Category Intelligence
+## SECTION C -- Dead UI / Placeholder List
 
-**Problem:** Bulk grid shows Veg toggle for all categories; Duration column missing; no per-row category intelligence.
+### C1. ProductDetailSheet -- action_type completely ignored
+- **Critical**: The detail sheet always shows "Add to Cart" button (line 204) regardless of the product's `action_type`.
+- If a product is `contact_seller` or `book`, tapping from the grid opens the detail sheet which then shows an "Add to Cart" CTA that will fail at the backend trigger level.
+- The `handleAdd` function (line 53-69) constructs a product without `action_type`, bypassing the client-side cart guard in `useCart`.
+- **Status**: UI-only logic -- the CTA exists but will fail for non-cart products.
 
-**Solution:** Update `BulkProductUpload.tsx`:
+### C2. ProductDetailSheet -- "View Full Menu" link always shown
+- Line 232-238: Always says "View Full Menu" even for service categories (tutors, plumbers).
+- **Status**: Misleading label, should be dynamic based on category.
 
-1. Remove static "Veg" column from the table header
-2. Add conditional rendering per row: look up the `CategoryConfig` for that row's category
-3. If `showVegToggle = true` for that row's category, show the switch; otherwise hide it and default `is_veg` to `true`
-4. Add a "Duration" column that only shows an input when `showDurationField = true` for the row's category
-5. Update validation to reject `is_veg = false` when `showVegToggle` is not enabled for the category
-6. Set `approval_status = 'draft'` on all bulk-inserted products (aligns with Fix 2)
+### C3. SearchPage -- `?filter=open` URL param (HomePage line 348)
+- HomePage links to `/search?filter=open` but SearchPage never reads or processes a `filter` query param.
+- **Status**: Dead link -- navigates to search page but doesn't apply "Open Now" filter.
 
-**File modified:** `src/components/seller/BulkProductUpload.tsx`
+### C4. SearchFilters -- Block filter has no backend effect
+- The block filter is collected in FilterState but never used in `runSearch()` in SearchPage.
+- Line 339-362 in SearchPage: no filtering by `filters.block`.
+- **Status**: UI-only -- user can select a block but results are unaffected.
 
----
+### C5. CategoryPage -- Products not filtered by approval_status
+- Line 76-77: Fetches products with `is_available = true` but never checks `approval_status = 'approved'`.
+- **Risk**: Draft and pending products are visible to buyers.
+- **Status**: Backend gap leaking to UI.
 
-## PHASE 2 -- Minor Hardening
+### C6. CategoryGroupPage -- Same approval_status gap
+- `useCategoryProducts` hook (usePopularProducts.ts line 51-89) fetches products without `approval_status` filter.
+- Only filters by `verification_status` on seller, not `approval_status` on product.
 
-### Fix 4: Remove Hardcoded Veg Fallback
+### C7. HomePage -- usePopularProducts also missing approval_status
+- usePopularProducts.ts line 14-25: No `approval_status = 'approved'` filter.
+- All pages showing product grids will display unapproved products.
 
-**Problem:** Line 74 in `SellerProductsPage.tsx`: `return primaryGroup === 'food';` -- a hardcoded fallback.
-Also line 627: `prodConfig?.formHints.showVegToggle ?? primaryGroup === 'food'`.
-
-**Solution:** Change both to default to `false` instead of checking `primaryGroup`. If no category is selected, veg toggle is hidden. Pure DB-driven behavior.
-
-**File modified:** `src/pages/SellerProductsPage.tsx` (lines 74 and 627)
-
----
-
-### Fix 5: Populate Missing Beverages Placeholders
-
-**Problem:** The `beverages` category has NULL placeholders.
-
-**Solution:** Run a data UPDATE to populate:
-- `name_placeholder`: 'e.g., Fresh Mango Lassi'
-- `description_placeholder`: 'Describe the drink, ingredients, serving size...'
-- `price_label`: 'Price'
-- `show_veg_toggle`: true
-- `show_duration_field`: true
-- `duration_label`: 'Prep Time (min)'
-
-**Enforcement level:** Database data update.
+### C8. CategoryPage -- Products filtered client-side by society_id
+- Line 81: `prodResults = prodResults.filter((p: any) => p.society_id === effectiveSocietyId)`.
+- But products table may not have a `society_id` column -- this field lives on `seller_profiles`. This filter likely returns zero results or all results depending on data.
+- **Status**: Broken logic -- filtering on a field that likely doesn't exist on the product row.
 
 ---
 
-### Fix 6: Server-Side Hint Enforcement (Trigger)
+## SECTION D -- Backend Enforcement Gaps
 
-**Solution:** Add a lightweight validation trigger that:
-- Resets `is_veg` to `true` if the category has `show_veg_toggle = false` (prevents non-food items from carrying a misleading non-veg flag)
-- Resets `prep_time_minutes` to `NULL` if `show_duration_field = false`
+### D1. search_marketplace RPC does not return action_type or contact_phone
+- The `matching_products` JSONB in the RPC only includes: `id, name, price, image_url, category, is_veg`.
+- When SearchPage maps RPC results (lines 237-256), `action_type` and `contact_phone` are undefined.
+- All products found via search term default to `add_to_cart` behavior on the card, regardless of seller configuration.
+- **Severity**: HIGH -- seller-defined action types are invisible in search results.
 
-This is a data normalization trigger, not a blocking one -- it silently corrects invalid combinations rather than rejecting them, ensuring data cleanliness without breaking existing flows.
+### D2. search_nearby_sellers RPC has the same gap
+- Same missing fields: `action_type`, `contact_phone`, `approval_status`.
+- Cross-society products also display with wrong action buttons.
+
+### D3. Neither RPC filters by approval_status
+- Both RPCs filter by `p.is_available = true` but not by `approval_status = 'approved'`.
+- Draft/pending products appear in search results.
+- **Severity**: HIGH -- unapproved products are discoverable.
+
+### D4. search_marketplace RPC does not filter by approval_status on products
+- Line 191: `AND p.is_available = true` but no `AND p.approval_status = 'approved'`.
+
+### D5. Cart insertion trigger validates action_type but detail sheet bypasses client guard
+- The DB trigger `validate_cart_item_category` correctly blocks non-cart products.
+- But the error surfaces as an unhandled exception in the UI -- no user-friendly message for "this product can't be added to cart."
+
+### D6. Price validation is frontend-only for the search page price range filter
+- Products with price > 1000 are silently excluded. This is a UI constraint, not data-driven.
 
 ---
 
-## Technical Summary
+## SECTION E -- Interdependency Risk
 
-| Fix | Type | Enforcement | Files / Tables |
-|-----|------|-------------|----------------|
-| 1. Category validation | DB trigger | Database | `products` table, new trigger |
-| 2. Product approval workflow | Column + trigger + RLS + UI | Database + UI | `products` table, `SellerProductsPage.tsx`, admin UI |
-| 3. Bulk upload intelligence | UI + validation | Frontend | `BulkProductUpload.tsx` |
-| 4. Remove hardcoded fallback | Code cleanup | Frontend | `SellerProductsPage.tsx` |
-| 5. Beverages placeholders | Data update | Database | `category_config` table |
-| 6. Server-side hint enforcement | DB trigger | Database | `products` table, new trigger |
+### E1. ProductGridCard vs ProductDetailSheet -- action_type divergence
+- `ProductGridCard` correctly reads `product.action_type` and shows dynamic buttons.
+- `ProductDetailSheet` ignores `action_type` entirely and always shows cart CTA.
+- **Risk**: HIGH -- user taps "Contact" on grid card, sheet opens with "Add to Cart".
+- **Fix**: ProductDetailSheet must receive and respect action_type.
 
-### Implementation Order
-1. Database migration (Fixes 1, 2, 6 -- single migration)
-2. Data update (Fix 5 -- beverages placeholders)
-3. Frontend changes (Fixes 3, 4 -- parallel)
-4. Seller UI for approval workflow (Fix 2 frontend)
-5. Admin UI for product review (Fix 2 admin)
+### E2. useCart client guard vs DB trigger -- double enforcement but inconsistent messaging
+- `useCart.addItem()` has a client-side check (lines 92-102) that shows a toast error.
+- DB trigger also blocks the insert with a SQL exception.
+- If client guard is bypassed (e.g., via ProductDetailSheet), the DB error is caught but shown as generic "Failed to add item".
+- **Risk**: MEDIUM -- confusing error messages.
+
+### E3. useCategoryConfigs hook called independently in 5+ components
+- Each call to `useCategoryConfigs()` triggers a separate Supabase query.
+- Components: SearchPage, CategoryPage, CategoryGroupPage, HomePage, SearchFilters, SellerProductsPage.
+- **Risk**: MEDIUM -- redundant API calls on every page load. No shared cache at React Query level because hook uses `useState`+`useEffect` instead of `useQuery`.
+- **Fix**: Migrate `useCategoryConfigs` to use `useQuery` with a shared query key.
+
+### E4. Three different product-to-card mapping functions
+- `SearchPage.toProductWithSeller()` (line 612-633)
+- `CategoryPage` passes `product as any` (line 211)
+- `usePopularProducts` maps its own shape (line 37-44)
+- **Risk**: LOW-MEDIUM -- inconsistent field availability. Some include `action_type`, some don't.
+
+---
+
+## SECTION F -- Final Hardening Plan
+
+### Priority 1: Critical Fixes (Must fix before production)
+
+1. **Update `search_marketplace` RPC** to include `action_type`, `contact_phone`, and `approval_status = 'approved'` filter in the product subquery.
+
+2. **Update `search_nearby_sellers` RPC** with the same additions.
+
+3. **Add `approval_status = 'approved'` filter** to:
+   - `usePopularProducts` hook
+   - `useCategoryProducts` hook
+   - `CategoryPage.fetchProducts()`
+   - `SearchPage.loadPopularProducts()`
+
+4. **Fix ProductDetailSheet** to respect `action_type`:
+   - Pass `action_type` and `contact_phone` through the `ProductDetail` interface.
+   - Show dynamic CTA (Contact, Book, Quote, etc.) instead of always "Add to Cart".
+   - Show ContactSellerModal when action_type is `contact_seller`.
+
+5. **Fix CategoryPage client-side society filter** (line 81) -- filter by joining seller's society_id, not a non-existent `product.society_id`.
+
+### Priority 2: Important Fixes (Should fix)
+
+6. **Remove or wire the block filter** -- either implement block-based filtering in search or remove it from the UI to avoid dead controls.
+
+7. **Handle `?filter=open` param** in SearchPage or remove the link from HomePage.
+
+8. **Migrate `useCategoryConfigs`** to use `useQuery` to benefit from React Query caching and deduplication across components.
+
+9. **Derive blocks from DB** instead of hardcoded A-J array in SearchFilters.
+
+10. **Increase price range max** to be dynamic or at least 5000+ to avoid silently excluding products.
+
+### Priority 3: Polish (Nice to have)
+
+11. **Extract sort options** into a shared constant used by CategoryPage, CategoryGroupPage, and SearchPage.
+
+12. **Make FilterPresets DB-driven** or at least derive thresholds from data.
+
+13. **Fix "View Full Menu" label** in ProductDetailSheet to be dynamic (e.g., "View All Services" for service categories).
+
+14. **Add error boundary** around ProductDetailSheet cart operations to show user-friendly messages when DB trigger rejects cart insertion.
+
+### Performance Notes
+
+- `useCategoryConfigs` using `useState`+`useEffect` instead of `useQuery` causes ~5 redundant fetches per page navigation. **Risk: MEDIUM**.
+- `search_marketplace` RPC uses `ILIKE '%term%'` without text search indexes. At scale this will be slow. **Risk: LOW now, HIGH at scale**.
+- SearchPage `loadPopularProducts` and `runSearch` are separate async calls without cancellation -- rapid typing can cause stale results to overwrite fresh ones despite debounce. **Risk: LOW-MEDIUM**.
