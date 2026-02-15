@@ -1,130 +1,176 @@
 
+# Marketplace Integrity Fix -- Execution Plan
 
-# Marketplace Product Form Intelligence and Bulk Upload
+## PHASE 1 -- Critical Integrity Fixes
 
-## Overview
+### Fix 1: Backend Category Validation (DB Trigger)
 
-Two major gaps need fixing:
-1. The seller product form is static -- same food-centric labels and fields regardless of whether you're selling biryani or offering plumbing services
-2. No bulk upload capability exists
+**Problem:** No database-level enforcement prevents inserting a product with a disabled or nonexistent category.
 
-The category architecture itself is already fully database-driven (11 parent groups, 55 subcategories, full admin CRUD). No changes needed there.
+**Solution:** Create a validation trigger on the `products` table that fires BEFORE INSERT and BEFORE UPDATE. It will:
+- Look up the `category` value in `category_config`
+- Reject if no matching row exists
+- Reject if `is_active = false`
+- Also reject if the parent group is inactive in `parent_groups`
 
----
+**Migration:**
+```sql
+CREATE OR REPLACE FUNCTION public.validate_product_category()
+  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+DECLARE
+  _cat record;
+BEGIN
+  SELECT cc.is_active, pg.is_active AS group_active
+  INTO _cat
+  FROM category_config cc
+  JOIN parent_groups pg ON pg.slug = cc.parent_group
+  WHERE cc.category = NEW.category::text;
 
-## Task 1: Add Form Hint Columns to category_config Table
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid category: %. Category does not exist.', NEW.category;
+  END IF;
+  IF NOT _cat.is_active THEN
+    RAISE EXCEPTION 'Category "%" is currently disabled.', NEW.category;
+  END IF;
+  IF NOT _cat.group_active THEN
+    RAISE EXCEPTION 'Parent group for category "%" is currently disabled.', NEW.category;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
-**Database migration** -- Add columns to the existing `category_config` table:
-
-```text
-name_placeholder     TEXT  -- e.g., "Paneer Butter Masala" for food, "Switchboard Repair" for electrician
-description_placeholder TEXT  -- e.g., "Describe the dish..." vs "Describe your service..."
-price_label          TEXT  -- e.g., "Price" for food, "Starting Rate" for services, "Asking Price" for resale
-duration_label       TEXT  -- e.g., "Prep Time" for food, "Service Duration" for services, NULL to hide
-show_veg_toggle      BOOLEAN DEFAULT false  -- true only for food categories
-show_duration_field  BOOLEAN DEFAULT false  -- true for food (prep time) and services (duration)
+CREATE TRIGGER trg_validate_product_category
+  BEFORE INSERT OR UPDATE ON public.products
+  FOR EACH ROW EXECUTE FUNCTION public.validate_product_category();
 ```
 
-Then populate these columns with sensible defaults for all 55 existing categories using UPDATE statements:
-- Food categories: name_placeholder="e.g., Paneer Butter Masala", show_veg_toggle=true, show_duration_field=true, duration_label="Prep Time (min)"
-- Service categories: name_placeholder="e.g., Full House Wiring", price_label="Starting Rate", show_duration_field=true, duration_label="Est. Duration (min)"
-- Classes: name_placeholder="e.g., Class 10 Maths - 1hr", duration_label="Session Duration (min)"
-- Resale: name_placeholder="e.g., Samsung TV 55 inch", price_label="Asking Price"
-- Rentals: price_label="Rental Rate", duration_label=NULL (uses date range instead)
-- Professional: name_placeholder="e.g., ITR Filing for Salaried", price_label="Consultation Fee"
-- And so on for all groups
-
-**Files affected:** Database migration only. Types file auto-updates.
+**Enforcement level:** Database. Cannot be bypassed by frontend or direct API calls.
 
 ---
 
-## Task 2: Update Product Form to Use Dynamic Hints
+### Fix 2: Product-Level Approval Workflow
 
-Modify `SellerProductsPage.tsx` product add/edit dialog:
+**Problem:** Products go live immediately. No draft/review/approve lifecycle exists.
 
-1. Read the `category_config` row for the currently selected category (already available via `useCategoryConfigs`)
-2. Extend the config mapping in `useCategoryBehavior.ts` to include the new hint fields
-3. In the form dialog:
-   - Product Name input: use `config.namePlaceholder` instead of hardcoded "Chicken Biryani"
-   - Description textarea: use `config.descriptionPlaceholder`
-   - Price label: use `config.priceLabel` (default "Price")
-   - Duration field: show/hide based on `config.showDurationField`, label from `config.durationLabel`
-   - Veg toggle: show/hide based on `config.showVegToggle` instead of JS parentGroup check
+**Solution:** Add an `approval_status` column to the `products` table with states: `draft`, `pending`, `approved`, `rejected`. Default is `draft`.
 
-Also update `DraftProductManager.tsx` (onboarding) with the same dynamic behavior.
+**Database changes:**
+- Add column: `approval_status text NOT NULL DEFAULT 'draft'`
+- Add validation trigger to restrict values to the 4 allowed states
+- Update the SELECT RLS policy so that buyers only see `approval_status = 'approved'` products (sellers still see their own)
 
-**Files modified:**
-- `src/hooks/useCategoryBehavior.ts` -- extend CategoryConfig interface and mapping
-- `src/pages/SellerProductsPage.tsx` -- dynamic form fields
-- `src/components/seller/DraftProductManager.tsx` -- dynamic form fields
+**Migration:**
+```sql
+ALTER TABLE public.products ADD COLUMN approval_status text NOT NULL DEFAULT 'draft';
+
+-- Backfill: all existing products become approved
+UPDATE public.products SET approval_status = 'approved';
+
+-- Validation trigger
+CREATE OR REPLACE FUNCTION public.validate_product_approval_status()
+  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.approval_status NOT IN ('draft', 'pending', 'approved', 'rejected') THEN
+    RAISE EXCEPTION 'Invalid approval_status: %', NEW.approval_status;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_product_approval_status
+  BEFORE INSERT OR UPDATE ON public.products
+  FOR EACH ROW EXECUTE FUNCTION public.validate_product_approval_status();
+```
+
+**RLS update:** Modify the existing SELECT policy so non-owner queries additionally require `approval_status = 'approved'`.
+
+**Frontend changes:**
+
+*Seller side (`SellerProductsPage.tsx`):*
+- Show approval status badge on each product card (Draft / Pending / Approved / Rejected)
+- Add "Submit for Approval" button that sets status to `pending`
+- Products in `draft` and `rejected` states remain editable
+- Products in `pending` or `approved` states show read-only indicator
+
+*Admin side (`AdminPage.tsx` or new tab):*
+- Add "Product Approvals" section listing all `pending` products
+- Admin can approve (set `approved`) or reject (set `rejected`) with optional note
+- Filter by society
 
 ---
 
-## Task 3: Admin Controls for Form Hints
+### Fix 3: Bulk Upload Category Intelligence
 
-Add form hint editing to the existing `CategoryManager.tsx` admin panel. When admin edits a subcategory, the edit dialog should include:
-- Name placeholder input
-- Description placeholder input
-- Price label input
-- Duration label input
-- Show veg toggle checkbox
-- Show duration field checkbox
+**Problem:** Bulk grid shows Veg toggle for all categories; Duration column missing; no per-row category intelligence.
 
-This makes the form intelligence fully admin-configurable without code changes.
+**Solution:** Update `BulkProductUpload.tsx`:
 
-**Files modified:**
-- `src/components/admin/CategoryManager.tsx` -- extend edit dialog with hint fields
+1. Remove static "Veg" column from the table header
+2. Add conditional rendering per row: look up the `CategoryConfig` for that row's category
+3. If `showVegToggle = true` for that row's category, show the switch; otherwise hide it and default `is_veg` to `true`
+4. Add a "Duration" column that only shows an input when `showDurationField = true` for the row's category
+5. Update validation to reject `is_veg = false` when `showVegToggle` is not enabled for the category
+6. Set `approval_status = 'draft'` on all bulk-inserted products (aligns with Fix 2)
+
+**File modified:** `src/components/seller/BulkProductUpload.tsx`
 
 ---
 
-## Task 4: Bulk Product Upload
+## PHASE 2 -- Minor Hardening
 
-Add a bulk upload feature to the seller products page.
+### Fix 4: Remove Hardcoded Veg Fallback
 
-**UI Flow:**
-1. On `SellerProductsPage`, add a "Bulk Add" button next to the existing "Add Product" button
-2. Opens a sheet/dialog with two options:
-   - **CSV Upload**: Download template, upload filled CSV, preview parsed rows, validate, save
-   - **Multi-Row Grid**: Inline table with editable rows -- name, price, category, description -- with add/remove row buttons
+**Problem:** Line 74 in `SellerProductsPage.tsx`: `return primaryGroup === 'food';` -- a hardcoded fallback.
+Also line 627: `prodConfig?.formHints.showVegToggle ?? primaryGroup === 'food'`.
 
-**CSV Template columns:**
-- name (required)
-- price (required)
-- category (must match an allowed category slug)
-- description (optional)
-- is_veg (true/false, only for food)
-- prep_time_minutes (optional)
-- image_url (optional)
+**Solution:** Change both to default to `false` instead of checking `primaryGroup`. If no category is selected, veg toggle is hidden. Pure DB-driven behavior.
 
-**Validation rules:**
-- Name must not be empty
-- Price must be a positive number
-- Category must be in the seller's allowed categories
-- Duplicate detection (same name + category)
-- Per-row error display with row number
+**File modified:** `src/pages/SellerProductsPage.tsx` (lines 74 and 627)
 
-**Save logic:**
-- Batch insert via single Supabase insert call (array of products)
-- Show success count and error count
-- Refresh product list after save
+---
 
-**Files created:**
-- `src/components/seller/BulkProductUpload.tsx` -- main bulk upload component with CSV parser and multi-row grid
+### Fix 5: Populate Missing Beverages Placeholders
 
-**Files modified:**
-- `src/pages/SellerProductsPage.tsx` -- add "Bulk Add" button that opens the new component
+**Problem:** The `beverages` category has NULL placeholders.
+
+**Solution:** Run a data UPDATE to populate:
+- `name_placeholder`: 'e.g., Fresh Mango Lassi'
+- `description_placeholder`: 'Describe the drink, ingredients, serving size...'
+- `price_label`: 'Price'
+- `show_veg_toggle`: true
+- `show_duration_field`: true
+- `duration_label`: 'Prep Time (min)'
+
+**Enforcement level:** Database data update.
+
+---
+
+### Fix 6: Server-Side Hint Enforcement (Trigger)
+
+**Solution:** Add a lightweight validation trigger that:
+- Resets `is_veg` to `true` if the category has `show_veg_toggle = false` (prevents non-food items from carrying a misleading non-veg flag)
+- Resets `prep_time_minutes` to `NULL` if `show_duration_field = false`
+
+This is a data normalization trigger, not a blocking one -- it silently corrects invalid combinations rather than rejecting them, ensuring data cleanliness without breaking existing flows.
 
 ---
 
 ## Technical Summary
 
-| Task | Action | Files | DB Changes |
-|------|--------|-------|------------|
-| 1. Form hint columns | Migration | None | Add 6 columns to category_config + populate data |
-| 2. Dynamic product form | Modify | useCategoryBehavior.ts, SellerProductsPage.tsx, DraftProductManager.tsx | None |
-| 3. Admin hint controls | Modify | CategoryManager.tsx | None |
-| 4. Bulk upload | Create + Modify | BulkProductUpload.tsx (new), SellerProductsPage.tsx | None |
+| Fix | Type | Enforcement | Files / Tables |
+|-----|------|-------------|----------------|
+| 1. Category validation | DB trigger | Database | `products` table, new trigger |
+| 2. Product approval workflow | Column + trigger + RLS + UI | Database + UI | `products` table, `SellerProductsPage.tsx`, admin UI |
+| 3. Bulk upload intelligence | UI + validation | Frontend | `BulkProductUpload.tsx` |
+| 4. Remove hardcoded fallback | Code cleanup | Frontend | `SellerProductsPage.tsx` |
+| 5. Beverages placeholders | Data update | Database | `category_config` table |
+| 6. Server-side hint enforcement | DB trigger | Database | `products` table, new trigger |
 
 ### Implementation Order
-Task 1 first (schema), then Task 2 (form uses new columns), then Tasks 3 and 4 in parallel (independent features).
-
+1. Database migration (Fixes 1, 2, 6 -- single migration)
+2. Data update (Fix 5 -- beverages placeholders)
+3. Frontend changes (Fixes 3, 4 -- parallel)
+4. Seller UI for approval workflow (Fix 2 frontend)
+5. Admin UI for product review (Fix 2 admin)
