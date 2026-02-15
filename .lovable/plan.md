@@ -1,189 +1,130 @@
 
 
-# Marketplace Product Listing Redesign
+# Marketplace Product Form Intelligence and Bulk Upload
 
-## The Problem
+## Overview
 
-Currently, when a user taps a category (e.g., "Food & Groceries") from the homepage, they land on `CategoryGroupPage` which shows **a list of seller cards** -- not products. This is like tapping "Biryani" on Zomato and seeing a list of restaurant logos instead of actual dishes with photos and prices.
+Two major gaps need fixing:
+1. The seller product form is static -- same food-centric labels and fields regardless of whether you're selling biryani or offering plumbing services
+2. No bulk upload capability exists
 
-The big apps (Zomato, Blinkit, Zepto, Amazon) all follow a **product-first** listing pattern:
-- **Zomato**: Tap a cuisine -> see dishes from multiple restaurants, with images, prices, ratings, delivery time
-- **Blinkit/Zepto**: Tap a category -> see a grid of product cards with images, price, "Add" buttons
-- **Amazon**: Tap a category -> see product cards in a grid with image carousels, ratings, price
-
-Our current flow: Homepage -> Category -> Seller list -> Tap seller -> See products. That is **3 taps** to see a single product. It should be **1 tap**.
-
-## The Solution
-
-Redesign `CategoryGroupPage` from a seller-centric listing to a **product-first listing** with carousels, sub-category tabs, and inline cart controls -- similar to how Blinkit/Zepto organize products within a category.
+The category architecture itself is already fully database-driven (11 parent groups, 55 subcategories, full admin CRUD). No changes needed there.
 
 ---
 
-## Detailed Implementation
+## Task 1: Add Form Hint Columns to category_config Table
 
-### Task 1: Redesign CategoryGroupPage to Product-First Layout
-
-**Current state:** Shows seller cards only.
-**New state:** Shows products organized by sub-category, with horizontal carousels per sub-category and a "See All" grid view.
-
-**Layout structure (inspired by Blinkit/Zepto):**
+**Database migration** -- Add columns to the existing `category_config` table:
 
 ```text
-+------------------------------------------+
-| <- Back    Food & Groceries    Search     |
-+------------------------------------------+
-| [All] [Home Food] [Bakery] [Snacks] ...  |  <- Sub-category pill tabs (horizontal scroll)
-+------------------------------------------+
-|                                          |
-| -- Home Food (29 items) ---------- See All|
-| [Card] [Card] [Card] [Card] ->          |  <- Horizontal carousel
-|                                          |
-| -- Bakery (3 items) ------------- See All|
-| [Card] [Card] [Card] ->                 |  <- Horizontal carousel
-|                                          |
-| -- Snacks (3 items) ------------- See All|
-| [Card] [Card] [Card] ->                 |  <- Horizontal carousel
-|                                          |
-| -- Top Sellers in Food -----------       |
-| [SellerCard] [SellerCard] ->             |  <- Seller carousel at bottom
-+------------------------------------------+
+name_placeholder     TEXT  -- e.g., "Paneer Butter Masala" for food, "Switchboard Repair" for electrician
+description_placeholder TEXT  -- e.g., "Describe the dish..." vs "Describe your service..."
+price_label          TEXT  -- e.g., "Price" for food, "Starting Rate" for services, "Asking Price" for resale
+duration_label       TEXT  -- e.g., "Prep Time" for food, "Service Duration" for services, NULL to hide
+show_veg_toggle      BOOLEAN DEFAULT false  -- true only for food categories
+show_duration_field  BOOLEAN DEFAULT false  -- true for food (prep time) and services (duration)
 ```
 
-When a sub-category tab is tapped, switch to a **grid view** showing all products in that sub-category (2 columns, vertical product cards with image, name, price, seller name, "Add" button).
+Then populate these columns with sensible defaults for all 55 existing categories using UPDATE statements:
+- Food categories: name_placeholder="e.g., Paneer Butter Masala", show_veg_toggle=true, show_duration_field=true, duration_label="Prep Time (min)"
+- Service categories: name_placeholder="e.g., Full House Wiring", price_label="Starting Rate", show_duration_field=true, duration_label="Est. Duration (min)"
+- Classes: name_placeholder="e.g., Class 10 Maths - 1hr", duration_label="Session Duration (min)"
+- Resale: name_placeholder="e.g., Samsung TV 55 inch", price_label="Asking Price"
+- Rentals: price_label="Rental Rate", duration_label=NULL (uses date range instead)
+- Professional: name_placeholder="e.g., ITR Filing for Salaried", price_label="Consultation Fee"
+- And so on for all groups
 
-**Product card design (vertical, carousel-optimized):**
-- 140px wide, image on top (square, rounded corners)
-- Veg/Non-veg badge overlay on image
-- Product name (1 line, truncated)
-- Price in bold
-- Seller name in muted small text
-- Prep time if available (e.g., "~30 min")
-- "Add +" button or quantity stepper at the bottom
+**Files affected:** Database migration only. Types file auto-updates.
+
+---
+
+## Task 2: Update Product Form to Use Dynamic Hints
+
+Modify `SellerProductsPage.tsx` product add/edit dialog:
+
+1. Read the `category_config` row for the currently selected category (already available via `useCategoryConfigs`)
+2. Extend the config mapping in `useCategoryBehavior.ts` to include the new hint fields
+3. In the form dialog:
+   - Product Name input: use `config.namePlaceholder` instead of hardcoded "Chicken Biryani"
+   - Description textarea: use `config.descriptionPlaceholder`
+   - Price label: use `config.priceLabel` (default "Price")
+   - Duration field: show/hide based on `config.showDurationField`, label from `config.durationLabel`
+   - Veg toggle: show/hide based on `config.showVegToggle` instead of JS parentGroup check
+
+Also update `DraftProductManager.tsx` (onboarding) with the same dynamic behavior.
 
 **Files modified:**
-- `src/pages/CategoryGroupPage.tsx` -- Complete redesign from seller-list to product-first layout with carousels
-
-**Data fetching changes:**
-- Fetch all products for the parent group (join with seller_profiles for seller name, rating)
-- Group products by sub-category client-side
-- Keep existing seller fetch for the "Top Sellers" section at the bottom
-
-### Task 2: Create Reusable ProductCarousel Component
-
-A horizontal scroll carousel component that can be reused on:
-- CategoryGroupPage (per sub-category)
-- HomePage (popular products section)
-- SearchPage (category browse mode)
-
-**Props:**
-- `title` (string) -- section header
-- `products` (array) -- product data with seller info
-- `onSeeAll` (callback) -- when "See All" is tapped
-- `variant` -- `'compact'` (small cards) or `'featured'` (larger cards with more detail)
-
-Uses `embla-carousel-react` (already installed) for smooth swipe behavior with snap points.
-
-**New file:** `src/components/product/ProductCarousel.tsx`
-
-### Task 3: Create Vertical ProductGridCard Component
-
-A compact vertical card designed for grid/carousel display (different from the existing horizontal `ProductCard` which is designed for seller detail page lists).
-
-**Design:**
-- Square image (aspect-ratio 1:1)
-- Bestseller/Recommended badge overlay
-- Veg badge
-- Product name (truncated)
-- Price
-- Seller name (small, tappable)
-- Prep time indicator
-- "Add +" / quantity stepper
-- Category emoji in corner
-
-**New file:** `src/components/product/ProductGridCard.tsx`
-
-### Task 4: Add Product Carousels to HomePage
-
-Replace the current "seller-only" homepage with a mixed layout:
-
-**Current:** Category icons -> Open Now sellers -> Nearby sellers -> Featured sellers
-**New additions (inserted between existing sections):**
-- "Popular Right Now" -- horizontal carousel of top-ordered products (from real order data)
-- "Quick Bites" -- carousel filtered to food category products
-- Keep existing seller sections but add product carousels between them
-
-This gives the homepage a Zomato/Blinkit feel where users see actual products with prices immediately.
-
-**File modified:** `src/pages/HomePage.tsx`
-**New hook:** `src/hooks/queries/usePopularProducts.ts` -- fetches top products by order count
-
-### Task 5: Add Service Listings to CategoryGroupPage
-
-For non-product categories (services, classes, personal, professional, etc.), the same page should adapt its card design:
-
-**Service card differences:**
-- Instead of "Add +", show "Book" or "Contact" based on category behavior flags
-- Show duration instead of price per item (e.g., "1 hr session")
-- Show seller's availability hours
-- Show "Starting from ₹X" pricing
-- For workers (maid, cook, driver), show experience/availability
-
-This uses the existing `CategoryBehavior` flags (`requiresTimeSlot`, `enquiryOnly`, `hasDuration`) to determine which card variant to render.
-
-**Handled within:** `src/components/product/ProductGridCard.tsx` (behavior-aware rendering)
-
-### Task 6: Enhance Search Page Category Browse Mode
-
-When a user taps a category bubble on the SearchPage without typing a search term, show the products in carousel layout (same as CategoryGroupPage) instead of the current flat list.
-
-**File modified:** `src/pages/SearchPage.tsx` -- When `selectedCategory` is set and no search term, render carousels grouped by sub-category instead of flat list.
+- `src/hooks/useCategoryBehavior.ts` -- extend CategoryConfig interface and mapping
+- `src/pages/SellerProductsPage.tsx` -- dynamic form fields
+- `src/components/seller/DraftProductManager.tsx` -- dynamic form fields
 
 ---
 
-## Technical Details
+## Task 3: Admin Controls for Form Hints
 
-### Data Flow
+Add form hint editing to the existing `CategoryManager.tsx` admin panel. When admin edits a subcategory, the edit dialog should include:
+- Name placeholder input
+- Description placeholder input
+- Price label input
+- Duration label input
+- Show veg toggle checkbox
+- Show duration field checkbox
 
-```text
-CategoryGroupPage
-  |
-  +-- Fetch products WHERE category IN (sub-categories of parent group)
-  |     JOIN seller_profiles for seller_name, rating, fulfillment_mode
-  |     Scoped by society_id
-  |
-  +-- Group by category client-side
-  |
-  +-- Render ProductCarousel per sub-category
-  |     Each carousel uses ProductGridCard
-  |
-  +-- "See All" -> switches to grid view (2-col) for that sub-category
-  |
-  +-- Bottom section: Top Sellers carousel (existing SellerCard)
-```
+This makes the form intelligence fully admin-configurable without code changes.
 
-### Carousel Implementation
+**Files modified:**
+- `src/components/admin/CategoryManager.tsx` -- extend edit dialog with hint fields
 
-Using `embla-carousel-react` (already installed at v8.6.0):
+---
 
-```text
-- Snap alignment: start
-- Slide spacing: 12px
-- Slide width: 152px (compact) or 200px (featured)
-- Drag-free scrolling enabled
-- Touch/swipe support built-in
-```
+## Task 4: Bulk Product Upload
 
-### Files Summary
+Add a bulk upload feature to the seller products page.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/components/product/ProductGridCard.tsx` | Vertical product card for grids/carousels |
-| Create | `src/components/product/ProductCarousel.tsx` | Reusable horizontal carousel wrapper |
-| Create | `src/hooks/queries/usePopularProducts.ts` | Fetch popular products by order volume |
-| Rewrite | `src/pages/CategoryGroupPage.tsx` | Product-first layout with carousels |
-| Modify | `src/pages/HomePage.tsx` | Add product carousels between seller sections |
-| Modify | `src/pages/SearchPage.tsx` | Carousel layout for category browse mode |
+**UI Flow:**
+1. On `SellerProductsPage`, add a "Bulk Add" button next to the existing "Add Product" button
+2. Opens a sheet/dialog with two options:
+   - **CSV Upload**: Download template, upload filled CSV, preview parsed rows, validate, save
+   - **Multi-Row Grid**: Inline table with editable rows -- name, price, category, description -- with add/remove row buttons
 
-### No Database Changes Required
-All data already exists in the `products` and `seller_profiles` tables. We just need smarter queries and better UI presentation.
+**CSV Template columns:**
+- name (required)
+- price (required)
+- category (must match an allowed category slug)
+- description (optional)
+- is_veg (true/false, only for food)
+- prep_time_minutes (optional)
+- image_url (optional)
+
+**Validation rules:**
+- Name must not be empty
+- Price must be a positive number
+- Category must be in the seller's allowed categories
+- Duplicate detection (same name + category)
+- Per-row error display with row number
+
+**Save logic:**
+- Batch insert via single Supabase insert call (array of products)
+- Show success count and error count
+- Refresh product list after save
+
+**Files created:**
+- `src/components/seller/BulkProductUpload.tsx` -- main bulk upload component with CSV parser and multi-row grid
+
+**Files modified:**
+- `src/pages/SellerProductsPage.tsx` -- add "Bulk Add" button that opens the new component
+
+---
+
+## Technical Summary
+
+| Task | Action | Files | DB Changes |
+|------|--------|-------|------------|
+| 1. Form hint columns | Migration | None | Add 6 columns to category_config + populate data |
+| 2. Dynamic product form | Modify | useCategoryBehavior.ts, SellerProductsPage.tsx, DraftProductManager.tsx | None |
+| 3. Admin hint controls | Modify | CategoryManager.tsx | None |
+| 4. Bulk upload | Create + Modify | BulkProductUpload.tsx (new), SellerProductsPage.tsx | None |
+
+### Implementation Order
+Task 1 first (schema), then Task 2 (form uses new columns), then Tasks 3 and 4 in parallel (independent features).
 
