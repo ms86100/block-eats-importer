@@ -524,9 +524,9 @@ export default function SearchPage() {
 
         {/* ─── Results ─── */}
         {showLoading ? (
-          <div className="grid grid-cols-3 gap-2.5 mt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              <Skeleton key={i} className="h-56 w-full rounded-xl" />
             ))}
           </div>
         ) : displayProducts.length > 0 ? (
@@ -684,7 +684,7 @@ function ProductGridByCategory({
               </h3>
               <span className="text-xs text-muted-foreground">({items.length})</span>
             </div>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {items.map((p) => (
                 <ProductGridCard
                   key={p.product_id}

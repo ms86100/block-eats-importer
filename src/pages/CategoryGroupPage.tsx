@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProductGridCard, ProductWithSeller } from '@/components/product/ProductGridCard';
+import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
 import { SellerCard } from '@/components/seller/SellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useParentGroups } from '@/hooks/useParentGroups';
 import { useCategoryProducts } from '@/hooks/queries/usePopularProducts';
-import { ServiceCategory, CategoryConfig } from '@/types/categories';
+import { ServiceCategory } from '@/types/categories';
 import { SORT_OPTIONS, SortKey } from '@/lib/marketplace-constants';
 import { ArrowLeft, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,8 @@ export default function CategoryGroupPage() {
   const [activeSubCategory, setActiveSubCategory] = useState<ServiceCategory | null>(subCategory);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('relevance');
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithSeller | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   const parentGroup = category ? getGroupBySlug(category) : undefined;
   const subCategories = category ? groupedConfigs[category] || [] : [];
@@ -64,13 +67,11 @@ export default function CategoryGroupPage() {
     return config?.behavior || null;
   };
 
-  // Filter + sort products
   const displayProducts = useMemo(() => {
     let filtered = activeSubCategory
       ? allProducts.filter((p) => p.category === activeSubCategory)
       : allProducts;
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -78,18 +79,11 @@ export default function CategoryGroupPage() {
       );
     }
 
-    // Sort
     const sorted = [...filtered];
     switch (sortBy) {
-      case 'price_low':
-        sorted.sort((a, b) => a.price - b.price);
-        break;
-      case 'price_high':
-        sorted.sort((a, b) => b.price - a.price);
-        break;
-      case 'popular':
-        sorted.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0));
-        break;
+      case 'price_low': sorted.sort((a, b) => a.price - b.price); break;
+      case 'price_high': sorted.sort((a, b) => b.price - a.price); break;
+      case 'popular': sorted.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0)); break;
     }
     return sorted;
   }, [allProducts, activeSubCategory, searchQuery, sortBy]);
@@ -101,6 +95,11 @@ export default function CategoryGroupPage() {
     } else {
       setSearchParams({});
     }
+  };
+
+  const handleProductTap = (product: ProductWithSeller) => {
+    setSelectedProduct(product);
+    setDetailSheetOpen(true);
   };
 
   const isLoading = groupsLoading || configsLoading;
@@ -115,9 +114,9 @@ export default function CategoryGroupPage() {
               <Skeleton key={i} className="h-8 w-20 rounded-full" />
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              <Skeleton key={i} className="h-56 w-full rounded-xl" />
             ))}
           </div>
         </div>
@@ -163,10 +162,7 @@ export default function CategoryGroupPage() {
               className="pl-9 pr-8 h-9 bg-muted border-0 rounded-lg text-sm"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <X size={14} />
               </button>
             )}
@@ -209,9 +205,7 @@ export default function CategoryGroupPage() {
               onClick={() => setSortBy(opt.key)}
               className={cn(
                 'px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors',
-                sortBy === opt.key
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted/60 text-muted-foreground'
+                sortBy === opt.key ? 'bg-foreground text-background' : 'bg-muted/60 text-muted-foreground'
               )}
             >
               {opt.label}
@@ -223,9 +217,9 @@ export default function CategoryGroupPage() {
       {/* Product Grid */}
       <div className="p-4 pb-6">
         {productsLoading ? (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              <Skeleton key={i} className="h-56 w-full rounded-xl" />
             ))}
           </div>
         ) : displayProducts.length > 0 ? (
@@ -233,12 +227,13 @@ export default function CategoryGroupPage() {
             <p className="text-xs text-muted-foreground mb-3">
               {displayProducts.length} item{displayProducts.length !== 1 ? 's' : ''}
             </p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {displayProducts.map((product) => (
                 <ProductGridCard
                   key={product.id}
                   product={product}
                   behavior={getBehavior(product.category)}
+                  onTap={handleProductTap}
                 />
               ))}
             </div>
@@ -275,6 +270,30 @@ export default function CategoryGroupPage() {
           </div>
         )}
       </div>
+
+      {/* Product Detail Sheet */}
+      <ProductDetailSheet
+        product={selectedProduct ? {
+          product_id: selectedProduct.id,
+          product_name: selectedProduct.name,
+          price: selectedProduct.price,
+          image_url: selectedProduct.image_url,
+          is_veg: selectedProduct.is_veg,
+          category: selectedProduct.category,
+          description: selectedProduct.description || null,
+          action_type: (selectedProduct as any).action_type || null,
+          contact_phone: (selectedProduct as any).contact_phone || null,
+          seller_id: selectedProduct.seller_id,
+          seller_name: selectedProduct.seller_name || '',
+          seller_rating: selectedProduct.seller_rating || 0,
+          seller_reviews: 0,
+          society_name: null,
+          distance_km: null,
+          is_same_society: true,
+        } : null}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+      />
     </AppLayout>
   );
 }
