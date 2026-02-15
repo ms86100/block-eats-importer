@@ -698,7 +698,7 @@ export default function BecomeSellerPage() {
             </div>
 
             {/* License Upload (if required for this group) */}
-            {draftSellerId && selectedGroupRow && (
+            {draftSellerId && selectedGroupRow && (selectedGroupRow as any).requires_license && (
               <LicenseUpload sellerId={draftSellerId} groupId={selectedGroupRow.id} />
             )}
 

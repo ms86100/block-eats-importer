@@ -671,16 +671,16 @@ export default function SellerSettingsPage() {
             <LicenseUploadSection sellerId={sellerProfile.id} primaryGroup={primaryGroup} />
           )}
 
-          {/* Bank Account Details for UPI Payouts */}
-          {formData.accepts_upi && (
+          {/* Bank Account Details for Payouts */}
+          {(formData.accepts_upi || true) && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Building2 size={16} className="text-muted-foreground" />
-                <Label>Bank Account for Payouts</Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Payments received via UPI will be settled to this bank account
-              </p>
+              <Label>Bank Account for Payouts</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Payments will be settled to this bank account
+            </p>
               
               <div className="space-y-3 bg-muted rounded-lg p-4">
                 <div className="space-y-2">

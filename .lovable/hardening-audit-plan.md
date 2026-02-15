@@ -149,7 +149,7 @@
 |-------|--------|------------|
 | Phase 1 — Auth & Core | ✅ Done | 8/8 |
 | Phase 2 — Discovery & Products | ✅ Done | 8/8 |
-| Phase 3 — Seller Module | ⏳ Pending | 0/8 |
+| Phase 3 — Seller Module | ✅ Done | 8/8 |
 | Phase 4 — Orders & Payments | ⏳ Pending | 0/8 |
 | Phase 5 — Society & Community | ⏳ Pending | 0/8 |
 | Phase 6 — Security & Gate | ⏳ Pending | 0/8 |

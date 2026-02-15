@@ -12,7 +12,7 @@ interface SellerBadgesProps {
 }
 
 export function SellerBadges({
-  isVerified = true,
+  isVerified = false,
   isTopSeller = false,
   rating = 0,
   totalOrders = 0,

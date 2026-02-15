@@ -19,15 +19,15 @@ export function EarningsSummary({ todayEarnings, weekEarnings, totalEarnings }: 
           <ChevronRight className="text-muted-foreground" size={18} />
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/50 dark:bg-white/10 rounded-lg p-3 text-center">
+          <div className="bg-background/50 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">Today</p>
             <p className="text-lg font-bold text-success">₹{todayEarnings}</p>
           </div>
-          <div className="bg-white/50 dark:bg-white/10 rounded-lg p-3 text-center">
+          <div className="bg-background/50 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">This Week</p>
             <p className="text-lg font-bold text-success">₹{weekEarnings}</p>
           </div>
-          <div className="bg-white/50 dark:bg-white/10 rounded-lg p-3 text-center">
+          <div className="bg-background/50 rounded-lg p-3 text-center">
             <p className="text-xs text-muted-foreground">All Time</p>
             <p className="text-lg font-bold text-success">₹{totalEarnings}</p>
           </div>
