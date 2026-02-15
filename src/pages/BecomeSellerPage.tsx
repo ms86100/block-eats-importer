@@ -12,6 +12,7 @@ import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useParentGroups } from '@/hooks/useParentGroups';
 import { ServiceCategory } from '@/types/categories';
 import { DraftProductManager } from '@/components/seller/DraftProductManager';
+import { LicenseUpload } from '@/components/seller/LicenseUpload';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, Store, Loader2, ChevronRight, Settings, Shield, Save, Send, Globe } from 'lucide-react';
@@ -70,7 +71,7 @@ const TOTAL_STEPS = 5;
 export default function BecomeSellerPage() {
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
-  const { parentGroupInfos, isLoading: groupsLoading } = useParentGroups();
+  const { parentGroupInfos, groups, isLoading: groupsLoading } = useParentGroups();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingExisting, setIsCheckingExisting] = useState(true);
@@ -277,6 +278,15 @@ export default function BecomeSellerPage() {
         .eq('id', draftSellerId);
 
       if (error) throw error;
+
+      // Transition all draft products to pending for admin review
+      const { error: prodError } = await supabase
+        .from('products')
+        .update({ approval_status: 'pending' } as any)
+        .eq('seller_id', draftSellerId)
+        .eq('approval_status', 'draft');
+
+      if (prodError) console.error('Failed to transition products:', prodError);
       await refreshProfile();
       toast.success('Application submitted! Awaiting admin approval.');
       navigate('/profile');
@@ -289,6 +299,7 @@ export default function BecomeSellerPage() {
   };
 
   const selectedGroupInfo = parentGroupInfos.find((g) => g.value === selectedGroup);
+  const selectedGroupRow = groups.find((g) => g.slug === selectedGroup);
 
   // ── Loading state ─────────────────────────────────────────────────────
   if (isCheckingExisting || groupsLoading) {
@@ -685,6 +696,11 @@ export default function BecomeSellerPage() {
                 </div>
               </div>
             </div>
+
+            {/* License Upload (if required for this group) */}
+            {draftSellerId && selectedGroupRow && (
+              <LicenseUpload sellerId={draftSellerId} groupId={selectedGroupRow.id} />
+            )}
 
             {/* What happens next */}
             <div className="bg-muted rounded-lg p-4 text-sm">

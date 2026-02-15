@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { VegBadge } from '@/components/ui/veg-badge';
-import { Plus, Trash2, Loader2, Package, ImageIcon } from 'lucide-react';
+import { ImageUpload } from '@/components/ui/image-upload';
+import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Trash2, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 
@@ -35,6 +37,7 @@ export function DraftProductManager({
   products,
   onProductsChange,
 }: DraftProductManagerProps) {
+  const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { configs } = useCategoryConfigs();
@@ -56,12 +59,20 @@ export function DraftProductManager({
   const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
   const showDurationField = activeConfig?.formHints.showDurationField ?? false;
 
+  // Check if this category requires a price (from category_config DB row)
+  const requiresPrice = useMemo(() => {
+    if (!activeConfig) return true;
+    // Look up the raw config row to check requires_price
+    // The behavior.enquiryOnly and supportsCart can inform this
+    return activeConfig.behavior.supportsCart || !activeConfig.behavior.enquiryOnly;
+  }, [activeConfig]);
+
   const handleAddProduct = async () => {
     if (!newProduct.name.trim()) {
       toast.error('Product name is required');
       return;
     }
-    if (newProduct.price <= 0) {
+    if (requiresPrice && newProduct.price <= 0) {
       toast.error('Price must be greater than 0');
       return;
     }
@@ -73,7 +84,7 @@ export function DraftProductManager({
         .insert({
           seller_id: sellerId,
           name: newProduct.name.trim(),
-          price: newProduct.price,
+          price: newProduct.price || 0,
           description: newProduct.description.trim() || null,
           category: newProduct.category,
           is_veg: newProduct.is_veg,
@@ -141,12 +152,12 @@ export function DraftProductManager({
           <Card key={product.id || index} className="bg-muted/30">
             <CardContent className="p-3">
               <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {product.image_url ? (
                     <img
                       src={product.image_url}
                       alt={product.name}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <Package size={20} className="text-muted-foreground" />
@@ -157,7 +168,9 @@ export function DraftProductManager({
                     {showVeg && <VegBadge isVeg={product.is_veg} size="sm" />}
                     <span className="font-medium text-sm truncate">{product.name}</span>
                   </div>
-                  <p className="text-sm font-bold text-primary mt-0.5">₹{product.price}</p>
+                  <p className="text-sm font-bold text-primary mt-0.5">
+                    {product.price > 0 ? `₹${product.price}` : 'Price on request'}
+                  </p>
                   {product.description && (
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                       {product.description}
@@ -194,12 +207,14 @@ export function DraftProductManager({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="prod-price" className="text-xs">{activeConfig?.formHints.priceLabel || 'Price'} (₹) *</Label>
+                <Label htmlFor="prod-price" className="text-xs">
+                  {activeConfig?.formHints.priceLabel || 'Price'} (₹) {requiresPrice ? '*' : '(optional)'}
+                </Label>
                 <Input
                   id="prod-price"
                   type="number"
-                  min={1}
-                  placeholder="150"
+                  min={0}
+                  placeholder={requiresPrice ? '150' : '0 = Price on request'}
                   value={newProduct.price || ''}
                   onChange={(e) =>
                     setNewProduct({ ...newProduct, price: Number(e.target.value) })
@@ -240,21 +255,24 @@ export function DraftProductManager({
                 }
               />
             </div>
+            
+            {/* Image Upload */}
             <div className="space-y-2">
-              <Label htmlFor="prod-img" className="text-xs">Image URL</Label>
-              <div className="relative">
-                <ImageIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="prod-img"
-                  placeholder="https://..."
-                  className="pl-9"
-                  value={newProduct.image_url}
-                  onChange={(e) =>
-                    setNewProduct({ ...newProduct, image_url: e.target.value })
-                  }
+              <Label className="text-xs">Product Image</Label>
+              {user ? (
+                <ImageUpload
+                  value={newProduct.image_url || null}
+                  onChange={(url) => setNewProduct({ ...newProduct, image_url: url || '' })}
+                  folder="products"
+                  userId={user.id}
+                  aspectRatio="square"
+                  placeholder="Upload product image"
                 />
-              </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Sign in to upload images</p>
+              )}
             </div>
+
             {showVegToggle && (
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox

@@ -179,6 +179,13 @@ export default function AdminPage() {
           user_id: seller.user_id,
           role: 'seller',
         });
+
+        // Auto-approve all pending products for this seller
+        await supabase
+          .from('products')
+          .update({ approval_status: 'approved' } as any)
+          .eq('seller_id', id)
+          .eq('approval_status', 'pending');
       } else if (status === 'rejected' || status === 'suspended') {
         // Remove seller role when rejected or suspended
         await supabase.from('user_roles').delete()
