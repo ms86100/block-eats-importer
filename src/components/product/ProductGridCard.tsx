@@ -129,21 +129,21 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
 
       {/* Content */}
       <div className="px-2 pb-2 pt-4 flex flex-col flex-1">
-        <h4 className="font-medium text-xs leading-tight line-clamp-2 text-foreground mb-1">
+        <h4 className="font-medium text-[11px] leading-tight line-clamp-2 text-foreground mb-0.5">
           {product.name}
         </h4>
 
         {product.seller_name && (
           <div className="flex items-center gap-1 mt-0.5">
             <Store size={9} className="text-muted-foreground shrink-0" />
-            <span className="text-[10px] text-muted-foreground truncate">{product.seller_name}</span>
+            <span className="text-[9px] text-muted-foreground truncate">{product.seller_name}</span>
           </div>
         )}
 
-        <div className="flex-1 min-h-1" />
+        <div className="flex-1 min-h-0.5" />
 
         <div className="flex items-end gap-1 mt-auto">
-          <span className="font-bold text-sm text-foreground leading-none">₹{product.price}</span>
+          <span className="font-bold text-xs text-foreground leading-none">₹{product.price}</span>
         </div>
       </div>
     </div>

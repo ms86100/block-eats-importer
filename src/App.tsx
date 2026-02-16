@@ -39,6 +39,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const CategoryGroupPage = lazy(() => import("./pages/CategoryGroupPage"));
+const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const HelpPage = lazy(() => import("./pages/HelpPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
@@ -196,6 +197,7 @@ function AppRoutes() {
         <Route path="/" element={user ? <ProtectedRoute><HomePage /></ProtectedRoute> : <Navigate to="/welcome" replace />} />
         <Route path="/search" element={<Navigate to="/" replace />} />
         <Route path="/community" element={<ProtectedRoute><BulletinPage /></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
         <Route path="/category/:category" element={<ProtectedRoute><CategoryGroupPage /></ProtectedRoute>} />
         <Route path="/seller/:id" element={<ProtectedRoute><SellerDetailPage /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
