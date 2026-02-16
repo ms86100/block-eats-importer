@@ -65,7 +65,7 @@ export function Header({
         'sticky top-0 z-40 safe-top bg-background',
         className
       )}>
-        <div className="px-4 pt-3 pb-2">
+        <div className="px-3 pt-2.5 pb-1.5">
           {/* Top row: delivery info + actions */}
           <div className="flex items-start justify-between">
             {showLocation && profile ? (
@@ -130,8 +130,8 @@ export function Header({
           </div>
 
           {/* Search bar — Blinkit style */}
-          <Link to="/search" className="block mt-3">
-            <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5">
+          <Link to="/search" className="block mt-2">
+            <div className="flex items-center gap-2.5 bg-muted rounded-xl px-3 py-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground shrink-0">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.3-4.3"/>

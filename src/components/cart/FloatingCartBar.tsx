@@ -9,9 +9,15 @@ interface FloatingCartBarProps {
 }
 
 export function FloatingCartBar({ className }: FloatingCartBarProps) {
-  const { itemCount, totalAmount } = useCart();
+  const { itemCount, totalAmount, items } = useCart();
 
   if (itemCount === 0) return null;
+
+  // Get first 3 unique product thumbnails
+  const thumbnails = items
+    .filter(i => i.product?.image_url)
+    .slice(0, 3)
+    .map(i => i.product!.image_url!);
 
   return (
     <AnimatePresence>
@@ -20,35 +26,33 @@ export function FloatingCartBar({ className }: FloatingCartBarProps) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className={cn('fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 safe-bottom', className)}
+        className={cn('fixed bottom-16 left-0 right-0 z-40 px-3 pb-2 safe-bottom', className)}
       >
         <Link to="/cart">
           <motion.div
-            className="rounded-xl bg-accent px-4 py-3 flex items-center justify-between shadow-md"
+            className="rounded-xl bg-primary px-3 py-2.5 flex items-center justify-between shadow-lg"
             whileTap={{ scale: 0.97 }}
           >
-            <div className="flex items-center gap-3">
-              <motion.div
-                className="relative"
-                key={itemCount}
-                initial={{ scale: 1.3 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-              >
-                <ShoppingCart size={18} className="text-accent-foreground" />
-                <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-background text-foreground text-[9px] font-bold flex items-center justify-center">
-                  {itemCount > 9 ? '9+' : itemCount}
-                </span>
-              </motion.div>
+            <div className="flex items-center gap-2">
+              {/* Product thumbnails */}
+              {thumbnails.length > 0 && (
+                <div className="flex -space-x-2">
+                  {thumbnails.map((url, i) => (
+                    <div key={i} className="w-7 h-7 rounded-md border-2 border-primary overflow-hidden bg-card">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
               <div>
-                <p className="text-accent-foreground text-sm font-bold">
+                <p className="text-primary-foreground text-xs font-bold">
                   {itemCount} item{itemCount !== 1 ? 's' : ''} · ₹{totalAmount}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-0.5 text-accent-foreground font-bold text-sm">
+            <div className="flex items-center gap-0.5 text-primary-foreground font-bold text-xs">
               View Cart
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </div>
           </motion.div>
         </Link>

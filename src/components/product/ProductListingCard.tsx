@@ -263,29 +263,36 @@ export function ProductListingCard({
 
       {/* ━━━ CONTENT ━━━ */}
       <div className="px-2 pb-2 pt-4 flex flex-col flex-1">
+        {/* Variant / weight pills */}
+        {variantText && (
+          <span className="inline-block bg-muted text-muted-foreground text-[9px] font-medium px-1.5 py-0.5 rounded mb-1 w-fit">
+            {variantText}
+          </span>
+        )}
+
+        {/* Product name */}
+        <h4 className="font-medium text-xs leading-tight line-clamp-2 text-foreground mb-0.5">
+          {product.name}
+        </h4>
+
         {/* Delivery time chip */}
         {deliveryText && (
           <div className="flex items-center gap-0.5 mb-0.5">
-            <Clock size={8} className="text-muted-foreground" />
+            <Clock size={8} className="text-warning" />
             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide leading-none">
               {deliveryText}
             </span>
           </div>
         )}
 
-        {/* Product name */}
-        <h4 className="font-medium text-xs leading-tight line-clamp-2 text-foreground mb-1">
-          {product.name}
-        </h4>
+        <div className="flex-1 min-h-1" />
 
-        {/* Variant / weight */}
-        {variantText && (
-          <span className="text-[10px] text-muted-foreground leading-none mb-1">
-            {variantText}
+        {/* Discount row */}
+        {hasDiscount && discountPct > 0 && (
+          <span className="text-[9px] font-bold text-primary leading-none mb-0.5">
+            {discountPct}{mc.labels.discountSuffix}
           </span>
         )}
-
-        <div className="flex-1 min-h-1" />
 
         {/* Price row */}
         <div className="flex items-end gap-1 mt-auto">
@@ -293,16 +300,18 @@ export function ProductListingCard({
             {mc.currencySymbol}{product.price}
           </span>
           {hasDiscount && (
-            <>
-              <span className="text-[9px] text-muted-foreground line-through leading-none">
-                {mc.currencySymbol}{product.mrp}
-              </span>
-              <span className="text-[9px] font-bold text-accent leading-none">
-                {discountPct}{mc.labels.discountSuffix}
-              </span>
-            </>
+            <span className="text-[9px] text-muted-foreground line-through leading-none">
+              {mc.currencySymbol}{product.mrp}
+            </span>
           )}
         </div>
+
+        {/* Price per unit */}
+        {product.price_per_unit && (
+          <span className="text-[8px] text-muted-foreground leading-none mt-0.5">
+            {product.price_per_unit}
+          </span>
+        )}
       </div>
 
       {/* View-only button */}

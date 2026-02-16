@@ -3,14 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProductListingCard, ProductWithSeller } from '@/components/product/ProductListingCard';
-
-import { SellerCard } from '@/components/seller/SellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useAuth } from '@/contexts/AuthContext';
-import { SellerProfile, ProductCategory, Product } from '@/types/database';
+import { ProductCategory, Product } from '@/types/database';
 import { SORT_OPTIONS, SortKey } from '@/lib/marketplace-constants';
 import { ArrowLeft, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,44 +30,26 @@ export default function CategoryPage() {
   const { category } = useParams<{ category: ProductCategory }>();
   const { configs } = useCategoryConfigs();
   const { effectiveSocietyId } = useAuth();
-  const [sellers, setSellers] = useState<SellerProfile[]>([]);
   const [products, setProducts] = useState<ProductWithSellerLocal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('relevance');
 
+  // Get all categories in the same parent group for the sidebar
   const categoryInfo = configs.find((c) => c.category === category);
+  const parentGroup = categoryInfo?.parentGroup;
+  const siblingCategories = useMemo(() => {
+    if (!parentGroup) return [];
+    return configs
+      .filter(c => c.parentGroup === parentGroup && c.isActive)
+      .sort((a, b) => (a.displayOrder ?? 99) - (b.displayOrder ?? 99));
+  }, [configs, parentGroup]);
 
   useEffect(() => {
     if (category) {
-      fetchSellers();
       fetchProducts();
     }
   }, [category, effectiveSocietyId]);
-
-  const fetchSellers = async () => {
-    try {
-      let query = supabase
-        .from('seller_profiles')
-        .select(`*, profile:profiles!seller_profiles_user_id_fkey(name, block)`)
-        .eq('verification_status', 'approved')
-        .contains('categories', [category])
-        .order('rating', { ascending: false });
-
-      if (effectiveSocietyId) {
-        query = query.eq('society_id', effectiveSocietyId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setSellers((data as any) || []);
-    } catch (error) {
-      console.error('Error fetching sellers:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
@@ -114,48 +94,49 @@ export default function CategoryPage() {
     return sorted;
   }, [products, searchQuery, sortBy]);
 
-
   return (
     <AppLayout showHeader={false}>
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background border-b border-border/40">
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center gap-3 mb-3">
-            <Link to="/" className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-              <ArrowLeft size={18} />
+      <div className="sticky top-0 z-30 bg-background border-b border-border">
+        <div className="px-3 pt-2.5 pb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Link to="/" className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <ArrowLeft size={16} />
             </Link>
-            <h1 className="text-lg font-bold flex items-center gap-2 flex-1">
-              <span>{categoryInfo?.icon}</span>
+            <h1 className="text-sm font-bold flex items-center gap-1.5 flex-1 truncate">
+              <span className="text-base">{categoryInfo?.icon}</span>
               {categoryInfo?.displayName || category}
             </h1>
           </div>
 
           {/* Search */}
-          <div className="relative mb-2">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative mb-1.5">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={`Search in ${categoryInfo?.displayName || category}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 h-9 bg-muted border-0 rounded-lg text-sm"
+              className="pl-8 pr-7 h-8 bg-muted border-0 rounded-lg text-xs"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <X size={14} />
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <X size={12} />
               </button>
             )}
           </div>
         </div>
 
-        {/* Sort bar */}
-        <div className="flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
+        {/* Filter/Sort bar */}
+        <div className="flex gap-1.5 px-3 pb-2 overflow-x-auto scrollbar-hide">
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setSortBy(opt.key)}
               className={cn(
-                'px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors',
-                sortBy === opt.key ? 'bg-foreground text-background' : 'bg-muted/60 text-muted-foreground'
+                'px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap transition-colors border',
+                sortBy === opt.key
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-card text-muted-foreground border-border'
               )}
             >
               {opt.label}
@@ -164,62 +145,87 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 pb-6">
-        {isLoading || isLoadingProducts ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-56 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : displayProducts.length > 0 ? (
-          <>
-            <p className="text-xs text-muted-foreground mb-3">
-              {displayProducts.length} item{displayProducts.length !== 1 ? 's' : ''}
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {displayProducts.map((product) => (
-                <ProductListingCard
-                  key={product.id}
-                  product={product as any}
-                  
-                />
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-16">
-            <span className="text-4xl mb-4 block">{categoryInfo?.icon}</span>
-            <h3 className="font-semibold mb-2">No items found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery ? 'Try a different search' : 'No products in this category yet'}
-            </p>
-            {!searchQuery && (
-              <Link to="/become-seller">
-                <Button variant="outline" size="sm">Be the first to sell here!</Button>
-              </Link>
-            )}
+      {/* Main: Left sidebar + Right product grid */}
+      <div className="flex min-h-[calc(100vh-180px)]">
+        {/* Left sidebar — sub-category thumbnails */}
+        {siblingCategories.length > 1 && (
+          <div className="w-[72px] shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-hide py-2">
+            {siblingCategories.map((cat) => {
+              const isActive = cat.category === category;
+              return (
+                <Link
+                  key={cat.category}
+                  to={`/category/${cat.category}`}
+                  className={cn(
+                    'flex flex-col items-center gap-1 px-1 py-2 relative transition-colors',
+                    isActive && 'bg-primary/10'
+                  )}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-primary" />
+                  )}
+                  <div className={cn(
+                    'w-11 h-11 rounded-full flex items-center justify-center text-lg border-2 transition-colors',
+                    isActive
+                      ? 'border-primary bg-primary/10'
+                      : 'border-transparent bg-muted'
+                  )}>
+                    {cat.imageUrl ? (
+                      <img src={cat.imageUrl} alt={cat.displayName} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <span className="text-base">{cat.icon}</span>
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-[8px] leading-tight text-center line-clamp-2 w-full px-0.5',
+                    isActive ? 'font-bold text-primary' : 'text-muted-foreground font-medium'
+                  )}>
+                    {cat.displayName}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         )}
 
-        {/* Top Sellers */}
-        {sellers.length > 0 && !searchQuery && (
-          <div className="mt-8">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-base">⭐</span>
-              <h3 className="font-semibold text-sm">
-                Top Sellers in {categoryInfo?.displayName || category}
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {sellers.slice(0, 5).map((seller) => (
-                <SellerCard key={seller.id} seller={seller as any} />
+        {/* Right product grid */}
+        <div className="flex-1 p-2 pb-6 overflow-y-auto">
+          {isLoadingProducts ? (
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-48 w-full rounded-xl" />
               ))}
             </div>
-          </div>
-        )}
+          ) : displayProducts.length > 0 ? (
+            <>
+              <p className="text-[10px] text-muted-foreground mb-2 px-1">
+                {displayProducts.length} item{displayProducts.length !== 1 ? 's' : ''}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {displayProducts.map((product) => (
+                  <ProductListingCard
+                    key={product.id}
+                    product={product as any}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <span className="text-3xl mb-3 block">{categoryInfo?.icon}</span>
+              <h3 className="font-semibold text-sm mb-1">No items found</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                {searchQuery ? 'Try a different search' : 'No products in this category yet'}
+              </p>
+              {!searchQuery && (
+                <Link to="/become-seller">
+                  <Button variant="outline" size="sm" className="text-xs">Be the first to sell here!</Button>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-
     </AppLayout>
   );
 }
