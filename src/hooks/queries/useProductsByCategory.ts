@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductWithSeller } from '@/components/product/ProductListingCard';
@@ -13,18 +13,24 @@ interface CategoryGroup {
 
 export function useProductsByCategory(limit = 50) {
   const { effectiveSocietyId } = useAuth();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['products-by-category', effectiveSocietyId, limit],
     queryFn: async (): Promise<CategoryGroup[]> => {
-      // Fetch category configs
-      const { data: configs } = await supabase
-        .from('category_config')
-        .select('category, display_name, icon, supports_cart, parent_group')
-        .eq('is_active', true)
-        .order('display_order');
+      // Try to use cached category configs (shared with useCategoryConfigs / useCategoryBehavior)
+      let configs: any[] | undefined = queryClient.getQueryData(['category-configs']);
 
-      // Fetch products with seller info
+      // If not cached, fetch configs in parallel with products
+      const configPromise = configs
+        ? Promise.resolve(configs)
+        : supabase
+            .from('category_config')
+            .select('category, display_name, icon, supports_cart, parent_group')
+            .eq('is_active', true)
+            .order('display_order')
+            .then(({ data }) => data || []);
+
       let query = supabase
         .from('products')
         .select(`
@@ -43,7 +49,11 @@ export function useProductsByCategory(limit = 50) {
         query = query.eq('seller.society_id', effectiveSocietyId);
       }
 
-      const { data: products, error } = await query;
+      const [resolvedConfigs, { data: products, error }] = await Promise.all([
+        configPromise,
+        query,
+      ]);
+
       if (error) throw error;
 
       const approved = (products || [])
@@ -59,7 +69,10 @@ export function useProductsByCategory(limit = 50) {
 
       // Group by category
       const configMap = new Map(
-        (configs || []).map((c: any) => [c.category, c])
+        (resolvedConfigs || []).map((c: any) => [
+          c.category,
+          { parent_group: c.parent_group || c.parentGroup, display_name: c.display_name || c.displayName, icon: c.icon },
+        ])
       );
 
       const grouped: Record<string, ProductWithSeller[]> = {};
@@ -69,7 +82,6 @@ export function useProductsByCategory(limit = 50) {
         grouped[cat].push(product);
       }
 
-      // Build ordered result using config order
       const result: CategoryGroup[] = [];
       for (const [category, items] of Object.entries(grouped)) {
         const cfg = configMap.get(category);

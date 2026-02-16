@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ParentGroupRow {
@@ -30,28 +31,19 @@ export interface ParentGroupInfo {
 }
 
 export function useParentGroups() {
-  const [groups, setGroups] = useState<ParentGroupRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetchGroups();
-  }, []);
-
-  const fetchGroups = async () => {
-    try {
+  const { data: groups = [], isLoading, refetch } = useQuery({
+    queryKey: ['parent-groups'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('parent_groups')
         .select('*')
         .order('sort_order');
 
       if (error) throw error;
-      setGroups((data as ParentGroupRow[]) || []);
-    } catch (error) {
-      console.error('Error fetching parent groups:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return (data as ParentGroupRow[]) || [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes — this data rarely changes
+  });
 
   // Map to the same shape as the old PARENT_GROUPS constant for easy migration
   const parentGroupInfos: ParentGroupInfo[] = useMemo(() => {
@@ -91,7 +83,7 @@ export function useParentGroups() {
     groups,
     parentGroupInfos,
     isLoading,
-    refresh: fetchGroups,
+    refresh: refetch,
     getGroupBySlug,
     getLayoutType,
     layoutMap,
