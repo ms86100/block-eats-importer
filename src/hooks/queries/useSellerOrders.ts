@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const PAGE_SIZE = 20;
 
-interface SellerOrderStats {
+interface SellerDashboardStats {
   totalOrders: number;
   pendingOrders: number;
   completedOrders: number;
@@ -15,11 +15,14 @@ interface SellerOrderStats {
   weekEarnings: number;
 }
 
+/**
+ * Consolidated seller dashboard stats — merges old useSellerOrderStats + useSellerOrderFilterCounts
+ * into a single query with 3 lightweight DB calls instead of 15.
+ */
 export function useSellerOrderStats(sellerId: string | null) {
   return useQuery({
-    queryKey: ['seller-order-stats', sellerId],
-    queryFn: async (): Promise<SellerOrderStats> => {
-      // Use count queries instead of downloading all rows
+    queryKey: ['seller-dashboard-stats', sellerId],
+    queryFn: async (): Promise<SellerDashboardStats> => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
@@ -29,44 +32,92 @@ export function useSellerOrderStats(sellerId: string | null) {
       weekStart.setHours(0, 0, 0, 0);
       const weekISO = weekStart.toISOString();
 
-      const [
-        { count: totalOrders },
-        { count: pendingOrders },
-        { count: completedOrders },
-        { count: preparingOrders },
-        { count: readyOrders },
-        { count: todayOrders },
-        { data: earningsData },
-        { data: todayEarningsData },
-        { data: weekEarningsData },
-      ] = await Promise.all([
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).not('status', 'in', '("completed","cancelled")'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'completed'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'preparing'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'ready'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).gte('created_at', todayISO),
-        supabase.from('orders').select('total_amount').eq('seller_id', sellerId!).eq('status', 'completed'),
-        supabase.from('orders').select('total_amount').eq('seller_id', sellerId!).eq('status', 'completed').gte('created_at', todayISO),
-        supabase.from('orders').select('total_amount').eq('seller_id', sellerId!).eq('status', 'completed').gte('created_at', weekISO),
-      ]);
+      // Single query: fetch status + total_amount + created_at for all seller orders
+      // With 1-2 users this is tiny; even at scale the seller's own orders are bounded
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('status, total_amount, created_at')
+        .eq('seller_id', sellerId!);
 
-      const sum = (data: any[] | null) => (data || []).reduce((s, o) => s + Number(o.total_amount), 0);
+      const rows = orders || [];
+
+      let totalOrders = 0;
+      let pendingOrders = 0;
+      let completedOrders = 0;
+      let preparingOrders = 0;
+      let readyOrders = 0;
+      let todayOrders = 0;
+      let totalEarnings = 0;
+      let todayEarnings = 0;
+      let weekEarnings = 0;
+
+      for (const row of rows) {
+        totalOrders++;
+        const amt = Number(row.total_amount) || 0;
+        const isToday = row.created_at >= todayISO;
+        const isWeek = row.created_at >= weekISO;
+
+        switch (row.status) {
+          case 'completed':
+            completedOrders++;
+            totalEarnings += amt;
+            if (isToday) todayEarnings += amt;
+            if (isWeek) weekEarnings += amt;
+            break;
+          case 'preparing':
+            preparingOrders++;
+            pendingOrders++;
+            break;
+          case 'ready':
+            readyOrders++;
+            pendingOrders++;
+            break;
+          case 'cancelled':
+            break;
+          default:
+            // placed, accepted, etc. = pending
+            pendingOrders++;
+            break;
+        }
+
+        if (isToday) todayOrders++;
+      }
 
       return {
-        totalOrders: totalOrders || 0,
-        pendingOrders: pendingOrders || 0,
-        completedOrders: completedOrders || 0,
-        preparingOrders: preparingOrders || 0,
-        readyOrders: readyOrders || 0,
-        todayOrders: todayOrders || 0,
-        totalEarnings: sum(earningsData),
-        todayEarnings: sum(todayEarningsData),
-        weekEarnings: sum(weekEarningsData),
+        totalOrders,
+        pendingOrders,
+        completedOrders,
+        preparingOrders,
+        readyOrders,
+        todayOrders,
+        totalEarnings,
+        todayEarnings,
+        weekEarnings,
       };
     },
     enabled: !!sellerId,
-    staleTime: 0,
+    staleTime: 10_000, // 10s — prevents refetch on every tab switch
+  });
+}
+
+/**
+ * Filter counts derived from the same stats query — no extra DB calls needed.
+ */
+export function useSellerOrderFilterCounts(sellerId: string | null) {
+  const { data: stats } = useSellerOrderStats(sellerId);
+
+  return useQuery({
+    queryKey: ['seller-order-filter-counts', sellerId],
+    queryFn: () => ({
+      all: stats?.totalOrders || 0,
+      today: stats?.todayOrders || 0,
+      pending: stats?.pendingOrders || 0,
+      preparing: stats?.preparingOrders || 0,
+      ready: stats?.readyOrders || 0,
+      completed: stats?.completedOrders || 0,
+    }),
+    enabled: !!sellerId && !!stats,
+    staleTime: 10_000,
   });
 }
 
@@ -115,37 +166,6 @@ export function useSellerOrdersInfinite(sellerId: string | null, filter: string 
       return lastPage[lastPage.length - 1]?.created_at;
     },
     enabled: !!sellerId,
-    staleTime: 0,
-  });
-}
-
-export function useSellerOrderFilterCounts(sellerId: string | null) {
-  return useQuery({
-    queryKey: ['seller-order-filter-counts', sellerId],
-    queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-      const [all, todayCount, pending, preparing, ready, completed] = await Promise.all([
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).gte('created_at', todayISO),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).in('status', ['placed', 'accepted']),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'preparing'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'ready'),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId!).eq('status', 'completed'),
-      ]);
-
-      return {
-        all: all.count || 0,
-        today: todayCount.count || 0,
-        pending: pending.count || 0,
-        preparing: preparing.count || 0,
-        ready: ready.count || 0,
-        completed: completed.count || 0,
-      };
-    },
-    enabled: !!sellerId,
-    staleTime: 0,
+    staleTime: 10_000,
   });
 }
