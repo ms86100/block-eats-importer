@@ -174,7 +174,7 @@ export function SellerApplicationReview() {
 
       if (status === 'approved') {
         await supabase.from('user_roles').insert({ user_id: seller.user_id, role: 'seller' });
-        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', seller.id).eq('approval_status', 'pending');
+        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', seller.id).in('approval_status', ['pending', 'draft']);
         await supabase.from('user_notifications').insert({
           user_id: seller.user_id,
           title: '🎉 Congratulations! Your store is approved!',
