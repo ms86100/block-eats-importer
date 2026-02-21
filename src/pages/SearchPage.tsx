@@ -621,7 +621,7 @@ export default function SearchPage() {
                 {/* Quick veg/non-veg toggles */}
                 <button
                   onClick={() => setFilters({ ...filters, isVeg: filters.isVeg === true ? null : true })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
                     filters.isVeg === true
                       ? 'border-accent bg-accent/10 text-accent'
                       : 'border-border bg-background text-foreground'
@@ -634,7 +634,7 @@ export default function SearchPage() {
                 </button>
                 <button
                   onClick={() => setFilters({ ...filters, isVeg: filters.isVeg === false ? null : false })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
                     filters.isVeg === false
                       ? 'border-destructive bg-destructive/10 text-destructive'
                       : 'border-border bg-background text-foreground'
@@ -655,7 +655,7 @@ export default function SearchPage() {
                   <button
                     key={value}
                     onClick={() => setFilters({ ...filters, sortBy: filters.sortBy === value ? null : value })}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
+                    className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
                       filters.sortBy === value
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-background text-foreground'
