@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useNearbyProducts } from '@/hooks/queries/useNearbyProducts';
 
 export default function CategoryGroupPage() {
   const { category } = useParams<{ category: string }>();
@@ -38,10 +39,13 @@ export default function CategoryGroupPage() {
     effectiveSocietyId
   );
 
+  const { data: nearbyProducts } = useNearbyProducts();
+
+  // Extract nearby sellers for this parent group from RPC data
   const { data: topSellers = [] } = useQuery({
     queryKey: ['category-sellers', category, effectiveSocietyId],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('seller_profiles')
         .select(`*, profile:profiles!seller_profiles_user_id_fkey(name, block)`)
         .eq('verification_status', 'approved')
@@ -49,11 +53,6 @@ export default function CategoryGroupPage() {
         .order('rating', { ascending: false })
         .limit(10);
 
-      if (effectiveSocietyId) {
-        query = query.eq('society_id', effectiveSocietyId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return (data as any) || [];
     },
