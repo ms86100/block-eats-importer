@@ -300,8 +300,8 @@ export default function SellerSettingsPage() {
     <AppLayout showHeader={false} showNav={false}>
       <div className="p-4 pb-24 safe-top">
         <div className="flex items-center gap-3 mb-6">
-          <Link to="/seller" className="text-muted-foreground">
-            <ArrowLeft size={24} />
+          <Link to="/seller" className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted shrink-0">
+            <ArrowLeft size={18} />
           </Link>
           <h1 className="text-xl font-bold">Store Settings</h1>
         </div>
@@ -731,7 +731,7 @@ export default function SellerSettingsPage() {
 
       {/* Save Button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t safe-bottom">
-        <Button className="w-full" onClick={handleSave} disabled={isSaving}>
+        <Button className="w-full h-12" onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
           Save Changes
         </Button>
