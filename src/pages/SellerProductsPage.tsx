@@ -355,11 +355,13 @@ export default function SellerProductsPage() {
       <div className="p-4 safe-top">
         <div className="flex items-center justify-between mb-6">
           <Link to="/seller" className="flex items-center gap-2 text-muted-foreground">
-            <ArrowLeft size={20} />
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-muted shrink-0">
+              <ArrowLeft size={18} />
+            </span>
             <span>Back</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setIsBulkOpen(true)}>
+            <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
               <Upload size={16} className="mr-1" />
               Bulk Add
             </Button>
@@ -368,7 +370,7 @@ export default function SellerProductsPage() {
               if (!open) resetForm();
             }}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button>
                   <Plus size={16} className="mr-1" />
                   Add Product
                 </Button>
