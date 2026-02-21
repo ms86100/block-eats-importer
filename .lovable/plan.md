@@ -1,75 +1,48 @@
 
 
-## Fix: License Enforcement in Seller Onboarding
+## Fix: License Upload Shows Premature "Pending Verification" During Onboarding
+
+### Problem
+After uploading a license in Step 3 of the seller onboarding wizard, the `LicenseUpload` component immediately shows a scary admin-review message: "Your license is being reviewed by the admin. Selling is restricted until approved." This is misleading because the seller hasn't even finished onboarding yet.
 
 ### Root Cause
+The `LicenseUpload` component has a single rendering path for `status === 'pending'` that always shows the full admin-review warning. It doesn't distinguish between:
+- **During onboarding**: License just uploaded, seller is still completing steps -- should show a positive confirmation
+- **Post-onboarding**: Seller has submitted everything and is waiting for admin review -- the current warning is appropriate
 
-The admin correctly toggled "Requires License" and "Mandatory" ON for Rentals. The code in Step 4 does check `selectedGroupRow.requires_license` and renders the `LicenseUpload` component. However, the seller never sees it because:
+### Solution
+Add an `isOnboarding` prop to `LicenseUpload` that changes the "pending" state UI during the wizard flow.
 
-1. **No blocking**: The "Review & Submit" button only checks if products exist -- it does NOT check if a mandatory license was uploaded. The seller can skip it entirely.
-2. **Poor visibility**: The license upload card is tucked above the product list in Step 4, easy to scroll past or miss.
-3. **Silent failure possible**: If the `license_type_name` is null (as it is for Rentals -- the admin set the toggle but didn't configure a name), the upload prompt says "Upload null", which is confusing but still functional.
+### Changes
 
-### Proposed Fix (3 changes)
+**File 1: `src/components/seller/LicenseUpload.tsx`**
+- Add `isOnboarding?: boolean` to the props interface
+- When `isOnboarding` is true AND status is `pending`, show a friendly confirmation message like: "License uploaded successfully! You can continue setting up your store." with a green checkmark
+- When `isOnboarding` is false (default), keep the existing admin-review warning as-is
+- Also: when `isOnboarding` is true and status is `pending`, still allow the seller to see what they uploaded (don't hide the upload section entirely)
 
----
+**File 2: `src/pages/BecomeSellerPage.tsx`**
+- Pass `isOnboarding={true}` to the `LicenseUpload` component rendered in Step 3
+- No other changes to the wizard flow, step order, or architecture
 
-### Change 1: Move License Upload to Step 3 (Store Details)
+### What the Seller Will See After This Fix
 
-Move the `LicenseUpload` component from Step 4 (Products) into Step 3 (Store Details), where it logically belongs -- the seller is setting up their business identity, and the license is part of that.
+| Scenario | Before Fix | After Fix |
+|----------|-----------|-----------|
+| Upload license in Step 3 | "Pending Verification -- Selling is restricted until approved" (alarming, feels stuck) | "License uploaded! You can continue setting up your store." (positive, clear) |
+| View license after final submission | Same as above | "Your license is being reviewed by the admin." (appropriate context) |
 
-Place it right after the business detail fields with a clear heading like "Required License" and an explanation.
-
-**File:** `BecomeSellerPage.tsx`
-- Remove `LicenseUpload` from the Step 4 block (lines 711-714)
-- Add it at the end of the Step 3 block, after the store details form fields
-- Keep the Step 5 reminder as-is
-
----
-
-### Change 2: Block Progression When Mandatory License is Missing
-
-Add license status checking so sellers cannot proceed past Step 3 if:
-- The group has `license_mandatory = true`, AND
-- No license record exists or the existing one has status `rejected`
-
-This requires:
-- Fetching the license status for the current seller + group combo
-- Disabling the "Continue" button on Step 3 if the license is mandatory but not uploaded
-- Showing a clear message: "You must upload your [license type] before continuing"
-
-**File:** `BecomeSellerPage.tsx`
-- Add a state variable to track license upload status
-- Query `seller_licenses` table for the current draft seller + group
-- Conditionally disable the Step 3 Continue button
-- Show inline warning text when blocked
-
----
-
-### Change 3: Fallback License Type Name
-
-When an admin enables `requires_license` but doesn't set a `license_type_name`, the UI should gracefully default to "Business License" instead of showing "null".
-
-**File:** `LicenseUpload.tsx`
-- In `fetchData`, after setting config, default `license_type_name` to `"Business License"` if it's null
-- This ensures the upload prompt always shows a readable label
-
----
-
-### Summary of User Experience After Fix
-
-| Step | What Seller Sees |
-|------|-----------------|
-| Step 1 | Choose category (Rentals) |
-| Step 2 | Pick subcategories (Vehicle, Equipment, etc.) |
-| Step 3 | Fill store details + **upload mandatory license** (cannot proceed without it) |
-| Step 4 | Add products (license already handled) |
-| Step 5 | Review -- sees license status confirmation |
+### Testing Plan
+1. Navigate to `/become-seller`
+2. Select a category that requires a license (e.g., Food and Groceries -> Home Food)
+3. Proceed to Step 3 (Store Details)
+4. Enter a business name and wait for draft auto-save
+5. Upload a license document
+6. **Verify**: Friendly success message appears (not the admin-review warning)
+7. **Verify**: "Continue" button is enabled (license status is now `pending`, which satisfies the mandatory check)
+8. Proceed through Steps 4 and 5 to confirm the rest of the flow is unaffected
 
 ### Technical Details
 
-**Files modified:**
-- `src/pages/BecomeSellerPage.tsx` -- move license upload, add blocking logic
-- `src/components/seller/LicenseUpload.tsx` -- fallback label for null license type name
+Only two files are modified. No database changes, no routing changes, no architecture changes. The `isOnboarding` prop defaults to `false` so all existing uses of `LicenseUpload` outside the wizard are unaffected.
 
-**No database changes needed.** The `requires_license` and `license_mandatory` flags are already correctly set for Rentals. The fix is purely in the frontend enforcement and placement.
