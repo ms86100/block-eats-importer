@@ -12,6 +12,7 @@ import { ProductCategory, Product } from '@/types/database';
 import { SORT_OPTIONS, SortKey } from '@/lib/marketplace-constants';
 import { ArrowLeft, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNearbyProducts, mergeProducts } from '@/hooks/queries/useNearbyProducts';
 
 type ProductWithSellerLocal = Product & {
   seller_id: string;
@@ -34,6 +35,7 @@ export default function CategoryPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('relevance');
+  const { data: nearbyProducts } = useNearbyProducts();
 
   // Get all categories in the same parent group for the sidebar
   const categoryInfo = configs.find((c) => c.category === category);
@@ -78,7 +80,13 @@ export default function CategoryPage() {
   };
 
   const displayProducts = useMemo(() => {
-    let filtered = products;
+    // Merge local products with cross-society nearby products for this category
+    const nearbyForCategory = (nearbyProducts || []).filter(
+      (p) => p.category === category
+    );
+    const allProducts = mergeProducts(products as any[], nearbyForCategory);
+
+    let filtered = allProducts;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -92,7 +100,7 @@ export default function CategoryPage() {
       case 'popular': sorted.sort((a, b) => (b.is_bestseller ? 1 : 0) - (a.is_bestseller ? 1 : 0)); break;
     }
     return sorted;
-  }, [products, searchQuery, sortBy]);
+  }, [products, nearbyProducts, category, searchQuery, sortBy]);
 
   return (
     <AppLayout showHeader={false}>
