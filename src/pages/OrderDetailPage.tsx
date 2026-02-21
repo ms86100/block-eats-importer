@@ -418,21 +418,19 @@ export default function OrderDetailPage() {
             {order.status === 'placed' && (
               <Button
                 variant="outline"
-                className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground h-12"
                 onClick={() => setIsRejectionDialogOpen(true)}
                 disabled={isUpdating}
-                size="sm"
               >
-                <XCircle size={14} className="mr-1.5" />
+                <XCircle size={16} className="mr-1.5" />
                 Reject
               </Button>
             )}
             {nextStatus && (
               <Button
-                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 h-12"
                 onClick={() => updateOrderStatus(nextStatus)}
                 disabled={isUpdating}
-                size="sm"
               >
                 {isUpdating ? 'Updating...' : `Mark ${ORDER_STATUS_LABELS[nextStatus].label}`}
                 <ChevronRight size={14} className="ml-1" />
