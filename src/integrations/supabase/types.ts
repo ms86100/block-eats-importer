@@ -161,6 +161,61 @@ export type Database = {
         }
         Relationships: []
       }
+      builder_announcements: {
+        Row: {
+          body: string
+          builder_id: string
+          category: string
+          created_at: string
+          id: string
+          posted_by: string
+          society_id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          builder_id: string
+          category?: string
+          created_at?: string
+          id?: string
+          posted_by: string
+          society_id: string
+          title: string
+        }
+        Update: {
+          body?: string
+          builder_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          posted_by?: string
+          society_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_announcements_builder_id_fkey"
+            columns: ["builder_id"]
+            isOneToOne: false
+            referencedRelation: "builders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_announcements_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_announcements_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       builder_feature_packages: {
         Row: {
           assigned_at: string

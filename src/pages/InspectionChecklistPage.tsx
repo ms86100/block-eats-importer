@@ -388,6 +388,38 @@ export default function InspectionChecklistPage() {
             Submit Inspection Report ({failedCount} issues found)
           </Button>
         )}
+
+        {/* Convert failed items to snags */}
+        {activeChecklist.status === 'submitted' && failedCount > 0 && (
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={async () => {
+              if (!user || !effectiveSocietyId) return;
+              const failedItems = items.filter(i => i.status === 'fail');
+              const snags = failedItems.map(item => ({
+                society_id: effectiveSocietyId,
+                flat_number: activeChecklist.flat_number,
+                reported_by: user.id,
+                category: item.category,
+                description: `${item.item_name}${item.notes ? ': ' + item.notes : ''}`,
+                photo_urls: item.photo_urls || [],
+                status: 'open',
+                sla_deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              }));
+              const { error } = await supabase.from('snag_tickets').insert(snags);
+              if (error) {
+                toast.error('Failed to create snag tickets');
+                console.error(error);
+              } else {
+                toast.success(`${failedItems.length} snag tickets created!`);
+              }
+            }}
+          >
+            <AlertTriangle size={16} className="mr-2" />
+            Convert {failedCount} Failed Items to Snag Tickets
+          </Button>
+        )}
       </div>
     </AppLayout>
   );
