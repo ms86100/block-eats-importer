@@ -199,6 +199,10 @@ export default function VehicleParkingPage() {
                   </div>
                    <div><Label>Vehicle Number (optional)</Label><Input value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} placeholder="e.g. MH-02-AB-1234" /></div>
                    <div><Label>Flat Number (optional)</Label><Input value={slotFlatNumber} onChange={e => setSlotFlatNumber(e.target.value)} placeholder="e.g. A-101" /></div>
+                   <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                     <input type="checkbox" id="visitorSlot" checked={slotType === 'visitor'} onChange={e => setSlotType(e.target.checked ? 'visitor' : 'car')} className="accent-primary" />
+                     <Label htmlFor="visitorSlot" className="text-xs cursor-pointer">Mark as visitor parking slot</Label>
+                   </div>
                   <Button className="w-full" onClick={addSlot} disabled={!slotNumber.trim()}>Add Slot</Button>
                 </div>
               </SheetContent>
