@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limiter.ts";
+import { withAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,30 +13,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Phase 5: Centralized auth
+    const authResult = await withAuth(req, corsHeaders);
+    if (authResult instanceof Response) return authResult;
+    const { userId } = authResult;
 
-    // Verify the requesting user
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user: authUser }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !authUser) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const userId = authUser.id;
+    // Phase 2: Rate limit — 3 per hour
+    const { allowed } = await checkRateLimit(`delete-account:${userId}`, 3, 3600);
+    if (!allowed) return rateLimitResponse(corsHeaders);
 
     // Use service role to delete the auth user
     const supabaseAdmin = createClient(
@@ -42,8 +28,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Delete app data first (profiles, roles, etc. cascade from auth.users via FK)
-    // But we clean up explicitly for tables without cascade
+    // Delete app data first
     const cleanupTables = [
       { table: 'cart_items', column: 'user_id' },
       { table: 'device_tokens', column: 'user_id' },
@@ -85,11 +70,9 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from('seller_profiles').delete().eq('id', sellerProfile.id);
     }
 
-    // Delete user roles and profile
     await supabaseAdmin.from('user_roles').delete().eq('user_id', userId);
     await supabaseAdmin.from('profiles').delete().eq('id', userId);
 
-    // Delete the auth.users record
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteError) {
       console.error('Failed to delete auth user:', deleteError);

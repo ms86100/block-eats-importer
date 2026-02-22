@@ -42,7 +42,6 @@ export function useAuthState() {
           });
           if (!insertError) {
             await supabase.from('user_roles').insert({ user_id: userId, role: 'buyer' });
-            // Re-fetch after profile creation
             const { data: retryData } = await supabase.rpc('get_user_auth_context', { _user_id: userId });
             if (retryData) {
               const retryCtx = retryData as any;
@@ -154,6 +153,44 @@ export function useAuthState() {
 
     return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phase 4: Realtime role change subscriptions
+  useEffect(() => {
+    const userId = state.user?.id;
+    if (!userId) return;
+
+    const roleChannel = supabase
+      .channel(`role-changes-${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_roles',
+        filter: `user_id=eq.${userId}`,
+      }, () => fetchProfile(userId))
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'security_staff',
+        filter: `user_id=eq.${userId}`,
+      }, () => fetchProfile(userId))
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'society_admins',
+        filter: `user_id=eq.${userId}`,
+      }, () => fetchProfile(userId))
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'builder_members',
+        filter: `user_id=eq.${userId}`,
+      }, () => fetchProfile(userId))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(roleChannel);
+    };
+  }, [state.user?.id, fetchProfile]);
 
   return {
     state,

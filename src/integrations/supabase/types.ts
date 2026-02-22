@@ -6049,6 +6049,7 @@ export type Database = {
         Returns: number
       }
       calculate_trust_score: { Args: { _user_id: string }; Returns: number }
+      can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
