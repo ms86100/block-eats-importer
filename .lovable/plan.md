@@ -1,193 +1,323 @@
 
-# Society Layer Feature Enforcement Audit
 
-## Executive Summary
+# Workforce Module Enhancement -- Complete Implementation Plan
 
-The system is approximately **90% correctly gated** after the recent fixes. However, several critical gaps remain that violate the "nothing more, nothing less" principle. This plan identifies every weakness and provides the exact fix for each.
+## Overview
 
----
-
-## Phase 1: Hardcoded and Fallback Logic Findings
-
-### FINDING 1 -- CRITICAL: `isFeatureEnabled` returns `true` when no society context
-
-**File:** `src/hooks/useEffectiveFeatures.ts`, line 70
-
-```
-if (!effectiveSocietyId) return true;
-```
-
-**Risk:** When a user has no society assigned (e.g., profile.society_id is null but they are authenticated), ALL features appear enabled. This is a fail-open condition.
-
-**Verdict:** Medium risk. In practice, authenticated users always have a society_id set during registration. However, edge cases (broken profile, admin without society) could trigger this. The system should fail closed.
-
-**Fix:** Change to return `false` when `effectiveSocietyId` is missing but the user IS authenticated. Only return `true` for truly public/unauthenticated contexts (handled separately by route guards).
+This plan transforms the workforce module from a single-society job system into a multi-society, multi-language, accessibility-first worker marketplace. It covers 9 implementation steps across database, backend functions, and UI changes.
 
 ---
 
-### FINDING 2 -- CRITICAL: RPC error silently returns empty array, treated as "all disabled"
+## Step 1: Database Migration -- New Tables and Columns
 
-**File:** `src/hooks/useEffectiveFeatures.ts`, lines 56-58
+### 1A: `supported_languages` table (admin-configurable)
 
+```text
+CREATE TABLE supported_languages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text UNIQUE NOT NULL,          -- e.g. 'hi', 'en', 'ta', 'bn'
+  name text NOT NULL,                 -- e.g. 'Hindi', 'English'
+  native_name text NOT NULL,          -- e.g. 'हिन्दी', 'English'
+  is_active boolean DEFAULT true,
+  display_order integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);
 ```
-if (error) {
-  console.error('Error fetching effective features:', error);
-  return [];
+
+Seed with initial languages: Hindi, English, Tamil, Telugu, Bengali, Marathi, Kannada, Gujarati, Malayalam, Punjabi.
+
+RLS: Public read (all authenticated users), admin-only write.
+
+### 1B: `preferred_language` on `society_workers`
+
+```text
+ALTER TABLE society_workers
+  ADD COLUMN preferred_language text DEFAULT 'hi';
+```
+
+This stores the worker's chosen language code, referencing `supported_languages.code`.
+
+### 1C: `visibility_scope` and `target_society_ids` on `worker_job_requests`
+
+```text
+ALTER TABLE worker_job_requests
+  ADD COLUMN visibility_scope text NOT NULL DEFAULT 'society',
+  ADD COLUMN target_society_ids uuid[] DEFAULT '{}';
+```
+
+- `visibility_scope`: `'society'` or `'nearby'`
+- `target_society_ids`: specific society UUIDs selected by resident (only populated when scope is `'nearby'`)
+
+Validation trigger to enforce allowed values.
+
+### 1D: `job_tts_cache` table (optional caching)
+
+```text
+CREATE TABLE job_tts_cache (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL REFERENCES worker_job_requests(id) ON DELETE CASCADE,
+  language_code text NOT NULL,
+  summary_text text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(job_id, language_code)
+);
+```
+
+RLS: Authenticated read, system-only write (via edge function).
+
+---
+
+## Step 2: RLS Policies
+
+### 2A: Cross-society job visibility
+
+New SELECT policy on `worker_job_requests` for workers:
+
+```text
+-- Worker can see jobs from own society
+(society_id = get_user_society_id(auth.uid()))
+OR
+-- Worker can see nearby-scoped jobs where their society is in target list
+(visibility_scope = 'nearby'
+ AND get_user_society_id(auth.uid()) = ANY(target_society_ids))
+```
+
+This ensures:
+- Society-scoped jobs: only visible to workers in the same society
+- Nearby-scoped jobs: only visible to workers in explicitly selected societies
+- No blanket radius broadcast -- resident controls exactly which societies
+
+### 2B: `supported_languages` RLS
+
+- SELECT: all authenticated users
+- INSERT/UPDATE/DELETE: platform admins only (`is_admin(auth.uid())`)
+
+### 2C: `job_tts_cache` RLS
+
+- SELECT: all authenticated users (workers need to read cached summaries)
+- INSERT/UPDATE: none (written by edge function via service role)
+
+---
+
+## Step 3: Update `accept_worker_job` RPC
+
+Current logic rejects workers not in the job's society. Updated logic:
+
+```text
+-- For 'society' scope: worker must be in same society (unchanged)
+-- For 'nearby' scope: worker's society must be in target_society_ids
+IF _job.visibility_scope = 'nearby' THEN
+  SELECT * INTO _worker FROM society_workers
+  WHERE user_id = _worker_id
+    AND society_id = ANY(_job.target_society_ids)
+    AND deactivated_at IS NULL;
+ELSE
+  SELECT * INTO _worker FROM society_workers
+  WHERE user_id = _worker_id
+    AND society_id = _job.society_id
+    AND deactivated_at IS NULL;
+END IF;
+```
+
+No distance check needed because `target_society_ids` was already validated at insert time (Step 5).
+
+---
+
+## Step 4: Notification Trigger -- `notify_workers_on_job_posted`
+
+New trigger on `worker_job_requests` AFTER INSERT:
+
+```text
+-- If visibility_scope = 'society':
+--   Notify workers in NEW.society_id matching job_type (or all if 'general')
+-- If visibility_scope = 'nearby':
+--   Notify workers in NEW.society_id + each society in NEW.target_society_ids
+```
+
+Notification payload includes: job ID, job type, society name, urgency, price.
+
+Also enhances the existing acceptance flow: when a worker accepts, insert a notification to the resident with the worker's profile summary (name, photo, phone, society, rating).
+
+---
+
+## Step 5: RPC -- `get_nearby_societies`
+
+New server-side function to fetch nearby societies for the job creation form:
+
+```text
+CREATE FUNCTION get_nearby_societies(_society_id uuid, _radius_km numeric DEFAULT 5)
+RETURNS TABLE(id uuid, name text, distance_km numeric)
+AS $$
+  SELECT s.id, s.name,
+    ROUND(haversine_km(origin.latitude, origin.longitude, s.latitude, s.longitude), 1)
+  FROM societies s, societies origin
+  WHERE origin.id = _society_id
+    AND s.id != _society_id
+    AND s.is_active = true
+    AND s.latitude IS NOT NULL AND s.longitude IS NOT NULL
+    AND haversine_km(origin.latitude, origin.longitude, s.latitude, s.longitude) <= _radius_km
+  ORDER BY distance_km;
+$$
+```
+
+This powers the multi-select checklist in the job creation form.
+
+---
+
+## Step 6: Edge Function -- `generate-job-voice-summary` (Enhanced)
+
+The existing edge function generates Hindi-English summaries. Enhanced version:
+
+**Input changes:**
+- Accept `language` parameter (worker's preferred language code)
+- Accept `society_name` for cross-society context
+
+**AI prompt changes:**
+- Generate summary in the worker's selected language
+- Include society name/origin for cross-society jobs
+- Include all job details: type, location, salary, urgency, schedule, society name
+
+**Caching:**
+- Before calling AI, check `job_tts_cache` for existing summary in this language
+- After generating, insert into `job_tts_cache`
+- Return cached version on subsequent requests
+
+**Speech synthesis:**
+- The edge function returns text summary
+- Client uses browser `SpeechSynthesis` API with the appropriate language voice
+- Fallback: For Capacitor native builds, use the same `SpeechSynthesis` API (supported on both Android and iOS WebView)
+- This is consistent across web and mobile without requiring a third-party TTS service
+
+**Why not server-side audio generation:**
+- Browser SpeechSynthesis is free, instant, and works offline
+- Server-side TTS would require an API key and add latency
+- The AI generates the translated text; the browser reads it aloud
+- If server-side TTS is later needed, the architecture supports swapping in ElevenLabs
+
+---
+
+## Step 7: UI Changes
+
+### 7A: Worker Registration Sheet (`WorkerRegistrationSheet.tsx`)
+
+Add a "Preferred Language" dropdown between Name/Phone and Category/Type sections:
+
+- Fetch languages from `supported_languages` table (query with `is_active = true`, ordered by `display_order`)
+- Display `native_name` in the dropdown (e.g., "हिन्दी", "தமிழ்")
+- Default to `'hi'` (Hindi)
+- Store selected code in `preferred_language` column on insert
+- Add to validation schema
+
+### 7B: Create Job Request Page (`CreateJobRequestPage.tsx`)
+
+Add scope selection section after the Urgency field:
+
+1. **Visibility Scope** -- two tappable cards:
+   - "Within My Society" (default, icon: Building)
+   - "Expand to Nearby Societies" (icon: Globe)
+
+2. **Nearby Society Selector** (shown only when "nearby" is selected):
+   - Call `get_nearby_societies` RPC to fetch nearby societies with distances
+   - Display as a checkbox list: "Society Name (X.X km)"
+   - Resident selects which societies to broadcast to
+   - Store selected IDs in `target_society_ids`
+   - If no nearby societies found, show "No nearby societies within range"
+
+3. **Insert mutation** updated to include `visibility_scope` and `target_society_ids`
+
+### 7C: Worker Jobs Page (`WorkerJobsPage.tsx`)
+
+- Remove `.eq('society_id', effectiveSocietyId)` -- let RLS handle filtering
+- Add origin badge on each job card:
+  - Green badge: "Your Society" (when `job.society_id === effectiveSocietyId`)
+  - Blue badge: "Society Name" (for cross-society jobs, fetched via join)
+- Add **"Listen" button** (Volume2 icon) on each job card:
+  - On tap: calls `generate-job-voice-summary` edge function with job data + worker's preferred language
+  - Shows loading spinner while generating
+  - Uses browser `speechSynthesis.speak()` to read the returned text
+  - Button toggles to "Stop" while playing
+- Join `societies` table to get society name for display
+- Update realtime subscription to remove society filter (RLS handles it)
+
+### 7D: My Workers Page (`MyWorkersPage.tsx`)
+
+- Add a summary card at the top showing count: "3 workers assigned to your flat"
+- Display worker name from `skills.name` field (currently shows `worker_type` only)
+
+### 7E: Job Acceptance Notification Enhancement
+
+When `accept_worker_job` RPC succeeds, the trigger inserts a notification to the resident containing:
+
+```text
+Title: "Worker Accepted Your Job!"
+Body: "[Worker Name] from [Society Name] accepted your [job_type] request"
+Payload: {
+  worker_name, worker_photo_url, worker_phone,
+  worker_society, worker_rating, worker_total_jobs
 }
 ```
 
-**Risk:** If the RPC fails (network error, timeout, DB issue), `features = []` and `featureMap` is empty, so `isFeatureEnabled()` returns `false` for everything. The entire Society page goes blank.
-
-**Verdict:** This fails closed (good), but provides no user feedback. A society with a valid package would see zero features during a temporary outage.
-
-**Fix:** Add an `isError` state to the hook. In `FeatureGate` and `SocietyDashboardPage`, show a "Could not load features -- please retry" message instead of silently hiding everything.
+The resident's in-app notification and push notification will display this structured worker profile summary.
 
 ---
 
-### FINDING 3 -- HIGH: `is_feature_enabled_for_society` RPC fallback defaults to `true`
+## Step 8: Validation Schema Updates (`validation-schemas.ts`)
 
-**File:** Database function `is_feature_enabled_for_society`
+Update `jobRequestSchema`:
 
-```sql
-SELECT COALESCE(
-  (SELECT ef.is_enabled FROM get_effective_society_features(_society_id) ef
-   WHERE ef.feature_key = _feature_key LIMIT 1),
-  true  -- DEFAULTS TO TRUE if not found
-)
+```text
+visibility_scope: z.enum(['society', 'nearby']).default('society'),
+target_society_ids: z.array(z.string().uuid()).default([]),
 ```
 
-**Risk:** This server-side function is used in RLS write-gate policies. If a feature key is not in the package, the `COALESCE` falls back to `true`, meaning the RLS gate is OPEN. This is a **server-side fail-open** condition that completely bypasses the UI enforcement.
+Add validation: if `visibility_scope === 'nearby'`, `target_society_ids` must have at least 1 entry.
 
-**Verdict:** CRITICAL. Even if the UI hides a feature, a crafted API call can write data because the RLS policy defaults to allowing it.
+Update `workerRegistrationSchema`:
 
-**Fix:** Change `COALESCE(..., true)` to `COALESCE(..., false)`.
-
----
-
-## Phase 2: Pages Missing FeatureGate
-
-### Pages with FeatureGate (CORRECTLY GATED -- 23 pages):
-AuthorizedPersonsPage, BulletinPage, DeliveryPartnerDashboardPage, DeliveryPartnerManagementPage, DisputesPage, GateEntryPage, InspectionChecklistPage, MaintenancePage, MyWorkersPage (partial), ParcelManagementPage, PaymentMilestonesPage, SecurityAuditPage, SnagListPage, SocietyDeliveriesPage, SocietyFinancesPage, SocietyNoticesPage, SocietyProgressPage, VehicleParkingPage, VisitorManagementPage, WorkerAttendancePage, WorkerHirePage, WorkerLeavePage, WorkerSalaryPage, WorkforceManagementPage
-
-### FINDING 4 -- HIGH: Pages missing FeatureGate entirely
-
-| Page | Route | Expected Feature Key | Risk |
-|---|---|---|---|
-| `GuardKioskPage` | `/guard-kiosk` | `guard_kiosk` | No FeatureGate wrapper. Route has SecurityRoute but no feature gate. Accessible even if `guard_kiosk` feature is disabled in package. |
-| `WorkerJobsPage` | `/worker/jobs` | `worker_marketplace` | No FeatureGate. Workers can browse jobs even if feature disabled. |
-| `WorkerMyJobsPage` | `/worker/my-jobs` | `worker_marketplace` | No FeatureGate. Workers can see accepted jobs even if feature disabled. |
-| `CreateJobRequestPage` | `/worker-hire/create` | `worker_marketplace` | No FeatureGate. Residents can create job requests even if feature disabled. |
-| `MyWorkersPage` | `/my-workers` | `workforce_management` | No FeatureGate. Shows worker list without checking package. |
-
----
-
-## Phase 3: UI vs DB Cross-Reference
-
-### All 26 `platform_features` keys in database:
-`bulletin`, `construction_progress`, `delivery_management`, `disputes`, `domestic_help`, `finances`, `gate_entry`, `guard_kiosk`, `help_requests`, `inspection`, `maintenance`, `marketplace`, `parcel_management`, `payment_milestones`, `resident_identity_verification`, `security_audit`, `seller_tools`, `snag_management`, `society_notices`, `vehicle_parking`, `visitor_management`, `worker_attendance`, `worker_leave`, `worker_marketplace`, `worker_salary`, `workforce_management`
-
-### All 27 `FeatureKey` values in TypeScript union:
-Same 26 + all match. No mismatch.
-
-### FINDING 5 -- MEDIUM: SocietyDashboardPage ungated items
-
-| Dashboard Item | Has featureKey? | Status |
-|---|---|---|
-| Society Admin | No | Correct -- role-gated, not package-gated |
-| Platform Admin | No | Correct -- role-gated, not package-gated |
-
-These two are intentionally ungated (role-based admin tools, not purchasable features). **No issue.**
-
-### FINDING 6 -- MEDIUM: SocietyQuickLinks has ungated item
-
-**File:** `src/components/home/SocietyQuickLinks.tsx`, line for "Bulletin":
-```
-{ icon: MessageCircle, label: 'Bulletin', to: '/community', color: '...' },
-// No featureKey!
+```text
+preferredLanguage: z.string().min(2).max(10).default('hi'),
 ```
 
-**Risk:** Bulletin link always shows in quick links regardless of package. Dashboard correctly gates it, but quick links bypass.
+---
 
-**Fix:** Add `featureKey: 'bulletin'` to the Bulletin quick link.
+## Step 9: Security Enforcement Summary
+
+| Layer | Enforcement |
+|---|---|
+| Job visibility (SELECT) | RLS: own society OR society in `target_society_ids` |
+| Job creation (INSERT) | RLS: `society_id = get_user_society_id(auth.uid())` (unchanged) |
+| Job acceptance | RPC: validates worker's society against scope + target list |
+| Feature gate (UI) | `FeatureGate` with `worker_marketplace` on all pages |
+| Feature gate (RLS) | `can_access_feature('worker_marketplace')` on write policies |
+| Language config | Admin-only write, public read |
+| TTS cache | System-only write (service role), public read |
+| Nearby societies | Server-side RPC with distance validation |
+
+No worker outside the selected target societies can see or accept the job. RLS is the primary gate, not the UI.
 
 ---
 
-## Phase 4: RLS Write-Gate Coverage
+## File Changes Summary
 
-### Tables with feature-gated RLS policies (CORRECTLY GATED):
-`authorized_persons`, `bulletin_comments`, `bulletin_posts`, `bulletin_rsvps`, `bulletin_votes`, `construction_milestones`, `dispute_comments`, `dispute_tickets`, `help_requests`, `help_responses`, `maintenance_dues`, `snag_tickets`, `society_expenses`, `society_workers`, `visitor_entries`, `worker_flat_assignments`, `worker_job_requests`
-
-### FINDING 7 -- HIGH: Tables missing feature-gated RLS
-
-| Table | Expected Feature Gate | Current RLS |
-|---|---|---|
-| `gate_entries` | `gate_entry` | Has security officer check but no feature gate |
-| `manual_entry_requests` | `gate_entry` | Has security officer check but no feature gate |
-| `worker_attendance_logs` | `worker_attendance` | No feature gate |
-| `worker_leave_records` | `worker_leave` | No feature gate |
-| `worker_salary_records` | `worker_salary` | No feature gate |
-| `worker_ratings` | `workforce_management` | No feature gate |
-| `society_notices` | `society_notices` | No feature gate |
-| `delivery_assignments` | `delivery_management` | No feature gate |
-| `vehicle_registrations` | `vehicle_parking` | No feature gate |
-| `parcel_logs` | `parcel_management` | No feature gate |
-| `inspection_items` | `inspection` | No feature gate |
-| `payment_milestones` | `payment_milestones` | No feature gate |
-
-**Risk:** Even with UI gates, direct API calls can read/write these tables regardless of feature package. The UI gate is necessary but not sufficient.
+| File | Change |
+|---|---|
+| New migration SQL | `supported_languages` table, `preferred_language` column, `visibility_scope` + `target_society_ids` columns, `job_tts_cache` table, `get_nearby_societies` RPC, `notify_workers_on_job_posted` trigger, updated `accept_worker_job` RPC, RLS policies |
+| `src/components/workforce/WorkerRegistrationSheet.tsx` | Add preferred language dropdown |
+| `src/pages/CreateJobRequestPage.tsx` | Add scope selector + nearby society checklist |
+| `src/pages/WorkerJobsPage.tsx` | Remove society filter, add origin badge, add Listen button with TTS |
+| `src/pages/MyWorkersPage.tsx` | Add worker count summary, show worker name |
+| `supabase/functions/generate-job-voice-summary/index.ts` | Add language parameter, caching, society context |
+| `src/lib/validation-schemas.ts` | Add `visibility_scope`, `target_society_ids`, `preferredLanguage` |
+| `src/hooks/useWorkerRole.ts` | Include `preferred_language` in worker profile select |
 
 ---
 
-## Risk Classification Summary
+## Edge Cases
 
-| # | Finding | Severity | Impact |
-|---|---|---|---|
-| 3 | `is_feature_enabled_for_society` COALESCE defaults to `true` | CRITICAL | Server-side fail-open on ALL feature-gated RLS policies |
-| 1 | `isFeatureEnabled` returns `true` with no society context | MEDIUM | Edge case for users without society |
-| 4 | 5 pages missing FeatureGate | HIGH | Routes accessible without package |
-| 6 | SocietyQuickLinks Bulletin ungated | MEDIUM | Bulletin visible in quick links |
-| 7 | 12+ tables missing RLS feature gates | HIGH | Direct API bypass of feature control |
-| 2 | RPC error shows blank page (no user feedback) | LOW | UX issue, but fails closed |
+- **No nearby societies found**: UI shows "No nearby societies within range" and disables the nearby option
+- **Society without coordinates**: excluded from nearby results (handled by `WHERE latitude IS NOT NULL`)
+- **Worker in multiple societies**: RLS uses `get_user_society_id` (primary society); worker sees jobs from their primary society + any jobs targeting it
+- **TTS language not supported by browser**: falls back to default voice; the text summary is still displayed visually
+- **Job expires**: existing `expires_at` column handles this; expired jobs filtered out of worker feed
+- **Admin adds new language**: immediately available in registration dropdown (live query)
 
----
-
-## Fix Plan
-
-### Fix A -- CRITICAL (Database)
-Change `is_feature_enabled_for_society` to default `false`:
-```sql
-CREATE OR REPLACE FUNCTION is_feature_enabled_for_society(...)
-  SELECT COALESCE(..., false)  -- was: true
-```
-
-### Fix B -- HIGH (5 Pages)
-Add `<FeatureGate>` wrapper to:
-- `GuardKioskPage` with `guard_kiosk`
-- `WorkerJobsPage` with `worker_marketplace`
-- `WorkerMyJobsPage` with `worker_marketplace`
-- `CreateJobRequestPage` with `worker_marketplace`
-- `MyWorkersPage` with `workforce_management`
-
-### Fix C -- MEDIUM (SocietyQuickLinks)
-Add `featureKey: 'bulletin'` to the Bulletin entry.
-
-### Fix D -- MEDIUM (useEffectiveFeatures error handling)
-Add `isError` state to the hook. Show retry UI in `FeatureGate` and `SocietyDashboardPage` when features fail to load, instead of silently hiding everything.
-
-### Fix E -- HIGH (RLS feature gates on remaining tables)
-Add `can_access_feature('feature_key')` write-gate policies to the 12 tables listed in Finding 7. This is a single migration with ~36 policies (INSERT/UPDATE/DELETE for each table).
-
-### Fix F -- MEDIUM (isFeatureEnabled no-society fallback)
-For authenticated users with no `effectiveSocietyId`, return `false` instead of `true`. The `true` return should only apply for unauthenticated/public page contexts (which are already handled by route guards redirecting to `/auth`).
-
----
-
-## Post-Fix Guarantees
-
-After implementing all fixes:
-
-1. **Builder sees exactly purchased features** -- enforced by `get_effective_society_features` RPC with no client-side fallback
-2. **Society sees nothing extra** -- all dashboard items, quick links, pages, and routes are feature-gated
-3. **No feature breaks** -- Society Admin and Platform Admin remain role-gated (not package-gated), which is correct for admin tools
-4. **No silent enablement** -- RPC errors show retry UI; missing features default to `false` at both client and server
-5. **Server-side enforcement** -- `is_feature_enabled_for_society` defaults to `false`, meaning even direct API calls respect package boundaries
