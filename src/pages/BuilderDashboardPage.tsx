@@ -11,6 +11,7 @@ import { useBuilderStats } from '@/hooks/queries/useBuilderStats';
 import { BuilderFeaturePlan } from '@/components/builder/BuilderFeaturePlan';
 import { BuilderSocietyFeatures } from '@/components/builder/BuilderSocietyFeatures';
 import { BuilderActionCenter } from '@/components/builder/BuilderActionCenter';
+import { BuilderAnnouncementSheet } from '@/components/builder/BuilderAnnouncementSheet';
 
 interface BuilderSociety {
   id: string;
@@ -152,9 +153,15 @@ export default function BuilderDashboardPage() {
           </Card>
         )}
 
-        {/* Builder Feature Plan */}
+        {/* Builder Feature Plan + Announcement */}
         {managedBuilderIds.length > 0 && (
-          <BuilderFeaturePlan builderId={managedBuilderIds[0]} />
+          <div className="flex items-center justify-between">
+            <BuilderFeaturePlan builderId={managedBuilderIds[0]} />
+            <BuilderAnnouncementSheet
+              societies={societies.map(s => ({ id: s.id, name: s.name }))}
+              builderId={managedBuilderIds[0]}
+            />
+          </div>
         )}
 
         {/* Action Center - Consolidated snags & disputes */}

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Shield, Search, CheckCircle, XCircle, User, Phone, Car, Clock, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkerGateValidation } from '@/components/workforce/WorkerGateValidation';
+import { ExpectedVisitorsList } from '@/components/guard/ExpectedVisitorsList';
 
 interface VerifiedVisitor {
   id: string;
@@ -117,8 +118,9 @@ export default function GuardKioskPage() {
     <AppLayout headerTitle="Guard Kiosk" showLocation={false}>
       <div className="p-4 space-y-4">
         <Tabs defaultValue="visitor">
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="visitor">Visitor OTP</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="visitor">OTP</TabsTrigger>
+            <TabsTrigger value="expected">Expected</TabsTrigger>
             <TabsTrigger value="worker"><Users size={14} className="mr-1" /> Worker</TabsTrigger>
           </TabsList>
 
@@ -242,6 +244,10 @@ export default function GuardKioskPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="expected" className="mt-4">
+            {effectiveSocietyId && <ExpectedVisitorsList societyId={effectiveSocietyId} />}
           </TabsContent>
 
           <TabsContent value="worker" className="mt-4">
