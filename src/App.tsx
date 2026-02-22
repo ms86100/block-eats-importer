@@ -82,6 +82,7 @@ const MyWorkersPage = lazy(() => import("./pages/MyWorkersPage"));
 const WorkerLeavePage = lazy(() => import("./pages/WorkerLeavePage"));
 const WorkerSalaryPage = lazy(() => import("./pages/WorkerSalaryPage"));
 const AuthorizedPersonsPage = lazy(() => import("./pages/AuthorizedPersonsPage"));
+const BuilderInspectionsPage = lazy(() => import("./pages/BuilderInspectionsPage"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -250,6 +251,7 @@ function AppRoutes() {
         <Route path="/worker-leave" element={<ProtectedRoute><WorkerLeavePage /></ProtectedRoute>} />
         <Route path="/worker-salary" element={<ProtectedRoute><WorkerSalaryPage /></ProtectedRoute>} />
         <Route path="/authorized-persons" element={<ProtectedRoute><AuthorizedPersonsPage /></ProtectedRoute>} />
+        <Route path="/builder-inspections" element={<ProtectedRoute><BuilderInspectionsPage /></ProtectedRoute>} />
         <Route path="/become-seller" element={<ProtectedRoute><RouteErrorBoundary sectionName="Seller Onboarding"><BecomeSellerPage /></RouteErrorBoundary></ProtectedRoute>} />
         <Route path="/seller" element={<ProtectedRoute><RouteErrorBoundary sectionName="Seller Dashboard"><SellerDashboardPage /></RouteErrorBoundary></ProtectedRoute>} />
         <Route path="/seller/products" element={<ProtectedRoute><RouteErrorBoundary sectionName="Products"><SellerProductsPage /></RouteErrorBoundary></ProtectedRoute>} />

@@ -412,6 +412,34 @@ export default function InspectionChecklistPage() {
           </Button>
         )}
 
+        {/* Builder Acknowledgement */}
+        {activeChecklist.status === 'submitted' && (activeChecklist as any).builder_acknowledged_at && (
+          <Card className="border-success/30 bg-success/5">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 text-success">
+                <CheckCircle size={16} />
+                <div>
+                  <p className="text-sm font-medium">Builder Acknowledged</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date((activeChecklist as any).builder_acknowledged_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+              {(activeChecklist as any).builder_notes && (
+                <p className="text-xs mt-2 text-muted-foreground">{(activeChecklist as any).builder_notes}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeChecklist.status === 'submitted' && !(activeChecklist as any).builder_acknowledged_at && (
+          <Card className="border-warning/30 bg-warning/5">
+            <CardContent className="p-3 text-center">
+              <p className="text-xs text-warning font-medium">⏳ Awaiting builder acknowledgement</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Convert failed items to snags */}
         {activeChecklist.status === 'submitted' && failedCount > 0 && (
           <Button
