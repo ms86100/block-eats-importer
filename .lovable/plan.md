@@ -1,47 +1,54 @@
 
+## Fix: Categories Page Empty + Search Toggle Still Resetting
 
-## Fix: "Nearby Societies" Default + Toggle Reset Bug
+### Two Root Causes Found
 
-### Problem 1: Default values are wrong
-New users get `browse_beyond_community = false` and `search_radius_km = 5` in the database. They should default to `true` and `10`.
+**Bug 1 — Categories Page shows "Stay tuned" despite nearby sellers existing:**
 
-### Problem 2: Toggle resets when navigating
-The Search page initializes `browseBeyond = false` in local state, then asynchronously loads the real value from the DB. When you navigate away (e.g., tap a category) and return, the component remounts with `false` again, briefly showing the wrong state and fetching wrong data.
+The CategoriesPage calls `useNearbySocietySellers()` with NO arguments (line 35). This hook defaults to `radiusKm = 5`. But the seller is ~5.8 km away, so a 5 km radius misses it. The user's profile has `search_radius_km = 10`, but this value is never passed to the hook. Additionally, the page does a separate redundant DB query for prefs instead of using the auth context `profile`.
 
-### Fix
+**Bug 2 — Search toggle shows OFF then flips ON:**
 
-**Change 1: Database migration** -- Alter column defaults to `true` and `10`, and update all existing profiles that still have the old defaults.
+The fix used `useState(profile?.browse_beyond_community ?? true)`. The problem is `useState` only captures its initial value on the **first render**. When the Search page mounts, `profile` in the auth context may still be `null` (loading). So it falls back to `true` -- which is actually correct. But if profile loads as `null` first, then loads with the real value, `useState` ignores the update. We need a `useEffect` to sync the state when profile finishes loading.
 
-```sql
-ALTER TABLE public.profiles
-  ALTER COLUMN browse_beyond_community SET DEFAULT true;
-ALTER TABLE public.profiles
-  ALTER COLUMN search_radius_km SET DEFAULT 10;
+### Changes
 
--- Update existing users who still have old defaults
-UPDATE public.profiles
-  SET browse_beyond_community = true
-  WHERE browse_beyond_community = false;
-UPDATE public.profiles
-  SET search_radius_km = 10
-  WHERE search_radius_km = 5;
+**File 1: `src/pages/CategoriesPage.tsx`**
+- Remove the separate `useQuery` for user prefs (lines 20-32) -- use `profile` from auth context instead
+- Pass the user's `search_radius_km` to `useNearbySocietySellers(radiusKm, browseBeyond)`
+- Use `useAuth()` to get `profile` directly (already imported)
+
+Before:
+```typescript
+const { user } = useAuth();
+// ... separate DB query for prefs ...
+const browseBeyond = prefs?.browse_beyond_community ?? true;
+const { data: nearbyBands = [] } = useNearbySocietySellers();
 ```
 
-**Change 2: SearchPage.tsx** -- Initialize `browseBeyond` from the auth context profile (which is already loaded) instead of starting at `false` and fetching again. This eliminates the remount-reset bug entirely.
+After:
+```typescript
+const { user, profile } = useAuth();
+const browseBeyond = profile?.browse_beyond_community ?? true;
+const searchRadius = profile?.search_radius_km ?? 10;
+const { data: nearbyBands = [] } = useNearbySocietySellers(searchRadius, browseBeyond);
+```
 
-- Line 105: Change `useState(false)` to `useState(profile?.browse_beyond_community ?? true)`
-- Line 106: Change `useState(10)` to `useState(profile?.search_radius_km ?? 10)`
-- Remove the redundant `useEffect` (lines 109-123) that re-fetches from DB -- the auth context `profile` already has this data.
+**File 2: `src/pages/SearchPage.tsx`**
+- Add a `useEffect` that syncs `browseBeyond` and `searchRadius` when `profile` loads/changes, so the toggle doesn't show a stale initial value
 
-**Change 3: All other components** -- Update fallback defaults from `false`/`5` to `true`/`10` in:
-- `src/components/home/ShopByStoreDiscovery.tsx` (line 20): `?? false` to `?? true`
-- `src/hooks/queries/useNearbyProducts.ts` (line 19): `=== true` to `!== false` (or just `?? true`)
-- `src/pages/CategoriesPage.tsx` (line 34): `?? false` to `?? true`
+```typescript
+useEffect(() => {
+  if (profile) {
+    setBrowseBeyondLocal(profile.browse_beyond_community ?? true);
+    setSearchRadiusLocal(profile.search_radius_km ?? 10);
+  }
+}, [profile]);
+```
 
-### Files Changed
+### Summary
 
-1. **Database migration** -- Change column defaults and backfill existing rows
-2. **`src/pages/SearchPage.tsx`** -- Use profile from auth context, remove redundant DB fetch, fix initial state
-3. **`src/components/home/ShopByStoreDiscovery.tsx`** -- Fix fallback default
-4. **`src/hooks/queries/useNearbyProducts.ts`** -- Fix fallback default
-5. **`src/pages/CategoriesPage.tsx`** -- Fix fallback default
+| Bug | Root cause | Fix |
+|---|---|---|
+| Categories shows "Stay tuned" | `useNearbySocietySellers()` called with default 5 km radius; seller is at 5.8 km | Pass user's radius (10 km) and browseBeyond flag from auth profile |
+| Search toggle resets to OFF | `useState` ignores async profile updates | Add `useEffect` to sync state when profile loads |
