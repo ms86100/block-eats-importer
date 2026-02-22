@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limiter.ts";
+import { withAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +19,7 @@ function generateOTP(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-// Hash OTP with SHA-256 (no bcrypt needed for 4-digit numeric)
+// Hash OTP with SHA-256
 async function hashOTP(otp: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(otp);
@@ -28,6 +30,22 @@ async function hashOTP(otp: string): Promise<string> {
 async function verifyOTP(otp: string, hash: string): Promise<boolean> {
   const computed = await hashOTP(otp);
   return computed === hash;
+}
+
+// HMAC-SHA256 verification for 3PL webhook signatures
+async function verifyHMAC(body: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw", encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+    const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
+    return expected === signature;
+  } catch {
+    return false;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -50,24 +68,28 @@ Deno.serve(async (req) => {
       return await handleWebhook(req, serviceClient);
     }
 
-    // All other actions require auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
-    }
+    // All other actions require auth (Phase 5: centralized)
+    const authResult = await withAuth(req, corsHeaders);
+    if (authResult instanceof Response) return authResult;
+    const { userId } = authResult;
 
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // Phase 2: Rate limiting for authenticated actions
+    const { allowed } = await checkRateLimit(`delivery:${userId}`, 20, 60);
+    if (!allowed) return rateLimitResponse(corsHeaders);
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
+    // Phase 1 Step 3: Feature check before mutations
+    if (['assign', 'update_status', 'complete'].includes(action || '')) {
+      // Get user's society to check feature flag
+      const { data: profile } = await serviceClient
+        .from('profiles').select('society_id').eq('id', userId).single();
+      if (profile?.society_id) {
+        const { data: enabled } = await serviceClient.rpc(
+          'is_feature_enabled_for_society',
+          { _society_id: profile.society_id, _feature_key: 'delivery' }
+        );
+        if (enabled === false) return jsonResponse({ error: 'Delivery feature is disabled for your society' }, 403);
+      }
     }
-    const userId = claimsData.claims.sub as string;
 
     switch (action) {
       case 'assign':
@@ -96,7 +118,6 @@ async function handleAssign(req: Request, db: any, userId: string) {
 
   if (!assignment_id) return jsonResponse({ error: 'assignment_id required' }, 400);
 
-  // Verify user is admin or society admin
   const { data: assignment } = await db
     .from('delivery_assignments')
     .select('id, order_id, society_id, status')
@@ -106,7 +127,6 @@ async function handleAssign(req: Request, db: any, userId: string) {
   if (!assignment) return jsonResponse({ error: 'Assignment not found' }, 404);
   if (assignment.status !== 'pending') return jsonResponse({ error: 'Assignment not in pending status' }, 400);
 
-  // Update assignment
   const { error } = await db
     .from('delivery_assignments')
     .update({
@@ -119,7 +139,6 @@ async function handleAssign(req: Request, db: any, userId: string) {
 
   if (error) return jsonResponse({ error: error.message }, 500);
 
-  // Log tracking event
   await db.from('delivery_tracking_logs').insert({
     assignment_id,
     status: 'assigned',
@@ -152,15 +171,12 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
 
   if (status === 'picked_up') {
     updateData.pickup_at = new Date().toISOString();
-    // Generate OTP for delivery completion
     const otp = generateOTP();
     updateData.otp_hash = await hashOTP(otp);
-    updateData.otp_expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
+    updateData.otp_expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-    // Get order + buyer info for visitor entry
     const { data: order } = await db.from('orders').select('buyer_id').eq('id', assignment.order_id).single();
     if (order) {
-      // Send OTP to buyer via notification
       await db.from('notification_queue').insert({
         user_id: order.buyer_id,
         title: '🔑 Delivery OTP',
@@ -170,7 +186,6 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
         payload: { orderId: assignment.order_id, deliveryStatus: 'picked_up' },
       });
 
-      // Get rider info & buyer profile for gate pre-registration
       const { data: asgn } = await db
         .from('delivery_assignments')
         .select('rider_name, rider_phone, society_id')
@@ -184,8 +199,7 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
         .single();
 
       if (asgn && buyer) {
-        // Create visitor_entries record so delivery rider shows in Guard Kiosk "Expected" tab
-        const visitorOtp = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit for gate
+        const visitorOtp = String(Math.floor(100000 + Math.random() * 900000));
         await db.from('visitor_entries').insert({
           society_id: asgn.society_id,
           resident_id: buyer.id,
@@ -198,10 +212,9 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
           status: 'expected',
           is_preapproved: true,
           otp_code: visitorOtp,
-          otp_expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+          otp_expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         });
 
-        // Notify buyer with gate OTP for the delivery rider
         await db.from('notification_queue').insert({
           user_id: buyer.id,
           title: '🏠 Delivery Rider Gate OTP',
@@ -213,20 +226,16 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
       }
     }
 
-    // Also update order status to picked_up
     await db.from('orders').update({ status: 'picked_up' }).eq('id', assignment.order_id);
   }
 
   if (status === 'failed') {
     updateData.failed_reason = note || 'Delivery failed';
     updateData.attempt_count = (assignment as any).attempt_count + 1;
-    // Update order to returned
     await db.from('orders').update({ status: 'returned' }).eq('id', assignment.order_id);
   }
 
   if (status === 'at_gate') {
-    // Update the visitor_entries record (created at picked_up) to mark arrival
-    // Also notify buyer that rider is at gate
     const { data: asgn } = await db
       .from('delivery_assignments')
       .select('rider_name, order_id, society_id')
@@ -255,7 +264,6 @@ async function handleUpdateStatus(req: Request, db: any, userId: string) {
 
   if (error) return jsonResponse({ error: error.message }, 500);
 
-  // Log tracking
   await db.from('delivery_tracking_logs').insert({
     assignment_id,
     status,
@@ -288,31 +296,26 @@ async function handleComplete(req: Request, db: any, userId: string) {
 
   if (!assignment.otp_hash) return jsonResponse({ error: 'No OTP set for this delivery' }, 400);
 
-  // Check OTP expiry
   if (assignment.otp_expires_at && new Date(assignment.otp_expires_at) < new Date()) {
     return jsonResponse({ error: 'OTP has expired' }, 400);
   }
 
-  // Verify OTP
   const isValid = await verifyOTP(otp, assignment.otp_hash);
   if (!isValid) return jsonResponse({ error: 'Invalid OTP' }, 400);
 
-  // Mark delivered
   const { error } = await db
     .from('delivery_assignments')
     .update({
       status: 'delivered',
       delivered_at: new Date().toISOString(),
-      otp_hash: null, // Clear OTP
+      otp_hash: null,
     })
     .eq('id', assignment_id);
 
   if (error) return jsonResponse({ error: error.message }, 500);
 
-  // Update order status to delivered
   await db.from('orders').update({ status: 'delivered' }).eq('id', assignment.order_id);
 
-  // Log tracking
   await db.from('delivery_tracking_logs').insert({
     assignment_id,
     status: 'delivered',
@@ -347,11 +350,47 @@ async function handleTrack(_req: Request, db: any, userId: string) {
   return jsonResponse({ assignment, tracking_logs: logs || [] });
 }
 
-// Handle 3PL webhooks
+// Phase 3: Handle 3PL webhooks with signature verification
 async function handleWebhook(req: Request, db: any) {
-  // Placeholder for 3PL webhook handling
-  // In production, validate webhook signature from 3PL provider
-  const body = await req.json();
+  // Rate limit webhooks: 60/min per IP
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const { allowed } = await checkRateLimit(`webhook:${clientIp}`, 60, 60);
+  if (!allowed) return rateLimitResponse(corsHeaders);
+
+  const rawBody = await req.text();
+  const signature = req.headers.get('x-webhook-signature');
+
+  // Get 3PL webhook secret from system_settings
+  const { data: setting } = await db
+    .from('system_settings')
+    .select('value')
+    .eq('key', '3pl_webhook_secret')
+    .maybeSingle();
+
+  if (setting?.value) {
+    if (!signature) {
+      return jsonResponse({ error: 'Missing webhook signature' }, 401);
+    }
+    const isValid = await verifyHMAC(rawBody, signature, setting.value);
+    if (!isValid) {
+      // Log rejected webhook
+      await db.from('audit_log').insert({
+        action: 'webhook_signature_invalid',
+        target_type: 'delivery_webhook',
+        metadata: { ip: clientIp },
+      }).then(() => {}, () => {});
+      return jsonResponse({ error: 'Invalid webhook signature' }, 401);
+    }
+  }
+  // If no secret configured, allow (backward compat during setup)
+
+  let body: any;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+  }
+
   const { external_tracking_id, status, rider_name, rider_phone, location_lat, location_lng } = body;
 
   if (!external_tracking_id || !status) {
@@ -370,7 +409,6 @@ async function handleWebhook(req: Request, db: any) {
   if (rider_name) updateData.rider_name = rider_name;
   if (rider_phone) updateData.rider_phone = rider_phone;
 
-  // Map 3PL status to internal status
   const statusMap: Record<string, string> = {
     'assigned': 'assigned',
     'picked_up': 'picked_up',
@@ -392,7 +430,6 @@ async function handleWebhook(req: Request, db: any) {
     await db.from('delivery_assignments').update(updateData).eq('id', assignment.id);
   }
 
-  // Log
   await db.from('delivery_tracking_logs').insert({
     assignment_id: assignment.id,
     status: internalStatus || status,
@@ -408,11 +445,8 @@ async function handleWebhook(req: Request, db: any) {
 // Calculate delivery fee based on society config
 async function handleCalculateFee(req: Request, db: any, userId: string) {
   const url = new URL(req.url);
-  const orderId = url.searchParams.get('order_id');
   const orderValue = parseFloat(url.searchParams.get('order_value') || '0');
-  const societyId = url.searchParams.get('society_id');
 
-  // Read delivery fee config from system_settings
   const { data: settingsRows } = await db
     .from('system_settings')
     .select('key, value')
@@ -431,7 +465,7 @@ async function handleCalculateFee(req: Request, db: any, userId: string) {
   }
 
   const deliveryFee = baseFee;
-  const partnerPayout = Math.round(deliveryFee * 0.7); // 70% to partner
+  const partnerPayout = Math.round(deliveryFee * 0.7);
   const platformMargin = deliveryFee - partnerPayout;
 
   return jsonResponse({ delivery_fee: deliveryFee, partner_payout: partnerPayout, platform_margin: platformMargin, free_delivery: false });
