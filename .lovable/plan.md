@@ -1,81 +1,91 @@
 
 
-# Admin-Controlled Attribute Block Management
+# Unified Categories & Attributes Admin Experience
 
-## Current State
+## Problem
+1. The "Attach to Categories" section in the attribute block editor only shows emojis without category names
+2. Categories and Attributes live in separate tabs, making it hard to see how they relate
+3. The admin has to mentally map between two disconnected screens
 
-The system already has all the foundational pieces:
-- `attribute_block_library` table stores blocks with `block_type`, `display_name`, `schema` (fields array), `category_hints`, `renderer_type`, `is_active`
-- `AttributeBlockBuilder` on the seller side strictly filters blocks by category -- sellers only see blocks matching their product category
-- Sellers cannot create blocks; they can only select from the library and fill in values
-- The `CategoryManager` in the admin panel manages categories with full CRUD
+## Solution
 
-**What is missing**: There is no admin UI to create, edit, or delete attribute blocks. Currently, blocks are seeded via database migrations only. The admin needs a dedicated management interface.
+Merge the "Categories" and "Attributes" tabs into a single **"Catalog"** tab that presents a unified, card-based interface showing categories with their linked attribute blocks.
 
-## Plan
+### Layout Design
 
-### 1. New Component: `AdminAttributeBlockManager`
+```text
+┌─────────────────────────────────────────┐
+│  Catalog                                │
+│  ┌─ Categories ─┬─ Attributes ─┐       │
+│  │  (sub-tabs within the page)  │       │
+│  └──────────────────────────────┘       │
+│                                         │
+│  [Categories sub-tab]                   │
+│  ┌─────────────────────────────────┐    │
+│  │ 🍕 Home Food          [Edit]   │    │
+│  │ 3 attribute blocks attached     │    │
+│  │ ┌────────┐ ┌────────┐ ┌──────┐ │    │
+│  │ │Food Det│ │Allergen│ │Nutri │ │    │
+│  │ └────────┘ └────────┘ └──────┘ │    │
+│  └─────────────────────────────────┘    │
+│  ┌─────────────────────────────────┐    │
+│  │ 👗 Clothing            [Edit]   │    │
+│  │ 2 attribute blocks attached     │    │
+│  │ ┌────────┐ ┌────────┐          │    │
+│  │ │Size/Fit│ │Material│          │    │
+│  │ └────────┘ └────────┘          │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  [Attributes sub-tab]                   │
+│  (existing AdminAttributeBlockManager)  │
+│  - with fixed category label display    │
+└─────────────────────────────────────────┘
+```
 
-A new admin component placed in the Settings tab (alongside `CategoryManager` and `SubcategoryManager`) that provides full CRUD for attribute blocks.
+### Changes
 
-**Features:**
-- **List view**: Shows all blocks grouped by category, with active/inactive toggle
-- **Create block**: Form with fields for `display_name`, `block_type` (auto-generated from name), `icon`, `description`, `renderer_type`, and category assignment (multi-select from existing categories)
-- **Edit block**: Modify any field including the schema (add/remove/reorder fields)
-- **Schema builder**: A sub-form that lets the admin define each field in the block's schema:
-  - Field key (auto-generated from label)
-  - Field label
-  - Field type (dropdown: text, number, select, tag_input, boolean, textarea, date)
-  - Options (shown only when type is "select" -- comma-separated or tag input)
-  - Placeholder text
-- **Delete/deactivate**: Soft-delete via `is_active = false`
-- **Category attachment**: Multi-select of categories from `category_config` to populate `category_hints`
+#### 1. `src/pages/AdminPage.tsx`
+- Remove both the "Categories" and "Attributes" tabs from the navigation
+- Add a single **"Catalog"** tab in their place (keeps the grid at the same column count)
+- The Catalog tab content renders a new `AdminCatalogManager` component
 
-### 2. Integration into Admin Panel
+#### 2. New: `src/components/admin/AdminCatalogManager.tsx`
+A unified component with internal sub-tabs:
 
-Add an "Attributes" tab to the admin `TabsList` in `AdminPage.tsx`, rendering `AdminAttributeBlockManager`.
+**"Categories" sub-tab:**
+- Renders `CategoryManager` and `SubcategoryManager` as before
+- Below each category card, shows linked attribute block badges with animated entry (framer-motion `AnimatePresence`)
+- Each badge is clickable to jump to that block's edit sheet
+- Visual connection: attribute count shown per category
 
-### 3. No Database Changes Required
+**"Attributes" sub-tab:**
+- Renders `AdminAttributeBlockManager` (existing component)
+- Provides a cohesive feel within the same page
 
-The `attribute_block_library` table already has all needed columns (`block_type`, `display_name`, `schema`, `category_hints`, `renderer_type`, `icon`, `description`, `display_order`, `is_active`). The admin UI will use standard Supabase CRUD operations on this existing table.
+**"Overview" sub-tab (default):**
+- A visual mapping view: categories listed as cards, each showing its attached attribute blocks as nested pill badges
+- Clicking a category expands to show block details
+- Clicking a block opens the edit sheet
+- Uses framer-motion for expand/collapse animations
 
-## Files to Change
+#### 3. `src/components/admin/AdminAttributeBlockManager.tsx`
+- Fix the category display bug: the `categories` query returns objects where `display_name` may be coming through correctly but the rendering context might be empty if category_config has no data loaded yet
+- Add a loading state for the category checkbox list
+- Ensure each checkbox label shows `{c.icon} {c.display_name}` with a fallback to the slug
+
+### Technical Details
+
+- **Framer Motion** animations: `layout` prop on cards, `AnimatePresence` for block badges appearing/disappearing
+- **Sub-tabs**: Uses the existing `Tabs` component nested inside the Catalog tab content
+- **Data flow**: `AdminCatalogManager` fetches both `category_config` and `attribute_block_library`, then cross-references `category_hints` to build the mapping view
+- The attribute block sheet (create/edit) remains a bottom sheet as currently implemented
+- No database changes required
+
+### Files to Change
 
 | File | Action | What Changes |
 |------|--------|-------------|
-| `src/components/admin/AdminAttributeBlockManager.tsx` | Create | Full CRUD UI for attribute blocks with schema builder |
-| `src/pages/AdminPage.tsx` | Edit | Add "Attributes" tab, import and render the new component |
-
-## Technical Details
-
-### Schema Builder Sub-Form
-
-When creating or editing a block, the admin builds the `schema.fields` array visually:
-
-```text
-+------------------------------------------+
-| Field 1                                  |
-| Label: [Cuisine Type    ]                |
-| Type:  [select ▼]                        |
-| Options: [North Indian] [South Indian]   |
-|          [Chinese] [Continental] [+ Add]  |
-| Placeholder: [Select cuisine...]         |
-| [Remove Field]                           |
-+------------------------------------------+
-| [+ Add Field]                            |
-+------------------------------------------+
-```
-
-Each field generates a schema entry like:
-```text
-{ "key": "cuisine_type", "label": "Cuisine Type", "type": "select", "options": ["North Indian", "South Indian", "Chinese", "Continental"], "placeholder": "Select cuisine..." }
-```
-
-### Category Attachment
-
-The admin selects one or more categories from `category_config` using a multi-select checkbox list. Selected category slugs are stored in `category_hints[]`. When a seller picks that category, the block appears in their "Customize Listing" section.
-
-### Admin Tab Layout
-
-The existing second TabsList row (7 columns) will become 8 columns, adding "Attributes" between "Features" and "Settings".
+| `src/components/admin/AdminCatalogManager.tsx` | Create | Unified catalog page with overview, categories, and attributes sub-tabs |
+| `src/pages/AdminPage.tsx` | Edit | Replace "Categories" + "Attributes" tabs with single "Catalog" tab |
+| `src/components/admin/AdminAttributeBlockManager.tsx` | Edit | Fix category name display in checkbox list, add loading fallback |
 
