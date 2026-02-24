@@ -1,8 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { useTypewriterPlaceholder } from '@/hooks/useTypewriterPlaceholder';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { jitteredStaleTime } from '@/lib/query-utils';
+import { useCategoryConfig } from '@/hooks/queries/useCategoryConfig';
 import { SearchContext } from '@/hooks/useSearchPlaceholder';
 
 const CONTEXT_WORDS: Record<string, string[]> = {
@@ -21,21 +19,15 @@ const CONTEXT_WORDS: Record<string, string[]> = {
 /**
  * Fix #10: Isolated typewriter component — only THIS component re-renders
  * on each tick (every 40-80ms), not the parent Header or page tree.
+ * Fix #13: Derives display names from shared ['category-configs'] cache.
  */
 function TypewriterPlaceholderInner({ context = 'home' }: { context?: SearchContext }) {
-  // Fix #4: Lightweight category-only query instead of useProductsByCategory(200)
-  const { data: categoryNames = [] } = useQuery({
-    queryKey: ['category-display-names'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('category_config')
-        .select('display_name')
-        .eq('is_active', true)
-        .order('display_order');
-      return (data || []).map((c: any) => c.display_name);
-    },
-    staleTime: jitteredStaleTime(15 * 60 * 1000),
-  });
+  // Fix #13: Reuse the shared category-configs cache instead of a separate query
+  const { data: configs = [] } = useCategoryConfig();
+  const categoryNames = useMemo(
+    () => configs.map((c: any) => c.display_name),
+    [configs],
+  );
 
   const words = ['home', 'marketplace', 'search'].includes(context)
     ? (categoryNames.length > 0 ? categoryNames : ['products'])
