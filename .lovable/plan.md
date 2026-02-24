@@ -1,252 +1,100 @@
 
 
-# Seller-Customizable Plug-and-Play Listing Form
+# Attribute Blocks: Onboarding, Admin Visibility, Dialog Width, and Bug Fixes
 
-A system that lets sellers extend their product listing form with optional attribute blocks (variants, size chart, service duration, etc.) without admin intervention, DB migrations, or changes to checkout/payment/delivery logic.
+## Overview
 
----
-
-## Architecture Overview
-
-The system has four layers:
-
-1. **Block Library** (platform-defined, DB table) -- the menu of available blocks
-2. **Seller Form Config** (per-seller, DB table) -- which blocks a seller has chosen and their order
-3. **Seller Form Builder** (drag-and-drop UI) -- where sellers pick and arrange blocks
-4. **Buyer Renderer** (dynamic UI) -- renders only the blocks the seller filled in
-
-All custom attribute data is stored in the existing `products.specifications` JSONB column. No new product columns are added.
+This plan addresses four areas:
+1. Add the AttributeBlockBuilder to the onboarding product form (BecomeSellerPage / DraftProductManager)
+2. Show attribute blocks in the admin product approval screen
+3. Widen the Add Product dialog on SellerProductsPage
+4. Fix the `discount_percentage` insertion error (it's a GENERATED ALWAYS column)
+5. Seed ~60 new category-specific attribute blocks for all the categories listed
 
 ---
 
-## Data Model
+## 1. Fix: `discount_percentage` GENERATED ALWAYS Column Error
 
-### New Table: `attribute_block_library`
+**Root Cause:** The `discount_percentage` column is defined as `GENERATED ALWAYS AS (...)` in the database. Attempting to insert or update a value for this column causes a PostgreSQL error. The code in both `SellerProductsPage.tsx` (line 296) and `DraftProductManager.tsx` (line 106-107) tries to set `discount_percentage` on insert/update.
 
-Platform-curated library of reusable attribute blocks.
+**Fix:**
+- `SellerProductsPage.tsx` line 296: Remove `discount_percentage` from the `productData` object sent to Supabase
+- `DraftProductManager.tsx` line 100-113: The insert payload does not include `discount_percentage` (already correct), but confirm no other path sends it
+- Remove `discount_percentage` from `formData` state in SellerProductsPage since it's auto-computed by the DB
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | uuid PK | Block identifier |
-| `block_type` | text UNIQUE NOT NULL | Machine key (e.g. `variants`, `size_chart`, `service_duration`) |
-| `display_name` | text NOT NULL | Human label ("Variants", "Size Chart") |
-| `description` | text | Help text shown to seller |
-| `icon` | text | Emoji or icon name |
-| `category_hints` | text[] | Suggested categories (soft guidance, not enforcement) |
-| `schema` | jsonb NOT NULL | JSON Schema defining the block's data shape and validation rules |
-| `renderer_type` | text NOT NULL | How buyer UI renders it: `key_value`, `table`, `tags`, `badge_list`, `text` |
-| `display_order` | integer DEFAULT 0 | Default sort in library palette |
-| `is_active` | boolean DEFAULT true | Platform can retire blocks without data loss |
-| `created_at` | timestamptz DEFAULT now() | |
+---
 
-Example `schema` for the Variants block:
-```text
-{
-  "type": "object",
-  "properties": {
-    "options": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label": { "type": "string" },
-          "values": { "type": "array", "items": { "type": "string" } }
-        }
-      }
-    }
-  }
-}
+## 2. Integrate AttributeBlockBuilder into Onboarding (DraftProductManager)
+
+**File:** `src/components/seller/DraftProductManager.tsx`
+
+Changes:
+- Import `AttributeBlockBuilder` and `BlockData` from the hooks
+- Add `attributeBlocks` state to the "Add Product" form
+- Render `AttributeBlockBuilder` inside the add-product card, below the image upload / veg toggle area
+- On save, include `specifications: { blocks: attributeBlocks }` in the product insert payload
+- Reset `attributeBlocks` after successful save
+
+---
+
+## 3. Widen the Add Product Dialog
+
+**File:** `src/pages/SellerProductsPage.tsx` (line 417)
+
+Change the DialogContent className from:
+```
+max-h-[90vh] overflow-y-auto
+```
+to:
+```
+max-h-[90vh] overflow-y-auto sm:max-w-2xl
 ```
 
-### New Table: `seller_form_configs`
-
-Stores a seller's chosen block arrangement per category (or default).
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | uuid PK | |
-| `seller_id` | uuid FK -> seller_profiles NOT NULL | |
-| `category` | text NULL | Category-specific config (NULL = default for all categories) |
-| `blocks` | jsonb NOT NULL | Ordered array of `{ block_type, display_order }` |
-| `created_at` | timestamptz DEFAULT now() | |
-| `updated_at` | timestamptz | |
-
-**Unique constraint**: `(seller_id, COALESCE(category, '__default__'))` -- one config per seller per category.
-
-### Storage in `products.specifications` (existing column)
-
-When a seller fills in attribute blocks, the data is saved as:
-
-```text
-{
-  "blocks": [
-    {
-      "type": "variants",
-      "data": {
-        "options": [
-          { "label": "Size", "values": ["S", "M", "L"] },
-          { "label": "Color", "values": ["Red", "Blue"] }
-        ]
-      }
-    },
-    {
-      "type": "service_duration",
-      "data": { "duration_minutes": 60, "unit": "minutes" }
-    }
-  ]
-}
-```
+This makes the dialog 672px wide on desktop (up from the default ~450px), giving more room for attribute blocks while remaining responsive on mobile.
 
 ---
 
-## RLS Policies
+## 4. Admin Visibility: Show Attribute Blocks in Product Approval
 
-### `attribute_block_library`
-- **SELECT**: Public (anyone can read the library)
-- **INSERT/UPDATE/DELETE**: Platform admin only (`is_admin(auth.uid())`)
+**File:** `src/components/admin/AdminProductApprovals.tsx`
 
-### `seller_form_configs`
-- **SELECT**: Owner (`seller_id` matches user's seller profile) or admin
-- **INSERT**: Owner only, with `seller_id` matching their profile
-- **UPDATE**: Owner only
-- **DELETE**: Owner only
+Changes:
+- Update the Supabase query to also fetch `specifications` from products
+- Import `ProductAttributeBlocks` component
+- Below each product's description, render `ProductAttributeBlocks` if specifications exist
+- This gives admins full visibility into seller-added attributes during approval
 
 ---
 
-## Seed Data (12 Blocks)
+## 5. Seed Category-Specific Attribute Blocks
 
-The migration will seed these blocks into `attribute_block_library`:
+**New migration** to insert approximately 60 additional blocks into `attribute_block_library`, covering:
 
-| block_type | display_name | renderer_type | category_hints |
-|-----------|-------------|--------------|----------------|
-| `variants` | Variants | `tags` | clothing, electronics, furniture |
-| `size_chart` | Size Chart | `table` | clothing, footwear |
-| `inventory` | Inventory | `key_value` | groceries, electronics |
-| `service_duration` | Service Duration | `badge_list` | ac_service, plumber, electrician |
-| `pricing_model` | Pricing Model | `key_value` | yoga, carpenter |
-| `location` | Location / Service Area | `text` | plumber, electrician, carpenter |
-| `availability` | Availability Window | `key_value` | home_food, bakery |
-| `delivery_fulfillment` | Delivery and Fulfillment | `badge_list` | groceries, electronics |
-| `custom_attributes` | Custom Details | `key_value` | (all) |
-| `deposit` | Advance / Deposit | `key_value` | furniture, electronics |
-| `return_policy` | Return / Cancellation | `text` | clothing, electronics, furniture |
-| `compliance` | Certifications | `badge_list` | home_food, bakery, beauty |
+| Category Group | Categories | Blocks Added |
+|---|---|---|
+| Food | home_food, bakery, snacks, groceries | cuisine_type, portion_size, item_type_bakery, ingredients_allergens, freshness, snack_type, shelf_life, grocery_category, brand, expiry_date |
+| Beverages | beverages | beverage_type, temperature_served, volume |
+| Classes | tuition, yoga, dance, music, art_craft, language, fitness, coaching | subject, grade_level, mode_of_delivery, session_duration, schedule, yoga_type, skill_level, batch_timing, dance_style, instrument_type, craft_type, materials_included, language_taught, proficiency_level, fitness_type, coaching_subject, target_exam |
+| Home Services | electrician, plumber, carpenter, ac_service, pest_control, appliance_repair, maid_service, cook, driver | service_type, visit_fee, estimated_duration, service_area, certification_experience, material_handled, ac_type, brand_supported, pest_type, area_coverage, chemicals_used, warranty_period, appliance_type, issue_type, work_type_maid, frequency, working_hours, cuisine_type_cook, meal_type, vehicle_type, license_type, shift_duration |
+| Personal Care | tailoring, laundry, beauty, mehendi, salon | garment_type, stitching_type, fabric_provided, measurement_method, laundry_type, price_per_unit, turnaround_time, pickup_drop, design_type_mehendi, coverage_area, occasion, gender_served |
+| Professional | tax_consultant, it_support, tutoring, resume_writing | qualification, years_experience, consultation_mode, device_supported, response_time, resume_type, revisions_included, delivery_format |
+| Rentals | equipment_rental, vehicle_rental, party_supplies, baby_gear | equipment_type, rental_duration, security_deposit, pickup_location, fuel_policy, damage_policy, age_suitability, hygiene_assurance |
+| Buy and Sell | furniture, electronics, books, toys, kitchen, clothing | furniture_type, dimensions, material_condition, device_type, key_specifications, warranty_status, book_title, author, edition, toy_type, age_range, safety_standard, item_type_kitchen, capacity_size, usage_type, clothing_category, size, color, fabric, fit |
+| Events | catering, decoration, photography, dj_music | guest_capacity, cuisine_type_catering, event_type, theme, materials_included_event, setup_time, deliverables, equipment_used, turnaround_time_photo, music_genre |
+| Pet Services | pet_food, pet_grooming, pet_sitting, dog_walking | pet_type, food_type_pet, grooming_type, stay_type, feeding_included, dog_size, walk_duration, area_covered |
+| Property | flat_for_rent, roommate, parking | bhk_configuration, furnishing_status, rent_amount, room_type, rent_share, occupancy_type, gender_preference, parking_type, vehicle_supported, monthly_charge |
+| Donation | puja | puja_type, puja_occasion, puja_inclusions |
 
----
-
-## UI Components
-
-### 1. Seller Form Builder (`src/components/seller/AttributeBlockBuilder.tsx`)
-
-Shown inside the existing product creation/edit dialog in `SellerProductsPage.tsx`, below the base form fields.
-
-- Fetches `attribute_block_library` and `seller_form_configs` for the current seller
-- Displays a **collapsible "Customize Listing" section** with:
-  - **Active blocks**: Drag-and-drop sortable list (using existing `@dnd-kit` dependency)
-  - **Add block button**: Opens a sheet/popover showing available blocks filtered by category hints (soft -- all blocks are always available)
-- Each active block expands to show its form fields (generated from the block's `schema`)
-- Seller can remove any block at any time
-- On save, the block arrangement is persisted to `seller_form_configs` and the filled data to `products.specifications`
-
-### 2. Block Form Renderer (`src/components/seller/AttributeBlockForm.tsx`)
-
-Takes a block's `schema` and renders the appropriate form inputs:
-- `string` -> `Input`
-- `array of strings` -> Tag input (comma-separated or chip input)
-- `number` -> `Input type="number"`
-- `boolean` -> `Switch`
-- `object with properties` -> Nested fieldset
-
-This is a small, self-contained component (~80 lines).
-
-### 3. Buyer Attribute Renderer (`src/components/product/ProductAttributeBlocks.tsx`)
-
-Reads `specifications.blocks` from a product and renders each block using the `renderer_type`:
-- `key_value` -> Label-value pairs in a grid
-- `table` -> Simple HTML table
-- `tags` -> Row of Badge components
-- `badge_list` -> Row of Badges with icons
-- `text` -> Paragraph
-
-Integrated into `ProductDetailSheet.tsx` inside the expandable "View product details" section, after the description.
-
-### 4. Hook: `useAttributeBlocks` (`src/hooks/useAttributeBlocks.ts`)
-
-Fetches the block library and the current seller's form config. Provides:
-- `blocks` -- all active library blocks
-- `sellerConfig` -- current seller's chosen blocks for the active category
-- `saveConfig(blocks)` -- persist block arrangement
-- `suggestedBlocks(category)` -- blocks matching category hints (sorted first)
+Each block will use `category_hints` for soft guidance and appropriate `renderer_type` and `schema`.
 
 ---
 
-## Integration Points
+## Files to Change
 
-### SellerProductsPage.tsx (existing)
-
-Minimal changes:
-- Import and render `AttributeBlockBuilder` below the existing form fields inside the product dialog
-- On save, include the block data in `specifications` field of the product insert/update
-- On edit, pass existing `specifications.blocks` to the builder for pre-population
-
-### ProductDetailSheet.tsx (existing)
-
-Minimal changes:
-- Import `ProductAttributeBlocks`
-- Render it inside the `showDetails` expandable section, after the description
-- Pass `product.specifications` (fetched from DB -- already part of the product query)
-
-### CategoryPage.tsx / SearchPage.tsx
-
-No changes needed. Custom attributes are display-only on the detail sheet. They do not affect search, sort, or filtering.
-
----
-
-## What This Does NOT Change
-
-- Base form fields remain immutable
-- No new columns on `products` table
-- Checkout, payment, delivery, and order logic are completely unaffected
-- `products.specifications` is never read by any order/payment/delivery code
-- Existing listings with NULL specifications continue to work
-- No admin approval required for sellers to use blocks
-- Removing a block from the form does not delete the data from `specifications` (non-destructive)
-
----
-
-## Files to Create / Modify
-
-| File | Type | Purpose |
-|------|------|---------|
-| New migration SQL | DB | `attribute_block_library` table, `seller_form_configs` table, RLS, seed data |
-| `src/hooks/useAttributeBlocks.ts` | New | Hook for block library + seller config CRUD |
-| `src/components/seller/AttributeBlockBuilder.tsx` | New | Drag-and-drop block builder for seller form |
-| `src/components/seller/AttributeBlockForm.tsx` | New | Schema-driven form renderer per block |
-| `src/components/product/ProductAttributeBlocks.tsx` | New | Buyer-side dynamic block renderer |
-| `src/pages/SellerProductsPage.tsx` | Edit | Integrate block builder into product dialog, save/load specifications |
-| `src/components/product/ProductDetailSheet.tsx` | Edit | Render attribute blocks in detail view |
-| `src/integrations/supabase/types.ts` | Auto | Auto-updated after migration |
-
----
-
-## Technical Details
-
-### Validation Strategy
-
-- **Client-side**: The `AttributeBlockForm` component validates input against the block's JSON Schema before save (using Zod schemas derived from the block schema)
-- **Server-side**: The `specifications` column is JSONB with no DB-level schema enforcement (intentional -- allows forward/backward compatibility)
-- **Unknown block types**: The buyer renderer silently skips any `block.type` it does not recognize (version-safe)
-
-### Performance
-
-- Block library is cached with 10-minute stale time (small, rarely changes)
-- Seller form configs are fetched per-seller session
-- No additional queries on buyer side -- `specifications` is already part of the product row
-
-### Migration Safety
-
-- All changes are additive (new tables, new seed data)
-- No existing table modifications
-- No data migration required
-- Rollback = drop the two new tables
+| File | Action | What Changes |
+|---|---|---|
+| New migration SQL | Create | Seed ~60 new attribute blocks |
+| `src/pages/SellerProductsPage.tsx` | Edit | Widen dialog; remove `discount_percentage` from insert/update payload |
+| `src/components/seller/DraftProductManager.tsx` | Edit | Add AttributeBlockBuilder; include specifications in product insert |
+| `src/components/admin/AdminProductApprovals.tsx` | Edit | Fetch specifications; render ProductAttributeBlocks |
 
