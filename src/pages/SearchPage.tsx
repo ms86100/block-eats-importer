@@ -104,6 +104,7 @@ function toProductWithSellerHelper(p: ProductSearchResult): ProductWithSeller {
 // ── Component ──────────────────────────────────────────
 export default function SearchPage() {
   const { user, effectiveSocietyId, profile } = useAuth();
+  const navigate = useNavigate();
   // Fix #10: Typewriter moved to isolated component (TypewriterPlaceholder)
   const { items: cartItems, addItem, updateQuantity } = useCart();
   const [searchParams] = useSearchParams();
@@ -700,6 +701,7 @@ export default function SearchPage() {
               marketplaceConfig={mc}
               badgeConfigs={badgeConfigs}
               showCount={isSearchActive}
+              onNavigate={navigate}
             />
           ) : isSearchActive ? (
             <EmptyState browseBeyond={browseBeyond} onEnableBrowseBeyond={() => setBrowseBeyond(true)} />
@@ -773,6 +775,7 @@ function ProductGridByCategory({
   marketplaceConfig,
   badgeConfigs,
   showCount,
+  onNavigate,
 }: {
   products: ProductSearchResult[];
   categoryMap: Record<string, { icon: string; displayName: string; color: string }>;
@@ -780,6 +783,7 @@ function ProductGridByCategory({
   marketplaceConfig?: MarketplaceConfig;
   badgeConfigs?: BadgeConfigRow[];
   showCount?: boolean;
+  onNavigate?: (path: string) => void;
 }) {
   const { formatPrice } = useCurrency();
   const grouped = useMemo(() => {
@@ -829,6 +833,7 @@ function ProductGridByCategory({
                   categoryConfigs={categoryConfigs as any}
                   marketplaceConfig={marketplaceConfig}
                   badgeConfigs={badgeConfigs}
+                  onNavigate={onNavigate}
                 />
               ))}
             </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -58,18 +58,17 @@ export function useParentGroups() {
     }));
   }, [groups]);
 
-  // Find a single group by slug
-  const getGroupBySlug = (slug: string | null): ParentGroupInfo | undefined => {
+  // Fix #20: Memoize lookup functions to prevent consumer re-renders
+  const getGroupBySlug = useCallback((slug: string | null): ParentGroupInfo | undefined => {
     if (!slug) return undefined;
     return parentGroupInfos.find((g) => g.value === slug);
-  };
+  }, [parentGroupInfos]);
 
-  // Get layout type for a parent group slug
-  const getLayoutType = (slug: string | null): 'ecommerce' | 'food' | 'service' => {
+  const getLayoutType = useCallback((slug: string | null): 'ecommerce' | 'food' | 'service' => {
     if (!slug) return 'ecommerce';
     const group = groups.find((g) => g.slug === slug);
     return (group?.layout_type as 'ecommerce' | 'food' | 'service') || 'ecommerce';
-  };
+  }, [groups]);
 
   // Build a slug -> layout_type map for fast lookups
   const layoutMap = useMemo(() => {

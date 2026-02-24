@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useState, useMemo, useCallback } from 'react';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProductListingCard, ProductWithSeller } from '@/components/product/ProductListingCard';
 import { SellerCard } from '@/components/seller/SellerCard';
@@ -21,6 +21,7 @@ import { useNearbyProducts } from '@/hooks/queries/useNearbyProducts';
 
 export default function CategoryGroupPage() {
   const { category } = useParams<{ category: string }>();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const subCategory = searchParams.get('sub') as ServiceCategory | null;
 
@@ -247,6 +248,7 @@ export default function CategoryGroupPage() {
                 <ProductListingCard
                   key={product.id}
                   product={product}
+                  onNavigate={navigate}
                 />
               ))}
             </div>

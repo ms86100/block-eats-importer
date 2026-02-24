@@ -1,5 +1,4 @@
 import { useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Minus, Clock, MapPin } from 'lucide-react';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +66,7 @@ interface ProductListingCardProps {
   product: ProductWithSeller;
   layout?: CardLayout;
   onTap?: (product: ProductWithSeller) => void;
+  onNavigate?: (path: string) => void; // Fix #9: Parent provides navigate callback
   className?: string;
   viewOnly?: boolean;
   // Parent provides these (required for perf, defaults used if missing)
@@ -81,13 +81,14 @@ function ProductListingCardInner({
   product,
   layout = 'auto',
   onTap,
+  onNavigate,
   className,
   viewOnly = false,
   categoryConfigs = [],
   marketplaceConfig,
   badgeConfigs = [],
 }: ProductListingCardProps) {
-  const navigate = useNavigate();
+  // Fix #9: Use parent-provided navigate callback instead of useNavigate per card
   const { items, addItem, updateQuantity } = useCart();
   const { impact, selectionChanged } = useHaptics();
 
@@ -146,7 +147,7 @@ function ProductListingCardInner({
     selectionChanged();
     trackClick();
     if (onTap) onTap(product);
-    else navigate(`/seller/${product.seller_id}`);
+    else onNavigate?.(`/seller/${product.seller_id}`);
   };
 
   /* ── Derived values ── */
@@ -350,7 +351,7 @@ function ProductListingCardInner({
       {viewOnly && (
         <div className="px-1.5 pb-1.5">
           <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/seller/${product.seller_id}`); }}
+            onClick={(e) => { e.stopPropagation(); onNavigate?.(`/seller/${product.seller_id}`); }}
             className="w-full border border-primary text-primary font-bold text-[9px] py-1 rounded-md hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             {mc.labels.viewButton}

@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProductListingCard, ProductWithSeller } from '@/components/product/ProductListingCard';
@@ -30,6 +30,7 @@ type ProductWithSellerLocal = Product & {
 
 export default function CategoryPage() {
   const { category } = useParams<{ category: ProductCategory }>();
+  const navigate = useNavigate();
   const { configs } = useCategoryConfigs();
   const { effectiveSocietyId } = useAuth();
   const [products, setProducts] = useState<ProductWithSellerLocal[]>([]);
@@ -254,9 +255,10 @@ export default function CategoryPage() {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {displayProducts.map((product) => (
-                  <ProductListingCard
+                   <ProductListingCard
                     key={product.id}
                     product={product as any}
+                    onNavigate={navigate}
                   />
                 ))}
               </div>

@@ -98,6 +98,7 @@ export function MarketplaceSection() {
         categories={filteredCategories}
         isLoading={loadingLocal}
         onProductTap={handleProductTap}
+        onNavigate={navigate}
         categoryConfigs={categoryConfigs}
         marketplaceConfig={mc}
         badgeConfigs={badgeConfigs}
@@ -119,11 +120,12 @@ export function MarketplaceSection() {
 }
 // ── Product Listings by Category ──
 function ProductListings({
-  categories, isLoading, onProductTap, categoryConfigs, marketplaceConfig, badgeConfigs,
+  categories, isLoading, onProductTap, onNavigate, categoryConfigs, marketplaceConfig, badgeConfigs,
 }: {
   categories: { category: string; parentGroup: string; displayName: string; icon: string; products: ProductWithSeller[] }[];
   isLoading: boolean;
   onProductTap?: (product: ProductWithSeller) => void;
+  onNavigate?: (path: string) => void;
   categoryConfigs?: any[];
   marketplaceConfig?: any;
   badgeConfigs?: any[];
@@ -210,6 +212,7 @@ function ProductListings({
                 <ProductListingCard
                   product={product}
                   onTap={onProductTap}
+                  onNavigate={onNavigate}
                   categoryConfigs={categoryConfigs}
                   marketplaceConfig={marketplaceConfig}
                   badgeConfigs={badgeConfigs}
