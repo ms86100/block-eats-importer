@@ -285,7 +285,7 @@ function ProductListingCardInner({
             ) : (
               <button
                 onClick={handleAdd}
-                className="bg-primary text-primary-foreground font-bold text-[11px] px-5 py-1.5 rounded-lg shadow-[0_2px_8px_hsl(145_83%_36%/0.3)] hover:opacity-90 transition-all duration-100 uppercase tracking-wide active:scale-95"
+                className="bg-primary text-primary-foreground font-bold text-[11px] px-5 py-1.5 rounded-lg border-2 border-card shadow-[0_2px_8px_hsl(145_83%_36%/0.3)] hover:opacity-90 transition-all duration-100 uppercase tracking-wide active:scale-95"
               >
                 {actionConfig.shortLabel}
               </button>
@@ -343,7 +343,7 @@ function ProductListingCardInner({
         )}
 
         <div className="flex items-end gap-1.5 mt-auto">
-          <span className="font-bold text-[15px] text-foreground leading-none">
+          <span className="font-extrabold text-[16px] text-foreground leading-none">
             {mc.currencySymbol}{product.price.toLocaleString()}
           </span>
           {hasDiscount && (
