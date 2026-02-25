@@ -1,233 +1,144 @@
 
 
-# Hardcoding Audit & Remediation Plan
+# Governance Reclassification + Mobile Real-Time Audit
 
-This audit covers all 15 recently-implemented trust/differentiation features plus pre-existing violations found in the same files. Every violation is cataloged with its location, why it breaks configurability, and the DB-backed replacement.
+## Part 1: Ownership Reclassification
 
----
+The current implementation puts all ~55 settings under Admin control in `PlatformSettingsManager.tsx`. This is incorrect. Below is the corrected ownership matrix.
 
-## Audit Findings: 47 Violations Across 12 Files
+### Tier 1: System-Controlled (Code Constants, Not UI-Editable)
 
-### Category A: Hardcoded UI Labels & Copy (28 violations)
+These define how the platform computes things. They should remain as hardcoded defaults in `useMarketplaceLabels.ts` and NOT appear in the Admin UI.
 
-| # | Hardcoded String | File | Line(s) |
-|---|---|---|---|
-| A1 | `"In your society"` | `ProductListingCard.tsx` | 276 |
-| A2 | `"Xm away"` / `"X km away"` format strings | `ProductListingCard.tsx` | 270-271 |
-| A3 | `"Active now"`, `"Xh ago"`, `"Yesterday"` | `ProductListingCard.tsx` | 411-414 |
-| A4 | `"✓ On-time: X%"` | `ProductListingCard.tsx` | 333 |
-| A5 | `"X families ordered this week"` | `ProductListingCard.tsx` | 340 |
-| A6 | `"Notify Me"`, `"Watching"`, `"We'll notify you"`, `"Notify Me When Available"` | `NotifyMeButton.tsx` | 64, 81 |
-| A7 | `"Stable Price (30+ days)"` | `PriceHistoryChart.tsx` | 38, 67 |
-| A8 | `"Active now"`, `"Active Xh ago"`, `"Active yesterday"` | `ProductDetailSheet.tsx` | 21-24 |
-| A9 | `"Your neighbor"` | `ProductDetailSheet.tsx` | 137 |
-| A10 | `"Xm away"` / `"X km away"` | `ProductDetailSheet.tsx` | 139 |
-| A11 | `"This order supports N local businesses in your community"` | `CartPage.tsx` | 195 |
-| A12 | `"Protected by Neighborhood Guarantee — disputes resolved by your society committee"` | `CartPage.tsx` | 186 |
-| A13 | `"Neighborhood Guarantee"` (title) | `CreateDisputeSheet.tsx` | 89 |
-| A14 | `"Your society committee will review this as a neutral party"` | `CreateDisputeSheet.tsx` | 92 |
-| A15 | `"The committee will review within 48 hours."` | `CreateDisputeSheet.tsx` | 68 |
-| A16 | `"Neighborhood Guarantee"` (title) | `DisputeDetailSheet.tsx` | 124 |
-| A17 | `"Your society committee reviews this as a neutral party"` | `DisputeDetailSheet.tsx` | 125 |
-| A18 | `"Community Group Buys"`, `"Pool orders with neighbors for better deals"` | `CollectiveBuyPage.tsx` | 110-111 |
-| A19 | `"No active group buys"`, `"Group buys from your community will appear here"` | `CollectiveBuyPage.tsx` | 122-123 |
-| A20 | `"✓ Target Reached"`, `"Expired"`, `"Join Group Buy"`, `"Leave Group Buy"` | `CollectiveBuyPage.tsx` | 148-179 |
-| A21 | `"Started by"` | `CollectiveBuyPage.tsx` | 195 |
-| A22 | `"What buyers are searching for"` | `DemandInsights.tsx` | 38 |
-| A23 | `"No seller in your society offers these items yet — opportunity!"` | `DemandInsights.tsx` | 57 |
-| A24 | `"No reputation history yet"`, `"Events will appear as orders are completed"` | `SellerReputationTab.tsx` | 62-63 |
-| A25 | `"Reorder from"`, `"Cart rebuilt! Review and checkout."`, `"Items from this order are no longer available"` | `ReorderLastOrder.tsx` | 90, 72, 114 |
-| A26 | `"Popular near you"`, `"New this week"` (discovery section titles) | `MarketplaceSection.tsx` | 118, 133 |
-| A27 | `"30-Day Intelligence"`, `"Active Buyers"`, `"Views"`, `"Conversion"` | `SellerAnalytics.tsx` | 79, 84, 89, 94 |
-| A28 | `"X% platform fee"`, `"Applied on each completed order"` | `SellerAnalytics.tsx` | 107-108 |
-
-### Category B: Hardcoded Dropdown/Enum Options (3 violations)
-
-| # | What | File | Line(s) |
-|---|---|---|---|
-| B1 | Dispute `CATEGORIES` array (`noise`, `parking`, `pet`, `maintenance`, `other`) | `CreateDisputeSheet.tsx` | 17-23 |
-| B2 | Reputation `eventLabels` map (6 event types with labels/colors) | `SellerReputationTab.tsx` | 68-75 |
-| B3 | Dispute status options (`acknowledged`, `under_review`, `resolved`, `escalated`, `closed`) | `DisputeDetailSheet.tsx` | 193-198 |
-
-### Category C: Hardcoded Business Logic Constants (9 violations)
-
-| # | What | File | Line(s) |
-|---|---|---|---|
-| C1 | `completed_order_count > 5` threshold for showing on-time badge | `ProductListingCard.tsx` | 331 |
-| C2 | `30 * 24 * 60 * 60 * 1000` (30 days) stable price threshold | `PriceHistoryChart.tsx` | 31 |
-| C3 | `diffHours < 1` / `< 24` / `< 48` activity bucket thresholds | `ProductListingCard.tsx` | 411-414 |
-| C4 | `7 * 24 * 60 * 60 * 1000` (7 days) for "new this week" | `MarketplaceSection.tsx` | 41 |
-| C5 | `> 3` minimum products to show "Popular near you" | `MarketplaceSection.tsx` | 116 |
-| C6 | `.slice(0, 10)` max items in discovery rows | `MarketplaceSection.tsx` | 44, 51 |
-| C7 | `.limit(30)` price history chart points | `PriceHistoryChart.tsx` | 23 |
-| C8 | `.slice(0, 5)` max demand insights shown | `DemandInsights.tsx` | 41 |
-| C9 | `48` hours SLA warning threshold for disputes | `DisputeDetailSheet.tsx` | 157 |
-
-### Category D: Hardcoded Emojis & Icons (7 violations)
-
-| # | What | File | Line(s) |
-|---|---|---|---|
-| D1 | `💚` emoji for checkout emotional copy | `CartPage.tsx` | 194 |
-| D2 | `🛡️` emoji for neighborhood guarantee | `CartPage.tsx` | 185 |
-| D3 | `👥` emoji for social proof | `ProductListingCard.tsx` | 340 |
-| D4 | `✓` checkmark for on-time badge | `ProductListingCard.tsx` | 333 |
-| D5 | `🛒` fallback cart emoji in search placeholder | Already in MARKETPLACE_FALLBACKS (ok) |
-| D6 | `🛍️` fallback product emoji | `ProductDetailSheet.tsx` | 56, 161 |
-| D7 | `⚠` / `✓` in dispute timeline | `DisputeDetailSheet.tsx` | 151, 159 |
-
----
-
-## Remediation Plan
-
-### Step 1: Expand `system_settings` with new keys (DB migration)
-
-Add the following keys to `system_settings` to back all hardcoded strings:
-
-**Trust Signal Labels:**
-- `label_in_your_society` → "In your society"
-- `label_distance_m_format` → "{distance}m away"
-- `label_distance_km_format` → "{distance} km away"
-- `label_your_neighbor` → "Your neighbor"
-- `label_active_now` → "Active now"
-- `label_active_hours_ago` → "{hours}h ago"
-- `label_active_yesterday` → "Yesterday"
-- `label_on_time_format` → "✓ On-time: {pct}%"
-- `label_social_proof_format` → "👥 {count} {unit} ordered this week"
-- `label_social_proof_singular` → "family"
-- `label_social_proof_plural` → "families"
-- `label_stable_price` → "Stable Price (30+ days)"
-
-**Notify Me Labels:**
-- `label_notify_me` → "Notify Me"
-- `label_notify_watching` → "Watching"
-- `label_notify_watching_long` → "Watching — We'll notify you"
-- `label_notify_me_long` → "Notify Me When Available"
-
-**Checkout Trust Labels:**
-- `label_checkout_community_support` → "This order supports {count} local business{suffix} in your community"
-- `label_checkout_community_emoji` → "💚"
-- `label_neighborhood_guarantee` → "Neighborhood Guarantee"
-- `label_neighborhood_guarantee_desc` → "Your society committee will review this as a neutral party"
-- `label_neighborhood_guarantee_badge` → "Protected by Neighborhood Guarantee — disputes resolved by your society committee"
-- `label_neighborhood_guarantee_emoji` → "🛡️"
-- `label_dispute_sla_notice` → "The committee will review within 48 hours."
-
-**Group Buy Labels:**
-- `label_group_buy_title` → "Community Group Buys"
-- `label_group_buy_subtitle` → "Pool orders with neighbors for better deals"
-- `label_group_buy_empty` → "No active group buys"
-- `label_group_buy_empty_desc` → "Group buys from your community will appear here"
-- `label_group_buy_join` → "Join Group Buy"
-- `label_group_buy_leave` → "Leave Group Buy"
-- `label_group_buy_fulfilled` → "✓ Target Reached"
-
-**Seller Intelligence Labels:**
-- `label_demand_insights_title` → "What buyers are searching for"
-- `label_demand_insights_empty` → "No seller in your society offers these items yet — opportunity!"
-- `label_reputation_empty` → "No reputation history yet"
-- `label_reputation_empty_desc` → "Events will appear as orders are completed"
-
-**Discovery Section Labels:**
-- `label_discovery_popular` → "Popular near you"
-- `label_discovery_new` → "New this week"
-
-**Reorder Labels:**
-- `label_reorder_prefix` → "Reorder from"
-- `label_reorder_success` → "Cart rebuilt! Review and checkout."
-- `label_reorder_unavailable` → "Items from this order are no longer available"
-
-**Business Logic Thresholds:**
-- `on_time_badge_min_orders` → "5"
-- `stable_price_days` → "30"
-- `new_this_week_days` → "7"
-- `discovery_min_products` → "3"
-- `discovery_max_items` → "10"
-- `price_history_max_points` → "30"
-- `demand_insights_max_items` → "5"
-- `dispute_sla_warning_hours` → "48"
-
-**Configurable Enums (new tables or JSON settings):**
-- `dispute_categories_json` → JSON array of `{value, label}` for dispute categories
-- `reputation_event_labels_json` → JSON map of event_type → `{label, color}`
-- `dispute_status_options_json` → JSON array of `{value, label}` for admin status dropdown
-
-### Step 2: Create a new hook `useMarketplaceLabels`
-
-A single hook that fetches all the label keys above via `useSystemSettingsRaw` and returns a typed object. All components will consume labels from this hook instead of inline strings. This keeps the existing `useSystemSettings` focused on core platform config and avoids bloating it further.
-
-### Step 3: Refactor each component
-
-For every file listed in the audit:
-
-1. **Import** `useMarketplaceLabels` (or receive labels via props for memoized components)
-2. **Replace** every hardcoded string with the corresponding label from the hook
-3. **Replace** every hardcoded threshold with the corresponding numeric setting
-4. **Replace** hardcoded dropdown arrays with DB-fetched arrays
-
-### Step 4: Admin UI for label management
-
-Extend the existing `PlatformSettingsManager` component (already in `src/components/admin/PlatformSettingsManager.tsx`) to include grouped sections for:
-- Trust Signal Labels
-- Checkout & Guarantee Labels
-- Group Buy Labels
-- Seller Intelligence Labels
-- Discovery Labels
-- Business Logic Thresholds
-- Dispute Configuration (categories, status options, event labels)
-
-Each setting renders as an editable text input or number input, persisted on change via upsert to `system_settings`.
-
-### Step 5: Verification Checklist
-
-For each remediated item:
-- Stored in `system_settings` table
-- Editable via Admin → Platform Settings UI
-- Reflected dynamically in buyer/seller UI
-- Updates require zero code changes
-- Survives refresh, logout, redeploy
-
----
-
-## Implementation Order
-
-1. **DB Migration**: Insert ~50 new `system_settings` keys with defaults matching current hardcoded values. Add 3 JSON-type settings for dispute categories, reputation labels, dispute statuses.
-2. **New hook**: `useMarketplaceLabels.ts` — fetches all label keys, returns typed object with fallbacks.
-3. **Component refactors** (parallel):
-   - `ProductListingCard.tsx` (A1-A5, C1, C3, D3-D4)
-   - `ProductDetailSheet.tsx` (A8-A10, D6)
-   - `CartPage.tsx` (A11-A12, D1-D2)
-   - `NotifyMeButton.tsx` (A6)
-   - `PriceHistoryChart.tsx` (A7, C2, C7)
-   - `CreateDisputeSheet.tsx` (A13-A15, B1)
-   - `DisputeDetailSheet.tsx` (A16-A17, B3, C9, D7)
-   - `CollectiveBuyPage.tsx` (A18-A21)
-   - `DemandInsights.tsx` (A22-A23, C8)
-   - `SellerReputationTab.tsx` (A24, B2)
-   - `ReorderLastOrder.tsx` (A25)
-   - `MarketplaceSection.tsx` (A26, C4-C6)
-   - `SellerAnalytics.tsx` (A27-A28)
-4. **Admin UI**: Add label/threshold management sections to `PlatformSettingsManager.tsx`.
-
----
-
-## Files to Create / Modify
-
-| File | Action |
+| Setting | Rationale |
 |---|---|
-| `supabase/migrations/...` | New migration: insert ~50 system_settings keys + 3 JSON settings |
-| `src/hooks/useMarketplaceLabels.ts` | **New** — label fetcher hook |
-| `src/components/product/ProductListingCard.tsx` | Replace 8 hardcoded items |
-| `src/components/product/ProductDetailSheet.tsx` | Replace 4 hardcoded items |
-| `src/components/product/NotifyMeButton.tsx` | Replace 4 labels |
-| `src/components/product/PriceHistoryChart.tsx` | Replace 2 labels + 2 thresholds |
-| `src/pages/CartPage.tsx` | Replace 4 labels + 2 emojis |
-| `src/components/disputes/CreateDisputeSheet.tsx` | Replace 3 labels + DB-source categories |
-| `src/components/disputes/DisputeDetailSheet.tsx` | Replace 3 labels + DB-source statuses |
-| `src/pages/CollectiveBuyPage.tsx` | Replace 7 labels |
-| `src/components/seller/DemandInsights.tsx` | Replace 2 labels + 1 threshold |
-| `src/components/seller/SellerReputationTab.tsx` | Replace 2 labels + DB-source event labels |
-| `src/components/seller/SellerAnalytics.tsx` | Replace 4 labels |
-| `src/components/home/ReorderLastOrder.tsx` | Replace 3 labels |
-| `src/components/home/MarketplaceSection.tsx` | Replace 2 labels + 3 thresholds |
-| `src/components/admin/PlatformSettingsManager.tsx` | Add label/threshold management sections |
+| `stable_price_days` | Price stability computation rule |
+| `price_history_max_points` | Chart rendering limit |
+| `reputation_event_labels_json` | Ledger structure tied to trigger logic |
+| `dispute_status_options_json` | Tied to DB enum constraints and workflow logic |
+
+**Action**: Remove these 4 keys from `SETTING_FIELDS` in `PlatformSettingsManager.tsx`. Keep them in `useMarketplaceLabels.ts` DEFAULTS only.
+
+### Tier 2: Admin-Controlled (Keep in Admin UI)
+
+These affect marketplace policy, buyer trust messaging, and discovery behavior. Admin ownership is correct.
+
+| Group | Settings |
+|---|---|
+| **Trust Labels** | `label_in_your_society`, `label_distance_m_format`, `label_distance_km_format`, `label_your_neighbor`, `label_active_now`, `label_active_hours_ago`, `label_active_yesterday`, `label_on_time_format`, `label_social_proof_format`, `label_social_proof_singular`, `label_social_proof_plural`, `label_stable_price` |
+| **Checkout & Guarantee** | `label_checkout_community_support`, `label_checkout_community_emoji`, `label_neighborhood_guarantee`, `label_neighborhood_guarantee_desc`, `label_neighborhood_guarantee_badge`, `label_neighborhood_guarantee_emoji`, `label_dispute_sla_notice` |
+| **Group Buy Labels** | `label_group_buy_title`, `label_group_buy_subtitle`, `label_group_buy_empty`, `label_group_buy_empty_desc`, `label_group_buy_join`, `label_group_buy_leave`, `label_group_buy_fulfilled` |
+| **Discovery Labels** | `label_discovery_popular`, `label_discovery_new`, `label_reorder_prefix`, `label_reorder_success`, `label_reorder_unavailable` |
+| **Dispute Config** | `dispute_categories_json` |
+| **Visibility Thresholds** | `on_time_badge_min_orders`, `new_this_week_days`, `discovery_min_products`, `discovery_max_items`, `demand_insights_max_items`, `dispute_sla_warning_hours` |
+
+### Tier 3: Seller-Controlled (Remove from Admin UI, Already Seller-Driven)
+
+These are NOT settings at all -- they are seller operational data already stored on `seller_profiles` or `products` tables and editable by sellers through their own dashboard.
+
+| Capability | Where It Lives | Seller UI |
+|---|---|---|
+| Product availability / "Sold out" | `products.is_available` | Seller Products page toggle |
+| Pricing | `products.price`, `products.mrp` | Seller product form |
+| Seller descriptions & images | `seller_profiles.description`, `profile_image_url` | Seller Settings page |
+| Group buy participation | `collective_buy_requests` (seller creates) | Already seller-initiated |
+| Back-in-stock notifications | `stock_watchlist` (buyer subscribes, trigger fires on `is_available` change) | Seller flips `is_available` |
+| `last_active_at` | `seller_profiles.last_active_at` (auto-updated) | System-computed |
+
+**Action**: No changes needed here -- these are already correctly seller-driven. The labels that describe these (e.g., "Notify Me", "Watching") remain Admin-controlled because they are buyer-facing copy, not seller operational data.
+
+### Tier 3b: Seller-Facing Labels (Move to Separate Section, Clearly Labeled)
+
+These labels appear on seller-only screens. They should stay Admin-configurable (Admin controls platform UX) but be grouped separately with clear "Seller Dashboard Labels" heading.
+
+| Setting | Screen |
+|---|---|
+| `label_demand_insights_title` | Seller Dashboard |
+| `label_demand_insights_empty` | Seller Dashboard |
+| `label_reputation_empty` | Seller Detail |
+| `label_reputation_empty_desc` | Seller Detail |
+| `label_analytics_intelligence_title` | Seller Analytics |
+| `label_analytics_active_buyers` | Seller Analytics |
+| `label_analytics_views` | Seller Analytics |
+| `label_analytics_conversion` | Seller Analytics |
+| `label_analytics_fee_format` | Seller Analytics |
+| `label_analytics_fee_desc` | Seller Analytics |
+| `label_notify_me`, `label_notify_watching`, etc. | Buyer + Seller context |
+
+---
+
+## Part 2: Mobile Real-Time Audit (TestFlight Issue)
+
+### Root Cause Identified
+
+In `src/App.tsx` lines 114-115:
+
+```typescript
+refetchOnWindowFocus: false,
+refetchOnReconnect: false,
+```
+
+This means:
+1. When the iOS app returns from background (triggers `visibilitychange`/`focus`), React Query does NOT refetch stale data.
+2. When network reconnects after a drop, React Query does NOT refetch.
+3. There is NO `appStateChange` listener anywhere in the codebase to handle Capacitor foreground events.
+
+### Why Web Works But Mobile Does Not
+
+On web, users typically do a full page reload or navigate fresh. On mobile (TestFlight), the app stays in memory and resumes from background with stale cache (10-minute `staleTime`). Featured announcements, order updates, and other dynamic data remain frozen until the cache expires.
+
+### Realtime Subscriptions
+
+The app uses Supabase realtime channels in ~10 components (orders, chat, guard, bulletin, etc.), but:
+- `featured_items` (announcements) has NO realtime subscription
+- `system_settings` has NO realtime subscription
+- There is no global "refetch on app resume" mechanism
+
+### Fix Plan
+
+**A. Add Capacitor App State Listener** (new file: `src/hooks/useAppLifecycle.ts`)
+
+A hook that listens for Capacitor `appStateChange` events and invalidates critical queries when the app returns to foreground. This ensures fresh data on resume without full realtime overhead.
+
+Critical queries to invalidate on foreground:
+- `featured-items` (announcements)
+- `system-settings-core` / `system-settings-raw`
+- `cart-count`
+- `unread-notifications`
+- `products-by-category` (marketplace)
+
+**B. Enable `refetchOnReconnect: true`** in QueryClient defaults
+
+When network reconnects after a drop, stale queries should refetch. This is safe and low-cost.
+
+**C. Add realtime subscription for `featured_items`** in the `FeaturedBanners` component
+
+Since admin announcements are time-sensitive and the current implementation only fetches once, add a postgres_changes subscription so new banners appear immediately.
+
+**D. Keep `refetchOnWindowFocus: false`**
+
+This is correct for mobile -- Capacitor fires focus events frequently and refetching on every focus would cause excessive network traffic. The `appStateChange` listener is the correct replacement.
+
+---
+
+## Implementation Summary
+
+### Files to Modify
+
+| File | Change |
+|---|---|
+| `src/components/admin/PlatformSettingsManager.tsx` | Remove 4 system-controlled settings from `SETTING_FIELDS`. Regroup seller-facing labels under "Seller Dashboard Labels" section. |
+| `src/hooks/useAppLifecycle.ts` | **New** -- Capacitor `appStateChange` listener that invalidates critical queries on foreground resume. |
+| `src/App.tsx` | Change `refetchOnReconnect` to `true`. Wire `useAppLifecycle` hook. |
+| `src/components/home/FeaturedBanners.tsx` | Add realtime subscription for `featured_items` table. |
+
+### Files NOT Modified
+
+- `useMarketplaceLabels.ts` -- No changes needed; defaults remain as fallbacks.
+- Seller dashboard components -- Already seller-driven; no ownership change.
+- `useSystemSettingsRaw.ts` -- No changes needed.
+
+### Database Changes
+
+- Enable realtime for `featured_items`: `ALTER PUBLICATION supabase_realtime ADD TABLE public.featured_items;`
 
