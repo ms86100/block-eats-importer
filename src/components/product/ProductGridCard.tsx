@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus, Minus, Store } from 'lucide-react';
-import { useHaptics } from '@/hooks/useHaptics';
+import { hapticImpact, hapticSelection } from '@/lib/haptics';
 import { Badge } from '@/components/ui/badge';
 import { VegBadge } from '@/components/ui/veg-badge';
 import { useCart } from '@/hooks/useCart';
@@ -28,7 +28,6 @@ interface ProductGridCardProps {
 export function ProductGridCard({ product, behavior, onTap, className, viewOnly = false }: ProductGridCardProps) {
   const navigate = useNavigate();
   const { items, addItem, updateQuantity } = useCart();
-  const { impact, selectionChanged } = useHaptics();
   const { formatPrice } = useCurrency();
 
   const actionType: ProductActionType = (product.action_type as ProductActionType) || 'add_to_cart';
@@ -41,7 +40,7 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    impact('medium');
+    hapticImpact('medium');
     if (!isCartAction) {
       if (onTap) onTap(product);
       return;
@@ -52,19 +51,19 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    selectionChanged();
+    hapticSelection();
     updateQuantity(product.id, quantity + 1);
   };
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    selectionChanged();
+    hapticSelection();
     updateQuantity(product.id, quantity - 1);
   };
 
   const handleCardClick = () => {
-    selectionChanged();
+    hapticSelection();
     if (onTap) {
       onTap(product);
     } else {

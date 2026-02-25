@@ -1,8 +1,12 @@
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { preloadHaptics } from '@/lib/haptics';
 
 export async function initializeCapacitorPlugins() {
+  // Pre-load haptics module (no-op on web, instant on native after this)
+  preloadHaptics();
+
   if (!Capacitor.isNativePlatform()) {
     return;
   }

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubmitGuard } from '@/hooks/useSubmitGuard';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useCurrency } from '@/hooks/useCurrency';
+import { hapticImpact, hapticNotification, hapticSelection } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 
@@ -96,6 +97,7 @@ export function useCartPage() {
 
     setIsPlacingOrder(true);
     setOrderStep('validating');
+    hapticImpact('medium');
     try {
       const productIds = items.map(i => i.product_id);
       const { data: freshProducts, error: freshError } = await supabase
@@ -147,6 +149,7 @@ export function useCartPage() {
       const orderIds = await createOrdersForAllSellers('pending');
       if (orderIds.length === 0) throw new Error('Failed to create orders');
       await refresh();
+      hapticNotification('success');
       if (orderIds.length === 1) {
         toast.success('Order placed successfully!');
         navigate(`/orders/${orderIds[0]}`);
