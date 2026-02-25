@@ -52,8 +52,8 @@ function BlockSection({ block, libBlock }: { block: BlockData; libBlock?: Attrib
   const rendererType = libBlock?.renderer_type || 'key_value';
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{displayName}</p>
+    <div className="space-y-1">
+      <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">{displayName}</p>
       <BlockContent data={data} fields={fields} rendererType={rendererType} blockType={type} />
     </div>
   );
@@ -87,19 +87,19 @@ function BlockContent({ data, fields, rendererType, blockType }: {
   if (blockType === 'size_chart' && data.rows?.length) {
     const keys = Object.keys(data.rows[0] || {});
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-[11px]">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="bg-muted/50">
               {keys.map(k => (
-                <th key={k} className="py-1 px-2 text-left font-semibold text-muted-foreground uppercase">{k}</th>
+                <th key={k} className="py-1.5 px-3 text-left font-semibold text-muted-foreground uppercase text-[10px]">{k}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.rows.map((row: any, i: number) => (
-              <tr key={i} className="border-b border-border/50">
-                {keys.map(k => <td key={k} className="py-1 px-2 text-foreground">{row[k]}</td>)}
+              <tr key={i} className="border-t border-border">
+                {keys.map(k => <td key={k} className="py-1.5 px-3 text-foreground">{row[k]}</td>)}
               </tr>
             ))}
           </tbody>
@@ -123,7 +123,7 @@ function BlockContent({ data, fields, rendererType, blockType }: {
     }
   }
 
-  // Badge list (e.g. delivery methods, certifications)
+  // Badge list
   if (rendererType === 'badge_list') {
     const badgeFields = fields.filter(f => f.type === 'tag_input');
     const allItems = badgeFields.flatMap(f => data[f.key] || []);
@@ -147,7 +147,7 @@ function BlockContent({ data, fields, rendererType, blockType }: {
     }
   }
 
-  // Default: key_value grid using field labels
+  // Default: clean table layout
   const fieldMap = new Map(fields.map(f => [f.key, f]));
   const entries = Object.entries(data).filter(([_, v]) => {
     if (v === null || v === undefined || v === '') return false;
@@ -158,32 +158,36 @@ function BlockContent({ data, fields, rendererType, blockType }: {
   if (entries.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-      {entries.map(([key, val]) => {
-        const fieldDef = fieldMap.get(key);
-        const label = fieldDef?.label || key.replace(/_/g, ' ');
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="w-full text-xs">
+        <tbody>
+          {entries.map(([key, val], idx) => {
+            const fieldDef = fieldMap.get(key);
+            const label = fieldDef?.label || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-        // Tag arrays inline
-        if (Array.isArray(val)) {
-          return (
-            <div key={key} className="col-span-2 space-y-0.5">
-              <span className="text-[10px] text-muted-foreground">{label}</span>
-              <div className="flex flex-wrap gap-1">
-                {val.map((item: string, i: number) => (
-                  <Badge key={i} variant="secondary" className="text-[10px]">{String(item)}</Badge>
-                ))}
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div key={key} className="flex justify-between text-xs">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium text-foreground">{typeof val === 'boolean' ? (val ? 'Yes' : 'No') : String(val)}</span>
-          </div>
-        );
-      })}
+            return (
+              <tr key={key} className={idx !== entries.length - 1 ? 'border-b border-border' : ''}>
+                <td className="py-1.5 px-3 text-muted-foreground font-medium whitespace-nowrap w-[40%] bg-muted/30">
+                  {label}
+                </td>
+                <td className="py-1.5 px-3 text-foreground">
+                  {Array.isArray(val) ? (
+                    <div className="flex flex-wrap gap-1">
+                      {val.map((item: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-[10px]">{String(item)}</Badge>
+                      ))}
+                    </div>
+                  ) : typeof val === 'boolean' ? (
+                    val ? 'Yes' : 'No'
+                  ) : (
+                    String(val)
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
