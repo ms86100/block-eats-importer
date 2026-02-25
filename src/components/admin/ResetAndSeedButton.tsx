@@ -126,11 +126,11 @@ export function ResetAndSeedButton() {
         </AlertDialog>
 
         {result && (
-          <Card className={result.success ? 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10' : 'border-destructive/30 bg-destructive/5'}>
+          <Card className={result.success ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'}>
             <CardContent className="p-3 space-y-2">
               <div className="flex items-center gap-2">
                 {result.success ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 ) : (
                   <XCircle className="h-4 w-4 text-destructive" />
                 )}

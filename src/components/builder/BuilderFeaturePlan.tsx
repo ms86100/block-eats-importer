@@ -101,9 +101,9 @@ export function BuilderFeaturePlan({ builderId }: BuilderFeaturePlanProps) {
 
   const tierColors: Record<string, string> = {
     free: 'bg-muted text-muted-foreground',
-    basic: 'bg-blue-500/10 text-blue-600',
-    pro: 'bg-purple-500/10 text-purple-600',
-    enterprise: 'bg-amber-500/10 text-amber-700',
+    basic: 'bg-info/10 text-info',
+    pro: 'bg-primary/10 text-primary',
+    enterprise: 'bg-warning/10 text-warning',
   };
 
   return (

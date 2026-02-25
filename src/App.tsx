@@ -121,7 +121,7 @@ const queryClient = new QueryClient({
 
 function PageLoadingFallback() {
   return (
-    <div className="min-h-screen bg-background p-4 space-y-4">
+    <div className="min-h-[100dvh] bg-background p-4 space-y-4">
       <Skeleton className="h-14 w-full rounded-xl" />
       <Skeleton className="h-40 w-full rounded-xl" />
       <Skeleton className="h-24 w-full rounded-xl" />
@@ -135,8 +135,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-primary text-xl font-bold">Loading...</div>
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <Skeleton className="h-6 w-32 rounded-lg" />
       </div>
     );
   }
@@ -153,8 +153,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-primary text-xl font-bold">Loading...</div>
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <Skeleton className="h-6 w-32 rounded-lg" />
       </div>
     );
   }
@@ -171,8 +171,8 @@ function SecurityRoute({ children }: { children: React.ReactNode }) {
 
   if (authLoading || officerLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-primary text-xl font-bold">Loading...</div>
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <Skeleton className="h-6 w-32 rounded-lg" />
       </div>
     );
   }
@@ -187,7 +187,7 @@ function SecurityRoute({ children }: { children: React.ReactNode }) {
 // Route guard for society admins
 function SocietyAdminRoute({ children }: { children: React.ReactNode }) {
   const { isSocietyAdmin, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-primary text-xl font-bold">Loading...</div></div>;
+  if (isLoading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background"><Skeleton className="h-6 w-32 rounded-lg" /></div>;
   if (!isSocietyAdmin && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -195,7 +195,7 @@ function SocietyAdminRoute({ children }: { children: React.ReactNode }) {
 // Route guard for builder members
 function BuilderRoute({ children }: { children: React.ReactNode }) {
   const { isBuilderMember, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-primary text-xl font-bold">Loading...</div></div>;
+  if (isLoading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background"><Skeleton className="h-6 w-32 rounded-lg" /></div>;
   if (!isBuilderMember && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -203,7 +203,7 @@ function BuilderRoute({ children }: { children: React.ReactNode }) {
 // Route guard for society management pages (society admin, builder, or platform admin)
 function ManagementRoute({ children }: { children: React.ReactNode }) {
   const { isSocietyAdmin, isBuilderMember, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-primary text-xl font-bold">Loading...</div></div>;
+  if (isLoading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background"><Skeleton className="h-6 w-32 rounded-lg" /></div>;
   if (!isSocietyAdmin && !isBuilderMember && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -211,7 +211,7 @@ function ManagementRoute({ children }: { children: React.ReactNode }) {
 // Route guard for seller-only pages
 function SellerRoute({ children }: { children: React.ReactNode }) {
   const { isSeller, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-primary text-xl font-bold">Loading...</div></div>;
+  if (isLoading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background"><Skeleton className="h-6 w-32 rounded-lg" /></div>;
   if (!isSeller && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -219,7 +219,7 @@ function SellerRoute({ children }: { children: React.ReactNode }) {
 // Route guard for worker-only pages
 function WorkerRoute({ children }: { children: React.ReactNode }) {
   const { roles, isAdmin, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-primary text-xl font-bold">Loading...</div></div>;
+  if (isLoading) return <div className="min-h-[100dvh] flex items-center justify-center bg-background"><Skeleton className="h-6 w-32 rounded-lg" /></div>;
   if (!roles.includes('worker') && !isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

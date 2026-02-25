@@ -15,10 +15,10 @@ interface WorkerCardProps {
 }
 
 const STATUS_STYLES: Record<string, { label: string; className: string; icon: typeof AlertTriangle }> = {
-  active: { label: 'Active', className: 'bg-emerald-100 text-emerald-700', icon: Eye },
-  suspended: { label: 'Suspended', className: 'bg-amber-100 text-amber-700', icon: AlertTriangle },
-  blacklisted: { label: 'Blacklisted', className: 'bg-red-100 text-red-700', icon: Ban },
-  under_review: { label: 'Under Review', className: 'bg-blue-100 text-blue-700', icon: Eye },
+  active: { label: 'Active', className: 'bg-success/15 text-success', icon: Eye },
+  suspended: { label: 'Suspended', className: 'bg-warning/15 text-warning', icon: AlertTriangle },
+  blacklisted: { label: 'Blacklisted', className: 'bg-destructive/15 text-destructive', icon: Ban },
+  under_review: { label: 'Under Review', className: 'bg-info/15 text-info', icon: Eye },
 };
 
 export function WorkerCard({ worker, flatAssignments = [], onViewDetails, onSuspend, onBlacklist, onReactivate, showActions = false }: WorkerCardProps) {
@@ -50,7 +50,7 @@ export function WorkerCard({ worker, flatAssignments = [], onViewDetails, onSusp
             <div className="flex items-center gap-3 mt-1">
               {worker.rating > 0 && (
                 <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                  <Star size={10} className="text-amber-500 fill-amber-500" />
+                  <Star size={10} className="text-warning fill-warning" />
                   {worker.rating} ({worker.total_ratings || 0})
                 </span>
               )}
@@ -88,7 +88,7 @@ export function WorkerCard({ worker, flatAssignments = [], onViewDetails, onSusp
               </Button>
             )}
             {worker.status === 'active' && onSuspend && (
-              <Button size="sm" variant="outline" className="text-xs text-amber-600" onClick={onSuspend}>
+              <Button size="sm" variant="outline" className="text-xs text-warning" onClick={onSuspend}>
                 Suspend
               </Button>
             )}
@@ -98,7 +98,7 @@ export function WorkerCard({ worker, flatAssignments = [], onViewDetails, onSusp
               </Button>
             )}
             {(worker.status === 'suspended' || worker.status === 'blacklisted') && onReactivate && (
-              <Button size="sm" variant="outline" className="text-xs text-emerald-600" onClick={onReactivate}>
+              <Button size="sm" variant="outline" className="text-xs text-success" onClick={onReactivate}>
                 Reactivate
               </Button>
             )}
