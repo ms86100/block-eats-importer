@@ -1,51 +1,40 @@
 
 
-# Platform Admin Feature Bypass
+## Fix: CreateJobRequestPage Missing Society Filter
 
-## Root Cause
+### Problem
+The `society_worker_categories` query in `CreateJobRequestPage.tsx` (lines 36-41) does not filter by `society_id`, meaning it returns categories from **all** societies. This is a data isolation bug.
 
-The strict entitlement fix (`ELSE false`) correctly blocks features for societies without a package. However, it has no awareness of **who is viewing**. Platform admins are subject to the same restrictions as regular residents — the `get_effective_society_features` RPC and the frontend `FeatureGate` / `BottomNav` both treat admins identically to residents.
-
-There are two layers that need an admin bypass:
-
-1. **`FeatureGate` component** — Currently blocks rendering with "Feature Not Available" without checking if the user is an admin.
-2. **`BottomNav` component** — Hides the Society tab when `hasAnyFeature` is false, without checking admin status.
-3. **`useEffectiveFeatures` hook** — The `isFeatureEnabled` function returns `false` for disabled features regardless of caller role.
-
-## Fix Strategy
-
-The cleanest fix is at the **frontend hook level** — make `isFeatureEnabled` return `true` for all features when the caller is a platform admin. This automatically fixes both `FeatureGate` and `BottomNav` without touching either component individually.
-
-### File: `src/hooks/useEffectiveFeatures.ts`
-
-**Change**: Import `useAuth` and check `isAdmin`. In the `isFeatureEnabled` callback, add an early return `true` if the user is an admin.
-
+### Current Code (lines 36-41)
 ```typescript
-const isFeatureEnabled = useCallback((key: FeatureKey): boolean => {
-  if (isAdmin) return true; // Platform admins bypass all feature gates
-  if (!effectiveSocietyId) return false;
-  const feature = featureMap.get(key);
-  if (!feature) return false;
-  return feature.is_enabled;
-}, [isAdmin, effectiveSocietyId, featureMap]);
+const { data, error } = await supabase
+  .from('society_worker_categories')
+  .select('name')
+  .eq('is_active', true)
+  .order('display_order');
 ```
 
-### File: `src/components/layout/BottomNav.tsx`
-
-**Change**: Also bypass the `hasAnyFeature` check for the Society tab when the user is an admin. Since `isAdmin` is already destructured from `useAuth()`, add it to the filter:
+### Fix
+Add `.eq('society_id', effectiveSocietyId)` and gate the query on `effectiveSocietyId` being present:
 
 ```typescript
-if (item.to === '/society' && !hasAnyFeature && !isAdmin) return false;
+const { data, error } = await supabase
+  .from('society_worker_categories')
+  .select('name')
+  .eq('society_id', effectiveSocietyId!)
+  .eq('is_active', true)
+  .order('display_order');
 ```
 
-### Files Modified
+Also update the `enabled` condition to include `!!effectiveSocietyId` so the query doesn't fire without a society context.
 
-| File | Change |
-|---|---|
-| `src/hooks/useEffectiveFeatures.ts` | Add `isAdmin` check to `isFeatureEnabled` — admins always return `true` |
-| `src/components/layout/BottomNav.tsx` | Add `!isAdmin` guard to the Society tab filter |
+### Builder Credentials
+There are **no builder member credentials** to provide. The builder "Shriram Greenfield" exists and is linked to the society, but has zero members assigned. To add a member:
+1. Log in as admin (`ms86100@gmail.com`)
+2. Go to Features > Assignments
+3. Click "Manage" on "Shriram Greenfield"
+4. In the Members tab, search for a user email and add them
 
-### No database changes needed
-
-The RPC function does not need modification. The admin bypass is correctly handled at the UI layer since platform admins already have full database access via RLS policies. The feature entitlement system is about controlling what **residents** see, not what admins can access.
+### Single file change
+- **`src/pages/CreateJobRequestPage.tsx`** — Add `society_id` filter and `enabled` guard to the worker categories query.
 
