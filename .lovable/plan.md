@@ -1,33 +1,51 @@
 
 
-# Hide Society Tab When No Features Are Enabled
+# Platform Admin Feature Bypass
 
-## Problem
-After the strict entitlement fix, societies without a package assignment have all features disabled. However, the "Society" tab in the bottom navigation is still visible, leading residents to a page with no functional content.
+## Root Cause
 
-## Solution
-Add a conditional check in `BottomNav` that hides the Society tab when the society has zero enabled features. The `useEffectiveFeatures` hook already provides the full feature list with `is_enabled` status.
+The strict entitlement fix (`ELSE false`) correctly blocks features for societies without a package. However, it has no awareness of **who is viewing**. Platform admins are subject to the same restrictions as regular residents — the `get_effective_society_features` RPC and the frontend `FeatureGate` / `BottomNav` both treat admins identically to residents.
 
-## Implementation
+There are two layers that need an admin bypass:
+
+1. **`FeatureGate` component** — Currently blocks rendering with "Feature Not Available" without checking if the user is an admin.
+2. **`BottomNav` component** — Hides the Society tab when `hasAnyFeature` is false, without checking admin status.
+3. **`useEffectiveFeatures` hook** — The `isFeatureEnabled` function returns `false` for disabled features regardless of caller role.
+
+## Fix Strategy
+
+The cleanest fix is at the **frontend hook level** — make `isFeatureEnabled` return `true` for all features when the caller is a platform admin. This automatically fixes both `FeatureGate` and `BottomNav` without touching either component individually.
+
+### File: `src/hooks/useEffectiveFeatures.ts`
+
+**Change**: Import `useAuth` and check `isAdmin`. In the `isFeatureEnabled` callback, add an early return `true` if the user is an admin.
+
+```typescript
+const isFeatureEnabled = useCallback((key: FeatureKey): boolean => {
+  if (isAdmin) return true; // Platform admins bypass all feature gates
+  if (!effectiveSocietyId) return false;
+  const feature = featureMap.get(key);
+  if (!feature) return false;
+  return feature.is_enabled;
+}, [isAdmin, effectiveSocietyId, featureMap]);
+```
 
 ### File: `src/components/layout/BottomNav.tsx`
 
-**Change**: Filter out the Society nav item (`/society`) when no features are enabled for the current society.
+**Change**: Also bypass the `hasAnyFeature` check for the Society tab when the user is an admin. Since `isAdmin` is already destructured from `useAuth()`, add it to the filter:
 
-Logic:
+```typescript
+if (item.to === '/society' && !hasAnyFeature && !isAdmin) return false;
 ```
-const hasAnyFeature = features.some(f => f.is_enabled);
-```
 
-Then in the `visibleItems` filter, additionally exclude the Society tab when `hasAnyFeature` is false.
+### Files Modified
 
-The resident nav items array already marks Society without a `featureKey`, so the filtering needs a small addition: tag the Society item with a special marker (e.g., `requiresAnyFeature: true`) or handle it inline in the filter.
+| File | Change |
+|---|---|
+| `src/hooks/useEffectiveFeatures.ts` | Add `isAdmin` check to `isFeatureEnabled` — admins always return `true` |
+| `src/components/layout/BottomNav.tsx` | Add `!isAdmin` guard to the Society tab filter |
 
-**Approach**: Inline filter — if `to === '/society'` and no features are enabled, exclude it. This avoids changing the nav item type definition.
+### No database changes needed
 
-### File: `src/components/home/SocietyQuickLinks.tsx`
-
-**Change**: Also hide the "Your Society" quick links section on the home page when no features are enabled. The component already returns `null` when `visibleLinks.length === 0`, but since the feature check now returns all-disabled, this should already work. Will verify.
-
-### No other files modified.
+The RPC function does not need modification. The admin bypass is correctly handled at the UI layer since platform admins already have full database access via RLS policies. The feature entitlement system is about controlling what **residents** see, not what admins can access.
 
