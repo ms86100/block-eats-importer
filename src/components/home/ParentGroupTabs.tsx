@@ -1,7 +1,7 @@
 import { useParentGroups, ParentGroupInfo } from '@/hooks/useParentGroups';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useHaptics } from '@/hooks/useHaptics';
+import { hapticSelection } from '@/lib/haptics';
 
 interface ParentGroupTabsProps {
   activeGroup: string | null;
@@ -11,7 +11,6 @@ interface ParentGroupTabsProps {
 
 export function ParentGroupTabs({ activeGroup, onGroupChange, activeParentGroups }: ParentGroupTabsProps) {
   const { parentGroupInfos, isLoading } = useParentGroups();
-  const { selectionChanged } = useHaptics();
   const filteredGroups = activeParentGroups
     ? parentGroupInfos.filter(g => activeParentGroups.has(g.value))
     : parentGroupInfos;
@@ -42,7 +41,7 @@ export function ParentGroupTabs({ activeGroup, onGroupChange, activeParentGroups
           <button
             key={tab.value}
             onClick={() => {
-              selectionChanged();
+              hapticSelection();
               onGroupChange(tab.value === '__all__' ? null : tab.value);
             }}
             className={cn(

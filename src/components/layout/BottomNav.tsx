@@ -1,8 +1,8 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 import { Home, Building2, LayoutGrid, ShoppingCart, User, Shield, ClipboardList, Briefcase, ListChecks } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useHaptics } from '@/hooks/useHaptics';
+import { hapticSelection } from '@/lib/haptics';
 import { useEffectiveFeatures } from '@/hooks/useEffectiveFeatures';
 import { useCartCount } from '@/hooks/useCartCount';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,7 @@ function BottomNavInner() {
   const { isFeatureEnabled, isLoading } = useEffectiveFeatures();
   const { isAdmin, isSocietyAdmin, isBuilderMember, roles, isSecurityOfficer, isWorker } = useAuth();
   const itemCount = useCartCount();
-  const { selectionChanged } = useHaptics();
+  // hapticSelection is called directly from lib/haptics
 
   const isPrimaryRoleUser = isAdmin || isSocietyAdmin || isBuilderMember;
   const navItems = !isPrimaryRoleUser && isSecurityOfficer
@@ -58,7 +58,7 @@ function BottomNavInner() {
             <NavLink
               key={to}
               to={to}
-              onClick={() => selectionChanged()}
+              onClick={() => hapticSelection()}
               className={cn(
                 'flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-all duration-200 min-w-[48px] relative',
                 isActive
