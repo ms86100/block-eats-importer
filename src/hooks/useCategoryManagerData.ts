@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParentGroups, ParentGroupRow } from '@/hooks/useParentGroups';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
@@ -29,6 +30,7 @@ export interface CategoryConfigRow {
 }
 
 export function useCategoryManagerData() {
+  const queryClient = useQueryClient();
   const { groups, parentGroupInfos, isLoading: groupsLoading, refresh: refreshGroups } = useParentGroups();
   const [categories, setCategories] = useState<CategoryConfigRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +70,7 @@ export function useCategoryManagerData() {
       const { error } = await supabase.from('category_config').update({ is_active: isActive }).eq('id', id);
       if (error) throw error;
       setCategories(categories.map(c => c.id === id ? { ...c, is_active: isActive } : c));
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       toast.success(isActive ? 'Category enabled' : 'Category disabled');
     } catch { toast.error('Failed to update category'); }
   };
@@ -85,6 +88,7 @@ export function useCategoryManagerData() {
       const { error } = await supabase.from('category_config').update({ display_name: editForm.display_name.trim(), icon: editForm.icon.trim(), color: editForm.color.trim(), image_url: editForm.image_url || null, name_placeholder: editForm.name_placeholder.trim() || null, description_placeholder: editForm.description_placeholder.trim() || null, price_label: editForm.price_label.trim() || 'Price', duration_label: editForm.duration_label.trim() || null, show_veg_toggle: editForm.show_veg_toggle, show_duration_field: editForm.show_duration_field }).eq('id', editingCategory.id);
       if (error) throw error;
       setCategories(categories.map(c => c.id === editingCategory.id ? { ...c, ...editForm } : c));
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       toast.success('Category updated');
       setEditingCategory(null);
     } catch { toast.error('Failed to update category'); }
@@ -111,6 +115,7 @@ export function useCategoryManagerData() {
       const { data, error } = await supabase.from('category_config').insert({ category: categoryKey, display_name: addForm.display_name.trim(), icon: addForm.icon.trim(), color: addForm.color, parent_group: addForm.parent_group, display_order: maxOrder + 1, is_active: true, image_url: addForm.image_url || null }).select().single();
       if (error) throw error;
       setCategories([...categories, data]);
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       toast.success('Category added successfully');
       setIsAddDialogOpen(false);
       if (!addForm.image_url) {
@@ -135,10 +140,12 @@ export function useCategoryManagerData() {
       if (sellers && sellers.length > 0) {
         await supabase.from('category_config').update({ is_active: false }).eq('id', deleteCategory.id);
         setCategories(categories.map(c => c.id === deleteCategory.id ? { ...c, is_active: false } : c));
+        queryClient.invalidateQueries({ queryKey: ['category-configs'] });
         toast.info('Category disabled (sellers are using it)');
       } else {
         await supabase.from('category_config').delete().eq('id', deleteCategory.id);
         setCategories(categories.filter(c => c.id !== deleteCategory.id));
+        queryClient.invalidateQueries({ queryKey: ['category-configs'] });
         toast.success('Category deleted');
       }
       setDeleteCategory(null);
@@ -157,6 +164,7 @@ export function useCategoryManagerData() {
         }
       }
       await refreshGroups();
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       toast.success(enable ? `${group.name} enabled` : `${group.name} disabled`);
     } catch { toast.error('Failed to update group'); }
   };
@@ -187,6 +195,7 @@ export function useCategoryManagerData() {
         toast.success('Category group created');
       }
       await refreshGroups();
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       setIsGroupDialogOpen(false);
     } catch (error: any) { toast.error(friendlyError(error)); }
     finally { setIsSaving(false); }
@@ -214,6 +223,7 @@ export function useCategoryManagerData() {
         await supabase.from('parent_groups').delete().eq('id', deleteGroup.id);
         toast.success('Group deleted');
       }
+      queryClient.invalidateQueries({ queryKey: ['category-configs'] });
       await refreshGroups();
       setDeleteGroup(null);
     } catch { toast.error('Failed to delete group'); }
