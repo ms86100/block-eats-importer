@@ -1,64 +1,45 @@
 
 
-## Audit: Package-to-Feature Access Mismatches
+## Problem Analysis
 
-### Root Cause of the Reported Issue
+Two distinct issues identified from the code and screenshot:
 
-The `domestic_help` feature IS enabled in the Basic package (`is_enabled: true, source: package`). However, clicking "Try this feature" navigates to `/domestic-help`, which in `App.tsx` (line 287) **redirects** to `/workforce`:
+### Issue 1: Broken Builder Dashboard Layout
+In `BuilderDashboardPage.tsx` (lines 160-168), `BuilderFeaturePlan` is placed inside a `flex items-center justify-between` div alongside `BuilderAnnouncementSheet`. However, `BuilderFeaturePlan` returns a React fragment (`<>...</>`) containing multiple top-level elements (plan summary card, active features grid, locked features grid, and the showcase sheet). Placing all of these inside a horizontal flex container causes the layout to break — the feature plan cards and the announcement button fight for horizontal space instead of stacking vertically.
 
-```
-<Route path="/domestic-help" element={<Navigate to="/workforce" replace />} />
-```
+### Issue 2: "Try this feature" button shown for locked features
+In `FeatureShowcase.tsx` (lines 97-108), the "Try this feature" button is always shown when a feature has a `route`, regardless of whether the feature is enabled or locked. When a builder clicks a locked/grayed-out feature card, the showcase sheet opens and shows the same "Try this feature" button, which then navigates to a page that shows "Feature Not Available." The showcase should only display feature information (description, audience, capabilities) for locked features — no navigation button.
 
-The `/workforce` page (`WorkforceManagementPage`) is gated by `<FeatureGate feature="workforce_management">` — a **different** feature key that is NOT included in the Basic package. So the user is blocked despite `domestic_help` being enabled.
+---
 
-### Full Mismatch Audit
+## Plan
 
-I cross-referenced every `platform_features.route` with the actual `FeatureGate` on the destination page:
+### Fix 1: BuilderDashboardPage layout
+- Move `BuilderFeaturePlan` out of the shared flex container with `BuilderAnnouncementSheet`
+- Place `BuilderAnnouncementSheet` separately (e.g., inline with the section header or as its own row)
+- Let `BuilderFeaturePlan` occupy its own full-width block in the vertical flow
 
-| Feature Key (in package) | Route | Redirects To | Page Gate | Match? |
-|---|---|---|---|---|
-| `domestic_help` | `/domestic-help` | `/workforce` | `workforce_management` | **MISMATCH** |
-| `help_requests` | `/community` | — | `bulletin` | **MISMATCH** |
-| `authorized_persons` | N/A (no route) | — | `visitor_management` | OK (different gate, expected) |
-| `visitor_management` | `/gate-entry` | — | `gate_entry` | **MISMATCH** |
+### Fix 2: Pass `isLocked` context to FeatureShowcase
+- In `BuilderFeaturePlan.tsx`, when setting the showcase key, also track whether the clicked feature is enabled or disabled
+- Add an `isLocked` (or `isEnabled`) prop to `FeatureShowcase`
+- In `FeatureShowcase.tsx`, conditionally hide the "Try this feature" button when `isLocked` is true
+- For locked features, optionally show an "Upgrade your plan" or "Contact admin" hint instead
 
-All other features have matching routes and gates (e.g., `disputes` → `/disputes` → `FeatureGate feature="disputes"`).
+### Detailed Changes
 
-### Three Mismatches Found
+**`src/pages/BuilderDashboardPage.tsx`** (lines 159-168):
+- Separate `BuilderFeaturePlan` and `BuilderAnnouncementSheet` into distinct layout blocks
+- Render `BuilderAnnouncementSheet` alongside a section title (e.g., "Feature Plan") in a flex row
+- Render `BuilderFeaturePlan` below that as its own full-width section
 
-1. **`domestic_help` → `/domestic-help` → redirects to `/workforce` → gated by `workforce_management`**
-   The redirect collapses two distinct features into one page. Since the package only includes `domestic_help` (not `workforce_management`), the gate blocks access.
+**`src/components/builder/BuilderFeaturePlan.tsx`**:
+- Add state to track whether the selected showcase feature is enabled: `const [showcaseLocked, setShowcaseLocked] = useState(false)`
+- On card click for enabled features: `setShowcaseKey(f.feature_key); setShowcaseLocked(false)`
+- On card click for disabled features: `setShowcaseKey(f.feature_key); setShowcaseLocked(true)`
+- Pass `isLocked={showcaseLocked}` to `FeatureShowcase`
 
-2. **`help_requests` → `/community` → gated by `bulletin`**
-   If a package includes `help_requests` but not `bulletin`, clicking "Try this feature" would be blocked by the `bulletin` gate.
-
-3. **`visitor_management` → `/gate-entry` → gated by `gate_entry`**
-   If a package includes `visitor_management` but not `gate_entry`, the page would be blocked.
-
-### Proposed Fix
-
-The cleanest fix that preserves the existing entitlement model is to update the `FeatureGate` on affected pages to accept **multiple feature keys** (OR logic — if ANY of the listed features is enabled, grant access):
-
-**1. Create a multi-feature gate pattern** — Update `FeatureGate` to accept `feature: FeatureKey | FeatureKey[]` and check if ANY key is enabled.
-
-**2. Apply to affected pages:**
-- `WorkforceManagementPage.tsx`: `<FeatureGate feature={["workforce_management", "domestic_help"]}>`
-- `BulletinPage.tsx`: `<FeatureGate feature={["bulletin", "help_requests"]}>`
-- `GateEntryPage.tsx`: `<FeatureGate feature={["gate_entry", "visitor_management"]}>`
-
-**3. Update `visitor_management` route** in the database from `/gate-entry` to `/gate-entry` (already correct, just needs the gate fix).
-
-### Files to Change
-
-- **`src/components/ui/FeatureGate.tsx`** — Update `feature` prop type to `FeatureKey | FeatureKey[]`. In the access check, if array, return true if ANY feature in the array is enabled.
-- **`src/pages/WorkforceManagementPage.tsx`** (line 112) — Change gate to `feature={["workforce_management", "domestic_help"]}`.
-- **`src/pages/MyWorkersPage.tsx`** (line 39) — Same change as above since it's the same module.
-- **`src/pages/BulletinPage.tsx`** (line 178) — Change gate to `feature={["bulletin", "help_requests"]}`.
-- **`src/pages/GateEntryPage.tsx`** (line 83) — Change gate to `feature={["gate_entry", "visitor_management"]}`.
-- **`src/pages/AuthorizedPersonsPage.tsx`** (line 97) — Change gate to `feature={["visitor_management", "authorized_persons"]}`.
-
-### Why Not Change the Routes Instead?
-
-Changing the `route` values in the database would fix "Try this feature" but wouldn't fix the underlying gate mismatch — the pages would still block access for users who have the feature enabled via a different key. The multi-key gate approach is more robust and handles all entry paths (direct navigation, deep links, bookmarks).
+**`src/components/admin/FeatureShowcase.tsx`**:
+- Add `isLocked?: boolean` to `FeatureShowcaseProps`
+- When `isLocked` is true, hide the "Try this feature" button
+- Optionally show a muted note like "This feature is not included in your current plan"
 
