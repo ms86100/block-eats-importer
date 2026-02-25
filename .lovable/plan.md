@@ -1,144 +1,130 @@
 
 
-# Governance Reclassification + Mobile Real-Time Audit
+# iOS App Store Compliance & Pre-Release Cleanup Plan
 
-## Part 1: Ownership Reclassification
+## Part 1: Apple App Review Requirements Audit
 
-The current implementation puts all ~55 settings under Admin control in `PlatformSettingsManager.tsx`. This is incorrect. Below is the corrected ownership matrix.
+### 1.1 Requirements Already Met
 
-### Tier 1: System-Controlled (Code Constants, Not UI-Editable)
-
-These define how the platform computes things. They should remain as hardcoded defaults in `useMarketplaceLabels.ts` and NOT appear in the Admin UI.
-
-| Setting | Rationale |
-|---|---|
-| `stable_price_days` | Price stability computation rule |
-| `price_history_max_points` | Chart rendering limit |
-| `reputation_event_labels_json` | Ledger structure tied to trigger logic |
-| `dispute_status_options_json` | Tied to DB enum constraints and workflow logic |
-
-**Action**: Remove these 4 keys from `SETTING_FIELDS` in `PlatformSettingsManager.tsx`. Keep them in `useMarketplaceLabels.ts` DEFAULTS only.
-
-### Tier 2: Admin-Controlled (Keep in Admin UI)
-
-These affect marketplace policy, buyer trust messaging, and discovery behavior. Admin ownership is correct.
-
-| Group | Settings |
-|---|---|
-| **Trust Labels** | `label_in_your_society`, `label_distance_m_format`, `label_distance_km_format`, `label_your_neighbor`, `label_active_now`, `label_active_hours_ago`, `label_active_yesterday`, `label_on_time_format`, `label_social_proof_format`, `label_social_proof_singular`, `label_social_proof_plural`, `label_stable_price` |
-| **Checkout & Guarantee** | `label_checkout_community_support`, `label_checkout_community_emoji`, `label_neighborhood_guarantee`, `label_neighborhood_guarantee_desc`, `label_neighborhood_guarantee_badge`, `label_neighborhood_guarantee_emoji`, `label_dispute_sla_notice` |
-| **Group Buy Labels** | `label_group_buy_title`, `label_group_buy_subtitle`, `label_group_buy_empty`, `label_group_buy_empty_desc`, `label_group_buy_join`, `label_group_buy_leave`, `label_group_buy_fulfilled` |
-| **Discovery Labels** | `label_discovery_popular`, `label_discovery_new`, `label_reorder_prefix`, `label_reorder_success`, `label_reorder_unavailable` |
-| **Dispute Config** | `dispute_categories_json` |
-| **Visibility Thresholds** | `on_time_badge_min_orders`, `new_this_week_days`, `discovery_min_products`, `discovery_max_items`, `demand_insights_max_items`, `dispute_sla_warning_hours` |
-
-### Tier 3: Seller-Controlled (Remove from Admin UI, Already Seller-Driven)
-
-These are NOT settings at all -- they are seller operational data already stored on `seller_profiles` or `products` tables and editable by sellers through their own dashboard.
-
-| Capability | Where It Lives | Seller UI |
+| Requirement | Status | Evidence |
 |---|---|---|
-| Product availability / "Sold out" | `products.is_available` | Seller Products page toggle |
-| Pricing | `products.price`, `products.mrp` | Seller product form |
-| Seller descriptions & images | `seller_profiles.description`, `profile_image_url` | Seller Settings page |
-| Group buy participation | `collective_buy_requests` (seller creates) | Already seller-initiated |
-| Back-in-stock notifications | `stock_watchlist` (buyer subscribes, trigger fires on `is_available` change) | Seller flips `is_available` |
-| `last_active_at` | `seller_profiles.last_active_at` (auto-updated) | System-computed |
+| Privacy Policy accessible before/after login | Done | `/privacy-policy` route, public, no auth required |
+| Terms of Service | Done | `/terms` route, public |
+| Account Deletion | Done | `DeleteAccountDialog` in ProfilePage, `delete-user-account` edge function |
+| Age Gate (18+) | Done | Checkbox on signup with explicit confirmation |
+| UGC Reporting | Done | `ReportSheet` component on products/posts |
+| Content Moderation | Done | Admin approval flow for sellers and products |
+| Error Boundaries | Done | `ErrorBoundary` + `RouteErrorBoundary` |
+| Offline Handling | Done | `OfflineBanner` component |
+| Push Notification Permissions | Done | Capacitor `PushNotifications` with `presentationOptions` |
+| iOS Safe Area | Done | `env(safe-area-inset-*)` throughout, `contentInset: 'never'` |
+| Non-Exempt Encryption Declaration | Done | `ITSAppUsesNonExemptEncryption: false` in `capacitor.config.ts` |
+| Camera/Photo/Location Permission Strings | Done | `plistOverrides` in `capacitor.config.ts` |
 
-**Action**: No changes needed here -- these are already correctly seller-driven. The labels that describe these (e.g., "Notify Me", "Watching") remain Admin-controlled because they are buyer-facing copy, not seller operational data.
+### 1.2 Issues That WILL Cause Rejection
 
-### Tier 3b: Seller-Facing Labels (Move to Separate Section, Clearly Labeled)
+| # | Issue | Severity | Detail |
+|---|---|---|---|
+| R1 | **Demo account outdated in DEPLOYMENT.md** | High | `DEPLOYMENT.md` line 194 references `demo@blockeats.app` (old branding). `STORE_METADATA.md` and `SCREENSHOTS_GUIDE.md` correctly use `demo@sociva.app`. The demo account must actually exist and work in production. |
+| R2 | **Pricing page "Contact Us" opens `mailto:` link** | High | Apple rejects apps that use `mailto:` or `window.open` for core purchasing flows. The Pricing page's "Contact Us" button calls `window.open(mailto:...)`. This must either open an in-app contact form or be removed since the app is currently free. |
+| R3 | **No EULA / License Agreement** | Medium | Apple requires a EULA for apps with in-app purchases or subscriptions. The app has pricing plans visible. Either remove the pricing page from the iOS build or add a EULA. |
+| R4 | **`block-eats.lovable.app` reference in production Capacitor config** | High | `capacitor.config.ts` line 46 still has `block-eats.lovable.app` in `allowNavigation`. This is the old domain. |
+| R5 | **CategoryPage.tsx orphaned — no route** | Medium | The file exists but is not imported or routed in `App.tsx`. Dead code in the bundle. |
 
-These labels appear on seller-only screens. They should stay Admin-configurable (Admin controls platform UX) but be grouped separately with clear "Seller Dashboard Labels" heading.
+### 1.3 Best-Practice Compliance (Not Rejection-Causing But Recommended)
 
-| Setting | Screen |
-|---|---|
-| `label_demand_insights_title` | Seller Dashboard |
-| `label_demand_insights_empty` | Seller Dashboard |
-| `label_reputation_empty` | Seller Detail |
-| `label_reputation_empty_desc` | Seller Detail |
-| `label_analytics_intelligence_title` | Seller Analytics |
-| `label_analytics_active_buyers` | Seller Analytics |
-| `label_analytics_views` | Seller Analytics |
-| `label_analytics_conversion` | Seller Analytics |
-| `label_analytics_fee_format` | Seller Analytics |
-| `label_analytics_fee_desc` | Seller Analytics |
-| `label_notify_me`, `label_notify_watching`, etc. | Buyer + Seller context |
-
----
-
-## Part 2: Mobile Real-Time Audit (TestFlight Issue)
-
-### Root Cause Identified
-
-In `src/App.tsx` lines 114-115:
-
-```typescript
-refetchOnWindowFocus: false,
-refetchOnReconnect: false,
-```
-
-This means:
-1. When the iOS app returns from background (triggers `visibilitychange`/`focus`), React Query does NOT refetch stale data.
-2. When network reconnects after a drop, React Query does NOT refetch.
-3. There is NO `appStateChange` listener anywhere in the codebase to handle Capacitor foreground events.
-
-### Why Web Works But Mobile Does Not
-
-On web, users typically do a full page reload or navigate fresh. On mobile (TestFlight), the app stays in memory and resumes from background with stale cache (10-minute `staleTime`). Featured announcements, order updates, and other dynamic data remain frozen until the cache expires.
-
-### Realtime Subscriptions
-
-The app uses Supabase realtime channels in ~10 components (orders, chat, guard, bulletin, etc.), but:
-- `featured_items` (announcements) has NO realtime subscription
-- `system_settings` has NO realtime subscription
-- There is no global "refetch on app resume" mechanism
-
-### Fix Plan
-
-**A. Add Capacitor App State Listener** (new file: `src/hooks/useAppLifecycle.ts`)
-
-A hook that listens for Capacitor `appStateChange` events and invalidates critical queries when the app returns to foreground. This ensures fresh data on resume without full realtime overhead.
-
-Critical queries to invalidate on foreground:
-- `featured-items` (announcements)
-- `system-settings-core` / `system-settings-raw`
-- `cart-count`
-- `unread-notifications`
-- `products-by-category` (marketplace)
-
-**B. Enable `refetchOnReconnect: true`** in QueryClient defaults
-
-When network reconnects after a drop, stale queries should refetch. This is safe and low-cost.
-
-**C. Add realtime subscription for `featured_items`** in the `FeaturedBanners` component
-
-Since admin announcements are time-sensitive and the current implementation only fetches once, add a postgres_changes subscription so new banners appear immediately.
-
-**D. Keep `refetchOnWindowFocus: false`**
-
-This is correct for mobile -- Capacitor fires focus events frequently and refetching on every focus would cause excessive network traffic. The `appStateChange` listener is the correct replacement.
+| # | Item | Detail |
+|---|---|---|
+| B1 | Console logging in production | 15+ pages have `console.error/warn/log` calls. These should be stripped or guarded behind `import.meta.env.DEV`. Vite's `esbuild.drop` in production build handles `console.log` but not `console.error`. |
+| B2 | HashRouter | Apple doesn't reject this, but Universal Links work better with BrowserRouter. Low priority for now. |
+| B3 | `test-results` route exposed to admin | Internal dev tooling. Not a rejection risk but should not appear in production builds. |
 
 ---
 
-## Implementation Summary
+## Part 2: Cleanup — Dead Code, Broken Links, Unused Files
 
-### Files to Modify
+### 2.1 Dead / Orphaned Files
 
-| File | Change |
+| File | Issue | Action |
+|---|---|---|
+| `src/pages/CategoryPage.tsx` | Not imported anywhere, not in App.tsx routes. Orphaned after category redesign. | **Delete** |
+| `src/pages/SecurityVerifyPage.tsx` | Deprecated redirect to `/guard-kiosk`. Route exists but is redundant. | **Delete file + remove route** |
+| `src/pages/DomesticHelpPage.tsx` | Deprecated redirect to `/workforce`. Route exists but is redundant. | **Delete file + remove route** |
+
+### 2.2 Stale Documentation
+
+| File | Issue | Action |
+|---|---|---|
+| `DEPLOYMENT.md` | References old branding "Greenfield Community", `demo@blockeats.app`, old bundle ID mentions. Mixed with current Sociva branding. | **Update** all references to Sociva branding, correct demo email |
+| `STORE_METADATA.md` | Privacy/Terms URLs point to `block-eats.lovable.app`. Should use the actual published domain. | **Update** URLs |
+| `PRE_SUBMISSION_CHECKLIST.md` | Generally correct but should be verified for consistency. | **Review** |
+
+### 2.3 Capacitor Config Fixes
+
+| Item | Current | Fix |
+|---|---|---|
+| Production `allowNavigation` | `block-eats.lovable.app` | Should be the actual production domain or removed if not needed |
+
+### 2.4 Console Logging Cleanup
+
+Production builds should not emit error logs to the console. While Vite strips `console.log` via esbuild, `console.error` and `console.warn` survive. These are in catch blocks across 15+ page files. The fix is to wrap them in `import.meta.env.DEV` guards or leave them (they are not a rejection risk, just best practice).
+
+**Decision**: Leave `console.error` in catch blocks — they help debug production issues. Only strip `console.log` (already handled by Vite config).
+
+---
+
+## Part 3: Functional Validation — UI Elements
+
+### 3.1 Verified Working Flows
+
+| Flow | Status |
 |---|---|
-| `src/components/admin/PlatformSettingsManager.tsx` | Remove 4 system-controlled settings from `SETTING_FIELDS`. Regroup seller-facing labels under "Seller Dashboard Labels" section. |
-| `src/hooks/useAppLifecycle.ts` | **New** -- Capacitor `appStateChange` listener that invalidates critical queries on foreground resume. |
-| `src/App.tsx` | Change `refetchOnReconnect` to `true`. Wire `useAppLifecycle` hook. |
-| `src/components/home/FeaturedBanners.tsx` | Add realtime subscription for `featured_items` table. |
+| Auth (login, signup, reset password) | Working — multi-step with age gate, society search, GPS verification |
+| Home → Categories → Products → Cart → Checkout | Working — feature-gated, DB-backed |
+| Seller Dashboard → Products → Orders | Working — route-guarded |
+| Profile → Account Deletion | Working — edge function handles full data scrub |
+| Push Notifications | Working — Capacitor integration + FCM backend |
+| Society Dashboard → all sub-pages | Working — feature-gated per society |
+| Landing Page (unauthenticated) | Working — CMS-driven slides with fallback |
 
-### Files NOT Modified
+### 3.2 Items Requiring Attention
 
-- `useMarketplaceLabels.ts` -- No changes needed; defaults remain as fallbacks.
-- Seller dashboard components -- Already seller-driven; no ownership change.
-- `useSystemSettingsRaw.ts` -- No changes needed.
+| Item | Issue | Fix |
+|---|---|---|
+| Pricing Page `mailto:` button | Opens external email client, may not work on iOS | Replace with in-app feedback form or remove |
+| `tel:` links in OrderDetailPage, MyWorkersPage, DeliveryStatusCard | These are fine on iOS — Capacitor handles them correctly | No action needed |
+| TestResultsPage in profile menu | Visible only to admins — acceptable for internal use | No action needed |
 
-### Database Changes
+---
 
-- Enable realtime for `featured_items`: `ALTER PUBLICATION supabase_realtime ADD TABLE public.featured_items;`
+## Part 4: Implementation Plan
+
+### Batch 1: Critical Fixes (Must-Do Before Submission)
+
+1. **Fix `capacitor.config.ts`** — Replace `block-eats.lovable.app` with correct production domain in `allowNavigation`
+2. **Fix Pricing Page** — Replace `mailto:` button with a toast or in-app contact sheet, or hide the pricing page from the iOS navigation entirely since the app is free
+3. **Delete orphaned files** — `CategoryPage.tsx`, `SecurityVerifyPage.tsx`, `DomesticHelpPage.tsx`
+4. **Remove orphaned routes** — `/domestic-help`, `/security/verify` from `App.tsx`
+
+### Batch 2: Documentation Cleanup
+
+5. **Update `DEPLOYMENT.md`** — Replace all "Greenfield Community" with "Sociva", fix `demo@blockeats.app` to `demo@sociva.app`, update bundle ID references
+6. **Update `STORE_METADATA.md`** — Fix Privacy/Terms URLs from `block-eats.lovable.app` to actual domain
+
+### Files to Create / Modify
+
+| File | Action |
+|---|---|
+| `capacitor.config.ts` | Fix `allowNavigation` domain |
+| `src/pages/PricingPage.tsx` | Replace `mailto:` with in-app action |
+| `src/App.tsx` | Remove 3 orphaned routes + lazy imports |
+| `src/pages/CategoryPage.tsx` | **Delete** |
+| `src/pages/SecurityVerifyPage.tsx` | **Delete** |
+| `src/pages/DomesticHelpPage.tsx` | **Delete** |
+| `DEPLOYMENT.md` | Update branding references |
+| `STORE_METADATA.md` | Update URLs |
+
+### Files NOT Modified (Core Features Preserved)
+
+All admin configuration, seller dashboards, buyer flows, society management, guard kiosk, workforce management, notification systems, trust features, and the entire `useMarketplaceLabels` / `PlatformSettingsManager` infrastructure remain untouched.
 
