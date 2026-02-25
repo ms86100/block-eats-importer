@@ -21,6 +21,7 @@ import { FeatureManagement } from '@/components/admin/FeatureManagement';
 import { AdminProductApprovals } from '@/components/admin/AdminProductApprovals';
 import { PlatformSettingsManager } from '@/components/admin/PlatformSettingsManager';
 import { AdminCatalogManager } from '@/components/admin/AdminCatalogManager';
+import { AdminBannerManager } from '@/components/admin/AdminBannerManager';
 import { ResetAndSeedButton } from '@/components/admin/ResetAndSeedButton';
 import { useAdminData } from '@/hooks/useAdminData';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,9 +99,12 @@ export default function AdminPage() {
             {admin.hasMoreReviews && <Button variant="outline" size="sm" className="w-full" onClick={admin.loadMoreReviews} disabled={admin.isLoadingMore}>{admin.isLoadingMore ? 'Loading…' : 'Load More Reviews'}</Button>}
           </TabsContent>
 
-          <TabsContent value="featured" className="space-y-2 mt-4">
-            <h3 className="text-sm font-semibold text-muted-foreground">Manage Featured Sellers</h3>
-            {admin.allSellers.map((seller) => <Card key={seller.id}><CardContent className="p-3 flex items-center justify-between"><div className="flex items-center gap-2">{seller.is_featured && <Award size={14} className="text-warning" />}<div><p className="font-medium text-sm">{seller.business_name}</p><p className="text-xs text-muted-foreground">⭐ {seller.rating.toFixed(1)} • {seller.total_reviews} reviews</p></div></div><Switch checked={seller.is_featured} onCheckedChange={() => admin.toggleSellerFeatured(seller)} /></CardContent></Card>)}
+          <TabsContent value="featured" className="space-y-4 mt-4">
+            <AdminBannerManager />
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Featured Sellers</h3>
+              {admin.allSellers.map((seller) => <Card key={seller.id}><CardContent className="p-3 flex items-center justify-between"><div className="flex items-center gap-2">{seller.is_featured && <Award size={14} className="text-warning" />}<div><p className="font-medium text-sm">{seller.business_name}</p><p className="text-xs text-muted-foreground">⭐ {seller.rating.toFixed(1)} • {seller.total_reviews} reviews</p></div></div><Switch checked={seller.is_featured} onCheckedChange={() => admin.toggleSellerFeatured(seller)} /></CardContent></Card>)}
+            </div>
           </TabsContent>
 
           <TabsContent value="features" className="mt-4"><FeatureManagement /></TabsContent>

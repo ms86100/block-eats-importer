@@ -1920,6 +1920,8 @@ export type Database = {
       }
       featured_items: {
         Row: {
+          bg_color: string | null
+          button_text: string | null
           created_at: string | null
           display_order: number | null
           id: string
@@ -1928,11 +1930,15 @@ export type Database = {
           link_url: string | null
           reference_id: string
           society_id: string | null
+          subtitle: string | null
+          template: string | null
           title: string | null
           type: string
           updated_at: string | null
         }
         Insert: {
+          bg_color?: string | null
+          button_text?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -1941,11 +1947,15 @@ export type Database = {
           link_url?: string | null
           reference_id: string
           society_id?: string | null
+          subtitle?: string | null
+          template?: string | null
           title?: string | null
           type: string
           updated_at?: string | null
         }
         Update: {
+          bg_color?: string | null
+          button_text?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -1954,6 +1964,8 @@ export type Database = {
           link_url?: string | null
           reference_id?: string
           society_id?: string | null
+          subtitle?: string | null
+          template?: string | null
           title?: string | null
           type?: string
           updated_at?: string | null

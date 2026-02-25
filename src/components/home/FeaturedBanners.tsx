@@ -40,7 +40,6 @@ export function FeaturedBanners() {
     return () => clearInterval(interval);
   }, [banners.length]);
 
-  // Sync scroll position with activeIndex (programmatic scroll)
   useEffect(() => {
     const container = document.getElementById('banner-carousel');
     if (container && container.children[activeIndex]) {
@@ -49,7 +48,6 @@ export function FeaturedBanners() {
     }
   }, [activeIndex]);
 
-  // Detect manual swipe: sync activeIndex from scroll position
   useEffect(() => {
     const container = document.getElementById('banner-carousel');
     if (!container || banners.length <= 1) return;
@@ -107,32 +105,17 @@ export function FeaturedBanners() {
             key={banner.id}
             onClick={() => banner.link_url && navigate(banner.link_url)}
             className={cn(
-              'shrink-0 w-[85vw] sm:w-[400px] rounded-3xl overflow-hidden cursor-pointer snap-center',
+              'shrink-0 w-[85vw] sm:w-[400px] rounded-3xl overflow-hidden snap-center',
               'border border-border',
-              'transition-all duration-200 hover:shadow-md active:scale-[0.99]'
+              'transition-all duration-200 hover:shadow-md active:scale-[0.99]',
+              banner.link_url && 'cursor-pointer'
             )}
           >
-            {banner.image_url ? (
-              <img
-                src={banner.image_url}
-                alt={banner.title || 'Featured'}
-                className="w-full h-36 object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div
-                className="w-full h-36 flex items-center justify-center p-6 bg-primary"
-              >
-                <h3 className="text-lg font-bold text-primary-foreground text-center">
-                  {banner.title || 'Featured'}
-                </h3>
-              </div>
-            )}
+            <BannerContent banner={banner} />
           </div>
         ))}
       </div>
 
-      {/* Dot indicators */}
       {banners.length > 1 && (
         <div className="flex justify-center gap-1.5 mt-2.5">
           {banners.map((_: any, idx: number) => (
@@ -140,9 +123,7 @@ export function FeaturedBanners() {
               key={idx}
               onClick={() => scrollToIndex(idx)}
               aria-label={`Go to banner ${idx + 1}`}
-              className={cn(
-                'rounded-full transition-all duration-300 min-h-[24px] min-w-[24px] flex items-center justify-center',
-              )}
+              className="rounded-full transition-all duration-300 min-h-[24px] min-w-[24px] flex items-center justify-center"
             >
               <span className={cn(
                 'rounded-full transition-all duration-300',
@@ -153,6 +134,94 @@ export function FeaturedBanners() {
             </button>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Template-based rendering ── */
+function BannerContent({ banner }: { banner: any }) {
+  const template = banner.template || 'image_only';
+  const { title, subtitle, image_url, button_text, bg_color = '#16a34a' } = banner;
+
+  if (template === 'image_only') {
+    return image_url ? (
+      <img src={image_url} alt={title || 'Featured'} className="w-full h-36 object-cover" loading="lazy" />
+    ) : (
+      <div className="w-full h-36 flex items-center justify-center p-6 bg-primary">
+        <h3 className="text-lg font-bold text-primary-foreground text-center">{title || 'Featured'}</h3>
+      </div>
+    );
+  }
+
+  if (template === 'text_overlay') {
+    return (
+      <div className="relative w-full h-36">
+        {image_url ? (
+          <img src={image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full" style={{ backgroundColor: bg_color }} />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex flex-col justify-end p-4">
+          <h3 className="text-white font-bold text-base">{title}</h3>
+          {subtitle && <p className="text-white/80 text-xs mt-0.5">{subtitle}</p>}
+          {button_text && (
+            <span className="mt-2 inline-block bg-white text-black text-xs font-bold px-3 py-1 rounded-full w-fit">
+              {button_text}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (template === 'split_left') {
+    return (
+      <div className="flex h-36" style={{ backgroundColor: bg_color }}>
+        <div className="flex-1 flex flex-col justify-center p-4">
+          <h3 className="text-white font-bold text-sm leading-tight">{title}</h3>
+          {subtitle && <p className="text-white/80 text-[10px] mt-1">{subtitle}</p>}
+          {button_text && (
+            <span className="mt-2 inline-block bg-white text-xs font-bold px-3 py-1 rounded-full w-fit" style={{ color: bg_color }}>
+              {button_text}
+            </span>
+          )}
+        </div>
+        {image_url && (
+          <div className="w-2/5 shrink-0">
+            <img src={image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (template === 'gradient_cta') {
+    return (
+      <div
+        className="w-full h-36 flex flex-col items-center justify-center text-center p-4"
+        style={{ background: `linear-gradient(135deg, ${bg_color}, ${bg_color}cc)` }}
+      >
+        <h3 className="text-white font-extrabold text-lg">{title}</h3>
+        {subtitle && <p className="text-white/85 text-xs mt-1 max-w-[80%]">{subtitle}</p>}
+        {button_text && (
+          <span className="mt-3 bg-white text-xs font-bold px-4 py-1.5 rounded-full" style={{ color: bg_color }}>
+            {button_text}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // minimal_text
+  return (
+    <div className="w-full h-36 flex flex-col items-center justify-center p-6 bg-card border-l-4" style={{ borderColor: bg_color }}>
+      <h3 className="font-bold text-base text-foreground">{title}</h3>
+      {subtitle && <p className="text-xs text-muted-foreground mt-1 text-center">{subtitle}</p>}
+      {button_text && (
+        <span className="mt-3 text-xs font-bold px-4 py-1.5 rounded-full border" style={{ color: bg_color, borderColor: bg_color }}>
+          {button_text}
+        </span>
       )}
     </div>
   );
