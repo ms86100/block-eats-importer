@@ -5,6 +5,7 @@ import { OnboardingWalkthrough, useOnboarding } from '@/components/onboarding/On
 import { VerificationPendingScreen } from '@/components/onboarding/VerificationPendingScreen';
 import { MarketplaceSection } from '@/components/home/MarketplaceSection';
 import { SocietyQuickLinks } from '@/components/home/SocietyQuickLinks';
+import { FeaturedBanners } from '@/components/home/FeaturedBanners';
 import { CommunityTeaser } from '@/components/home/CommunityTeaser';
 import { useAuth } from '@/contexts/AuthContext';
 import { PartyPopper, X, ArrowRight } from 'lucide-react';
@@ -95,6 +96,9 @@ export default function HomePage() {
             </div>
           </motion.div>
         )}
+
+        {/* ═══ FEATURED BANNERS ═══ */}
+        <FeaturedBanners />
 
         {/* ═══ SOCIETY QUICK LINKS ═══ */}
         <SocietyQuickLinks />
