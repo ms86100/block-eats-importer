@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 import { Handshake, AlertCircle, HelpCircle, Gift, Clock, MessageCircle } from 'lucide-react';
 
 const TAG_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  borrow: { label: 'Borrow', icon: Handshake, color: 'text-blue-700', bg: 'bg-blue-100' },
-  emergency: { label: 'Emergency', icon: AlertCircle, color: 'text-red-700', bg: 'bg-red-100' },
-  question: { label: 'Question', icon: HelpCircle, color: 'text-purple-700', bg: 'bg-purple-100' },
-  offer: { label: 'Offer', icon: Gift, color: 'text-emerald-700', bg: 'bg-emerald-100' },
+  borrow: { label: 'Borrow', icon: Handshake, color: 'text-info', bg: 'bg-info/15' },
+  emergency: { label: 'Emergency', icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/15' },
+  question: { label: 'Question', icon: HelpCircle, color: 'text-primary', bg: 'bg-primary/15' },
+  offer: { label: 'Offer', icon: Gift, color: 'text-success', bg: 'bg-success/15' },
 };
 
 export interface HelpRequest {

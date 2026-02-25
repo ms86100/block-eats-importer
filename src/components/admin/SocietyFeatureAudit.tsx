@@ -25,9 +25,9 @@ interface ResolvedFeature {
 }
 
 const SOURCE_STYLES: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; className: string }> = {
-  core: { label: 'Core', variant: 'default', className: 'bg-blue-600 text-white text-[8px] h-4' },
-  package: { label: 'Package', variant: 'secondary', className: 'bg-green-600/15 text-green-700 border-green-300 text-[8px] h-4' },
-  override: { label: 'Override', variant: 'outline', className: 'bg-orange-500/15 text-orange-700 border-orange-300 text-[8px] h-4' },
+  core: { label: 'Core', variant: 'default', className: 'bg-primary text-primary-foreground text-[8px] h-4' },
+  package: { label: 'Package', variant: 'secondary', className: 'bg-success/15 text-success border-success/30 text-[8px] h-4' },
+  override: { label: 'Override', variant: 'outline', className: 'bg-warning/15 text-warning border-warning/30 text-[8px] h-4' },
   default: { label: 'Default', variant: 'outline', className: 'text-muted-foreground text-[8px] h-4' },
 };
 
@@ -115,9 +115,9 @@ export function SocietyFeatureAudit({ builderId, builderName }: Props) {
                   <div key={f.feature_key} className="flex items-center justify-between py-0.5">
                     <div className="flex items-center gap-1.5">
                       {f.is_enabled ? (
-                        <Check size={12} className="text-green-600 shrink-0" />
+                         <Check size={12} className="text-success shrink-0" />
                       ) : (
-                        <X size={12} className="text-red-500 shrink-0" />
+                         <X size={12} className="text-destructive shrink-0" />
                       )}
                       <span className="text-xs">{f.feature_key}</span>
                     </div>

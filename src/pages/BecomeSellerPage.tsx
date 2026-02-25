@@ -81,7 +81,7 @@ export default function BecomeSellerPage() {
   const paymentMethods = [formData.accepts_cod && 'COD', formData.accepts_upi && 'UPI'].filter(Boolean).join(', ') || 'None';
 
   if (isCheckingExisting || groupsLoading) {
-    return <AppLayout showHeader={false} showNav={false}><div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin" size={32} /></div></AppLayout>;
+    return <AppLayout showHeader={false} showNav={false}><div className="flex items-center justify-center min-h-[100dvh]"><Loader2 className="animate-spin" size={32} /></div></AppLayout>;
   }
 
   if (existingSeller && selectedGroup) {

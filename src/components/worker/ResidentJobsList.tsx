@@ -103,7 +103,7 @@ export function ResidentJobsList() {
               )}
               {job.resident_rating && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Star size={12} className="fill-yellow-400 text-yellow-400" /> {job.resident_rating}/5
+                  <Star size={12} className="fill-warning text-warning" /> {job.resident_rating}/5
                 </span>
               )}
             </div>

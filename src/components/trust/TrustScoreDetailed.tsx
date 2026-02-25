@@ -16,10 +16,10 @@ interface TrustMetrics {
 }
 
 const TRUST_LABELS: { min: number; label: string; color: string }[] = [
-  { min: 9, label: 'Model Community', color: 'text-emerald-600 dark:text-emerald-400' },
-  { min: 7, label: 'Thriving', color: 'text-green-600 dark:text-green-400' },
-  { min: 5, label: 'Active', color: 'text-blue-600 dark:text-blue-400' },
-  { min: 3, label: 'Growing', color: 'text-amber-600 dark:text-amber-400' },
+  { min: 9, label: 'Model Community', color: 'text-success' },
+  { min: 7, label: 'Thriving', color: 'text-success' },
+  { min: 5, label: 'Active', color: 'text-info' },
+  { min: 3, label: 'Growing', color: 'text-warning' },
   { min: 0, label: 'Getting Started', color: 'text-muted-foreground' },
 ];
 
@@ -155,10 +155,10 @@ export function TrustScoreDetailed() {
               key={label}
               className={cn(
                 'flex items-center gap-2 p-2 rounded-lg border text-xs',
-                good ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950' : 'border-border bg-muted/30'
+                good ? 'border-success/30 bg-success/10' : 'border-border bg-muted/30'
               )}
             >
-              <Icon size={14} className={good ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'} />
+              <Icon size={14} className={good ? 'text-success' : 'text-muted-foreground'} />
               <div className="min-w-0">
                 <p className="font-semibold">{value}</p>
                 <p className="text-[10px] text-muted-foreground truncate">{label}</p>

@@ -26,13 +26,13 @@ interface DeliveryMonitoringTabProps {
 }
 
 const STATUS_BADGES: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
-  assigned: { label: 'Assigned', color: 'bg-blue-100 text-blue-800' },
-  picked_up: { label: 'In Transit', color: 'bg-indigo-100 text-indigo-800' },
-  at_gate: { label: 'At Gate', color: 'bg-cyan-100 text-cyan-800' },
-  delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800' },
-  failed: { label: 'Failed', color: 'bg-red-100 text-red-800' },
-  cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-800' },
+  pending: { label: 'Pending', color: 'bg-warning/15 text-warning' },
+  assigned: { label: 'Assigned', color: 'bg-info/15 text-info' },
+  picked_up: { label: 'In Transit', color: 'bg-primary/15 text-primary' },
+  at_gate: { label: 'At Gate', color: 'bg-accent text-accent-foreground' },
+  delivered: { label: 'Delivered', color: 'bg-success/15 text-success' },
+  failed: { label: 'Failed', color: 'bg-destructive/15 text-destructive' },
+  cancelled: { label: 'Cancelled', color: 'bg-muted text-muted-foreground' },
 };
 
 export function DeliveryMonitoringTab({ societyId }: DeliveryMonitoringTabProps) {
@@ -84,20 +84,20 @@ export function DeliveryMonitoringTab({ societyId }: DeliveryMonitoringTabProps)
     <div className="space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3 text-center">
-          <Truck className="mx-auto text-blue-600 mb-1" size={18} />
-          <p className="text-lg font-bold text-blue-700">{stats.active}</p>
-          <p className="text-[10px] text-blue-600">Active</p>
+        <div className="bg-info/10 rounded-xl p-3 text-center">
+          <Truck className="mx-auto text-info mb-1" size={18} />
+          <p className="text-lg font-bold tabular-nums text-info">{stats.active}</p>
+          <p className="text-[10px] text-info/80">Active</p>
         </div>
-        <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-3 text-center">
-          <CheckCircle className="mx-auto text-green-600 mb-1" size={18} />
-          <p className="text-lg font-bold text-green-700">{stats.delivered}</p>
-          <p className="text-[10px] text-green-600">Delivered</p>
+        <div className="bg-success/10 rounded-xl p-3 text-center">
+          <CheckCircle className="mx-auto text-success mb-1" size={18} />
+          <p className="text-lg font-bold tabular-nums text-success">{stats.delivered}</p>
+          <p className="text-[10px] text-success/80">Delivered</p>
         </div>
-        <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-3 text-center">
-          <XCircle className="mx-auto text-red-600 mb-1" size={18} />
-          <p className="text-lg font-bold text-red-700">{stats.failed}</p>
-          <p className="text-[10px] text-red-600">Failed</p>
+        <div className="bg-destructive/10 rounded-xl p-3 text-center">
+          <XCircle className="mx-auto text-destructive mb-1" size={18} />
+          <p className="text-lg font-bold tabular-nums text-destructive">{stats.failed}</p>
+          <p className="text-[10px] text-destructive/80">Failed</p>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ export function DeliveryMonitoringTab({ societyId }: DeliveryMonitoringTabProps)
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 min-h-[40px] rounded-lg text-xs font-medium transition-colors ${
               filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}
           >

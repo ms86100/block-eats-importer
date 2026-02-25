@@ -75,7 +75,7 @@ export function PackageComparisonMatrix({ features, packages, packageItems }: Pr
                   return (
                     <TableCell key={pkg.id} className="text-center py-1.5 px-2">
                       {enabled ? (
-                        <Check size={14} className="mx-auto text-green-600" />
+                        <Check size={14} className="mx-auto text-success" />
                       ) : (
                         <X size={14} className="mx-auto text-muted-foreground/40" />
                       )}

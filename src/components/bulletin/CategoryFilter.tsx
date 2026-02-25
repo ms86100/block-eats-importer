@@ -7,11 +7,11 @@ export type BulletinCategory = 'all' | 'event' | 'alert' | 'maintenance' | 'poll
 
 const categories: { value: BulletinCategory; label: string; icon: React.ElementType; color: string }[] = [
   { value: 'all', label: 'All', icon: LayoutGrid, color: 'text-foreground' },
-  { value: 'event', label: 'Events', icon: Megaphone, color: 'text-blue-600' },
+  { value: 'event', label: 'Events', icon: Megaphone, color: 'text-info' },
   { value: 'alert', label: 'Alerts', icon: AlertTriangle, color: 'text-destructive' },
-  { value: 'maintenance', label: 'Maintenance', icon: Wrench, color: 'text-amber-600' },
-  { value: 'poll', label: 'Polls', icon: BarChart3, color: 'text-purple-600' },
-  { value: 'lost_found', label: 'Lost & Found', icon: SearchIcon, color: 'text-emerald-600' },
+  { value: 'maintenance', label: 'Maintenance', icon: Wrench, color: 'text-warning' },
+  { value: 'poll', label: 'Polls', icon: BarChart3, color: 'text-primary' },
+  { value: 'lost_found', label: 'Lost & Found', icon: SearchIcon, color: 'text-success' },
 ];
 
 interface CategoryFilterProps {
@@ -27,7 +27,7 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
           key={value}
           onClick={() => onSelect(value)}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border',
+            'flex items-center gap-1.5 px-3 min-h-[40px] rounded-full text-xs font-medium whitespace-nowrap transition-all border',
             selected === value
               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
               : 'bg-card border-border text-muted-foreground hover:border-primary/30'
@@ -42,9 +42,9 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
 }
 
 export const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  event: { label: 'Event', icon: Megaphone, color: 'text-blue-700', bg: 'bg-blue-100' },
-  alert: { label: 'Alert', icon: AlertTriangle, color: 'text-red-700', bg: 'bg-red-100' },
-  maintenance: { label: 'Maintenance', icon: Wrench, color: 'text-amber-700', bg: 'bg-amber-100' },
-  poll: { label: 'Poll', icon: BarChart3, color: 'text-purple-700', bg: 'bg-purple-100' },
-  lost_found: { label: 'Lost & Found', icon: SearchIcon, color: 'text-emerald-700', bg: 'bg-emerald-100' },
+  event: { label: 'Event', icon: Megaphone, color: 'text-info', bg: 'bg-info/15' },
+  alert: { label: 'Alert', icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/15' },
+  maintenance: { label: 'Maintenance', icon: Wrench, color: 'text-warning', bg: 'bg-warning/15' },
+  poll: { label: 'Poll', icon: BarChart3, color: 'text-primary', bg: 'bg-primary/15' },
+  lost_found: { label: 'Lost & Found', icon: SearchIcon, color: 'text-success', bg: 'bg-success/15' },
 };

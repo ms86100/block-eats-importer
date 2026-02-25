@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 
 const TRUST_LABELS: { min: number; label: string; color: string }[] = [
-  { min: 9, label: 'Model Community', color: 'text-emerald-600 dark:text-emerald-400' },
-  { min: 7, label: 'Thriving', color: 'text-green-600 dark:text-green-400' },
-  { min: 5, label: 'Active', color: 'text-blue-600 dark:text-blue-400' },
-  { min: 3, label: 'Growing', color: 'text-amber-600 dark:text-amber-400' },
+  { min: 9, label: 'Model Community', color: 'text-success' },
+  { min: 7, label: 'Thriving', color: 'text-success' },
+  { min: 5, label: 'Active', color: 'text-info' },
+  { min: 3, label: 'Growing', color: 'text-warning' },
   { min: 0, label: 'Getting Started', color: 'text-muted-foreground' },
 ];
 

@@ -265,7 +265,7 @@ export default function LandingPage() {
   const slides = cmsSlides ? cmsSlides.map(renderCmsSlide) : defaultSlides;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       {/* Carousel */}
       <div className="relative overflow-hidden" ref={emblaRef}>
         <div className="flex transition-transform duration-500 ease-out">

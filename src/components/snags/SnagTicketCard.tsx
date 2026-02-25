@@ -20,12 +20,12 @@ interface SnagTicket {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  reported: { label: 'Reported', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', icon: AlertTriangle },
-  acknowledged: { label: 'Acknowledged', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', icon: Clock },
-  contractor_assigned: { label: 'Assigned', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', icon: Wrench },
+  reported: { label: 'Reported', color: 'bg-warning/15 text-warning', icon: AlertTriangle },
+  acknowledged: { label: 'Acknowledged', color: 'bg-info/15 text-info', icon: Clock },
+  contractor_assigned: { label: 'Assigned', color: 'bg-primary/15 text-primary', icon: Wrench },
   in_progress: { label: 'In Progress', color: 'bg-info/10 text-info', icon: Wrench },
   fixed: { label: 'Fixed', color: 'bg-success/10 text-success', icon: CheckCircle2 },
-  verified: { label: 'Verified', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300', icon: CheckCircle2 },
+  verified: { label: 'Verified', color: 'bg-success/15 text-success', icon: CheckCircle2 },
   closed: { label: 'Closed', color: 'bg-muted text-muted-foreground', icon: CheckCircle2 },
 };
 

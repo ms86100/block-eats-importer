@@ -148,15 +148,15 @@ export function WorkerGateValidation() {
 
       {/* Validation Result */}
       {result && (
-        <Card className={`border-2 ${result.valid ? 'border-emerald-500/50 bg-emerald-50/50' : 'border-destructive/50 bg-destructive/5'}`}>
+        <Card className={`border-2 ${result.valid ? 'border-success/50 bg-success/5' : 'border-destructive/50 bg-destructive/5'}`}>
           <CardContent className="p-4 space-y-3">
             <div className="text-center">
               {result.valid ? (
-                <CheckCircle className="mx-auto text-emerald-600 mb-1" size={40} />
+                <CheckCircle className="mx-auto text-success mb-1" size={40} />
               ) : (
                 <XCircle className="mx-auto text-destructive mb-1" size={40} />
               )}
-              <p className={`font-bold text-lg ${result.valid ? 'text-emerald-700' : 'text-destructive'}`}>
+              <p className={`font-bold text-lg ${result.valid ? 'text-success' : 'text-destructive'}`}>
                 {result.valid ? 'VALID — Entry Allowed' : 'ENTRY BLOCKED'}
               </p>
             </div>
@@ -169,7 +169,7 @@ export function WorkerGateValidation() {
                 </div>
                 {result.rating && result.rating > 0 && (
                   <p className="text-xs flex items-center gap-1">
-                    <Star size={10} className="text-amber-500 fill-amber-500" />
+                    <Star size={10} className="text-warning fill-warning" />
                     {result.rating} rating
                   </p>
                 )}
@@ -182,7 +182,7 @@ export function WorkerGateValidation() {
                   </div>
                 )}
                 {result.requires_approval && (
-                  <Badge className="bg-amber-100 text-amber-700 text-[10px]">
+                  <Badge className="bg-warning/15 text-warning text-[10px]">
                     <AlertTriangle size={10} className="mr-1" /> Per-visit approval required
                   </Badge>
                 )}
