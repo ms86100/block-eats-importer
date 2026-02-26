@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useCart } from '@/hooks/useCart';
 import { useSellerTrustSnapshot } from '@/hooks/queries/useProductTrustMetrics';
@@ -30,7 +31,7 @@ export interface ProductDetail {
   is_same_society: boolean;
 }
 
-export function useProductDetail(product: ProductDetail | null, open: boolean) {
+export function useProductDetail(product: ProductDetail | null, open: boolean, onOpenChange?: (open: boolean) => void) {
   const { items, addItem, updateQuantity } = useCart();
   const { data: trustSnapshot } = useSellerTrustSnapshot(product?.seller_id || null);
   const [contactOpen, setContactOpen] = useState(false);
@@ -72,7 +73,9 @@ export function useProductDetail(product: ProductDetail | null, open: boolean) {
   const cartItem = items.find((item) => item.product_id === product?.product_id);
   const quantity = cartItem?.quantity || 0;
 
-  const handleAdd = () => {
+  const navigate = useNavigate();
+
+  const handleAdd = useCallback(() => {
     if (!product) return;
     if (actionType === 'contact_seller') { setContactOpen(true); return; }
     if (!isCartAction) { setEnquiryOpen(true); return; }
@@ -86,7 +89,10 @@ export function useProductDetail(product: ProductDetail | null, open: boolean) {
       is_bestseller: false, is_recommended: false, is_urgent: false,
       created_at: '', updated_at: '',
     });
-  };
+    // Close sheet and navigate to cart
+    onOpenChange?.(false);
+    navigate('/cart');
+  }, [product, actionType, isCartAction, addItem, onOpenChange, navigate]);
 
   const isNewSeller = (product?.seller_reviews === 0) || (product?.seller_rating === 0);
   const ActionIcon = config.icon;
