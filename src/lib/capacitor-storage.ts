@@ -53,30 +53,38 @@ class CapacitorStorage implements SupportedStorage {
   }
 
   async getItem(key: string): Promise<string | null> {
+    const t = Date.now();
+    const shortKey = key.substring(0, 30);
     if (!Capacitor.isNativePlatform()) {
       return localStorage.getItem(key);
     }
+    console.log('[CapacitorStorage] getItem start', shortKey, t);
     const prefs = await ensurePreferences();
-    if (!prefs) return localStorage.getItem(key);
+    if (!prefs) { console.log('[CapacitorStorage] getItem fallback (no prefs)', shortKey, Date.now() - t, 'ms'); return localStorage.getItem(key); }
     try {
       const { value } = await this.withTimeout(prefs.get({ key }), 3000, { value: localStorage.getItem(key) });
+      console.log('[CapacitorStorage] getItem done', shortKey, Date.now() - t, 'ms');
       return value;
     } catch (e) {
-      console.warn('[CapacitorStorage] getItem failed, falling back to localStorage:', e);
+      console.warn('[CapacitorStorage] getItem failed', shortKey, Date.now() - t, 'ms', e);
       return localStorage.getItem(key);
     }
   }
 
   async setItem(key: string, value: string): Promise<void> {
+    const t = Date.now();
+    const shortKey = key.substring(0, 30);
     // Always write to localStorage as a safety net
     try { localStorage.setItem(key, value); } catch (_) { /* quota exceeded, ignore */ }
     if (!Capacitor.isNativePlatform()) return;
+    console.log('[CapacitorStorage] setItem start', shortKey, t);
     const prefs = await ensurePreferences();
     if (!prefs) return;
     try {
       await this.withTimeout(prefs.set({ key, value }), 3000, undefined);
+      console.log('[CapacitorStorage] setItem done', shortKey, Date.now() - t, 'ms');
     } catch (e) {
-      console.warn('[CapacitorStorage] setItem failed:', e);
+      console.warn('[CapacitorStorage] setItem failed', shortKey, Date.now() - t, 'ms', e);
     }
   }
 
