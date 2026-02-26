@@ -40,7 +40,7 @@ interface ProductDetailSheetProps {
 export { type ProductDetail };
 
 export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduct, categoryIcon, categoryName }: ProductDetailSheetProps) {
-  const d = useProductDetail(product, open);
+  const d = useProductDetail(product, open, onOpenChange);
   const ml = useMarketplaceLabels();
 
   if (!product) return null;
