@@ -24,12 +24,21 @@ interface CouponData {
   show_to_buyers: boolean;
 }
 
+interface AppliedCouponData {
+  id: string;
+  code: string;
+  discountAmount: number;
+  discount_type?: string;
+  discount_value?: number;
+  max_discount_amount?: number | null;
+}
+
 interface CouponInputProps {
   sellerId: string;
   totalAmount: number;
-  onApply: (coupon: { id: string; code: string; discountAmount: number }) => void;
+  onApply: (coupon: AppliedCouponData) => void;
   onRemove: () => void;
-  appliedCoupon: { id: string; code: string; discountAmount: number } | null;
+  appliedCoupon: AppliedCouponData | null;
 }
 
 export function CouponInput({ sellerId, totalAmount, onApply, onRemove, appliedCoupon }: CouponInputProps) {
@@ -113,7 +122,14 @@ export function CouponInput({ sellerId, totalAmount, onApply, onRemove, appliedC
     }
     hapticImpact('medium');
     const discountAmount = calculateDiscount(coupon);
-    onApply({ id: coupon.id, code: coupon.code, discountAmount });
+    onApply({
+      id: coupon.id,
+      code: coupon.code,
+      discountAmount,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      max_discount_amount: coupon.max_discount_amount,
+    });
     toast.success(`Coupon applied! You save ${formatPrice(discountAmount)}`);
   };
 
@@ -155,7 +171,14 @@ export function CouponInput({ sellerId, totalAmount, onApply, onRemove, appliedC
       discountAmount = Math.round(discountAmount * 100) / 100;
 
       hapticImpact('medium');
-      onApply({ id: coupon.id, code: coupon.code, discountAmount });
+      onApply({
+        id: coupon.id,
+        code: coupon.code,
+        discountAmount,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        max_discount_amount: coupon.max_discount_amount,
+      });
       toast.success(`Coupon applied! You save ${formatPrice(discountAmount)}`);
     } catch {
       toast.error('Failed to validate coupon');

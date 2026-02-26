@@ -14,9 +14,12 @@ import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { OrderItem, OrderStatus, PaymentStatus, ItemStatus } from '@/types/database';
 import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { getString, setString } from '@/lib/persistent-kv';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const o = useOrderDetail(id);
 
   if (o.isLoading) return <AppLayout showHeader={false}><div className="p-4 space-y-3"><Skeleton className="h-8 w-32" /><Skeleton className="h-28 w-full rounded-xl" /><Skeleton className="h-40 w-full rounded-xl" /></div></AppLayout>;
@@ -37,7 +40,7 @@ export default function OrderDetailPage() {
       <div className="pb-28">
         {/* Header */}
         <div className="sticky top-0 z-30 bg-background border-b border-border px-4 py-3.5 safe-top flex items-center gap-3">
-          <button onClick={() => window.history.back()} className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted shrink-0"><ArrowLeft size={18} /></button>
+          <button onClick={() => window.history.length > 1 ? window.history.back() : navigate('/orders')} className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted shrink-0"><ArrowLeft size={18} /></button>
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold">Order Summary</h1>
             <button onClick={o.copyOrderId} className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">#{order.id.slice(0, 8)} <Copy size={10} /></button>
@@ -111,10 +114,10 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {o.isBuyerView && (order.status === 'completed' || order.status === 'delivered') && !localStorage.getItem(`feedback_prompted_${order.id}`) && (
+          {o.isBuyerView && (order.status === 'completed' || order.status === 'delivered') && !getString(`feedback_prompted_${order.id}`) && (
             <div className="bg-secondary/50 border border-border rounded-xl p-3 flex items-center justify-between">
               <div className="flex items-center gap-2.5"><span className="text-lg">💬</span><div><p className="text-sm font-semibold">How was your experience?</p><p className="text-[11px] text-muted-foreground">Share feedback</p></div></div>
-              <FeedbackSheet triggerLabel="Share" onSubmitted={() => localStorage.setItem(`feedback_prompted_${order.id}`, 'true')} />
+              <FeedbackSheet triggerLabel="Share" onSubmitted={() => setString(`feedback_prompted_${order.id}`, 'true')} />
             </div>
           )}
 

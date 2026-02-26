@@ -298,6 +298,12 @@ export default function SocietyDashboardPage() {
             <p className="text-sm font-semibold text-foreground">No results for "{searchQuery}"</p>
             <p className="text-xs text-muted-foreground mt-1">Try a different keyword</p>
           </div>
+        ) : filteredSections.length === 0 && !searchQuery ? (
+          <div className="text-center py-12">
+            <Building2 size={32} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm font-semibold text-foreground">No features enabled</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">Society features haven't been configured yet. Contact your society admin to get started.</p>
+          </div>
         ) : (
           filteredSections.map((section, sIdx) => (
             <motion.div

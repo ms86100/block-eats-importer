@@ -163,24 +163,27 @@ export function useOnboarding(userId?: string | null) {
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
-    // User-scoped key prevents shared-device issues
     const key = userId ? `app_has_seen_onboarding_${userId}` : 'app_has_seen_onboarding';
-    const hasSeenOnboarding = localStorage.getItem(key);
-    if (!hasSeenOnboarding) {
-      setShowOnboarding(true);
-    }
-    setHasChecked(true);
+    // Restore from persistent storage on native, then check
+    import('@/lib/persistent-kv').then(({ restoreKeyIfMissing, getString }) => {
+      restoreKeyIfMissing(key).then(() => {
+        if (!getString(key)) {
+          setShowOnboarding(true);
+        }
+        setHasChecked(true);
+      });
+    });
   }, [userId]);
 
   const completeOnboarding = () => {
     const key = userId ? `app_has_seen_onboarding_${userId}` : 'app_has_seen_onboarding';
-    localStorage.setItem(key, 'true');
+    import('@/lib/persistent-kv').then(({ setString }) => setString(key, 'true'));
     setShowOnboarding(false);
   };
 
   const resetOnboarding = () => {
     const key = userId ? `app_has_seen_onboarding_${userId}` : 'app_has_seen_onboarding';
-    localStorage.removeItem(key);
+    import('@/lib/persistent-kv').then(({ removeKey }) => removeKey(key));
     setShowOnboarding(true);
   };
 

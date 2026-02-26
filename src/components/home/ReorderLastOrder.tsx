@@ -64,17 +64,24 @@ export function ReorderLastOrder() {
 
   const handleReorder = async () => {
     if (!user) return;
+    setIsLoading(true);
     
-    // Check if cart has existing items and ask for confirmation
-    const { data: existingCart } = await supabase
-      .from('cart_items')
-      .select('id')
-      .eq('user_id', user.id)
-      .limit(1);
+    try {
+      // Check if cart has existing items and ask for confirmation
+      const { data: existingCart } = await supabase
+        .from('cart_items')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
 
-    if (existingCart && existingCart.length > 0) {
-      setHasExistingCart(true);
-      setShowConfirm(true);
+      if (existingCart && existingCart.length > 0) {
+        setHasExistingCart(true);
+        setShowConfirm(true);
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      setIsLoading(false);
       return;
     }
 

@@ -137,6 +137,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
       }
       if (!silent) toast.success('Added to cart');
+      // Optimistically update cart-count to stay in sync with badge
+      queryClient.setQueryData(['cart-count', user?.id], (old: number | undefined) => (old || 0) + quantity);
       invalidate(); // Sync with server for real IDs
     } catch (error) {
       invalidate(); // Rollback

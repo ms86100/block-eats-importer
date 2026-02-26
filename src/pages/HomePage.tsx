@@ -11,6 +11,7 @@ import { CommunityTeaser } from '@/components/home/CommunityTeaser';
 import { useAuth } from '@/contexts/AuthContext';
 import { PartyPopper, X, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getString, setString, restoreKeyIfMissing } from '@/lib/persistent-kv';
 
 export default function HomePage() {
   const { user, profile, isApproved, isSeller, sellerProfiles } = useAuth();
@@ -20,15 +21,18 @@ export default function HomePage() {
   useEffect(() => {
     if (isSeller && sellerProfiles?.some((s: any) => s.verification_status === 'approved') && user) {
       const key = `seller_congrats_seen_${user.id}`;
-      if (!localStorage.getItem(key)) {
-        setShowSellerCongrats(true);
-      }
+      // Restore from persistent storage on native before checking
+      restoreKeyIfMissing(key).then(() => {
+        if (!getString(key)) {
+          setShowSellerCongrats(true);
+        }
+      });
     }
   }, [isSeller, sellerProfiles, user]);
 
   const dismissCongrats = () => {
     if (user) {
-      localStorage.setItem(`seller_congrats_seen_${user.id}`, 'true');
+      setString(`seller_congrats_seen_${user.id}`, 'true');
     }
     setShowSellerCongrats(false);
   };
