@@ -161,12 +161,35 @@ export function useAuthPage() {
     }, 20000);
 
     try {
+      console.log('[Auth:Login] Step 1: signInWithPassword start', Date.now());
       const { data, error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password: validatedPassword });
+      console.log('[Auth:Login] Step 2: signInWithPassword done', Date.now());
       if (error) throw error;
       recordSuccess();
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user?.id).single();
-      if (profile) { toast.success('Welcome back!'); navigate('/'); }
-      else {
+
+      console.log('[Auth:Login] Step 3: profile query start', Date.now());
+      const profileResult = await Promise.race([
+        supabase.from('profiles').select('*').eq('id', data.user?.id).single(),
+        new Promise<{ data: null; error: string }>(resolve =>
+          setTimeout(() => {
+            console.warn('[Auth:Login] Profile query timed out after 5s');
+            resolve({ data: null, error: 'profile_query_timeout' });
+          }, 5000)
+        ),
+      ]);
+      console.log('[Auth:Login] Step 4: profile query done', Date.now());
+
+      const profile = profileResult.data;
+      if (profile) {
+        console.log('[Auth:Login] Step 5: navigating to home', Date.now());
+        toast.success('Welcome back!');
+        navigate('/');
+      } else if (profileResult.error === 'profile_query_timeout') {
+        // Profile query hung — trust onAuthStateChange to load profile, navigate anyway
+        console.warn('[Auth:Login] Profile query timed out, navigating anyway (session is valid)');
+        toast.success('Welcome back!');
+        navigate('/');
+      } else {
         await supabase.auth.signOut();
         toast.error('Your account setup is incomplete. Please sign up again with a new account, or contact support.', { duration: 8000 });
       }
