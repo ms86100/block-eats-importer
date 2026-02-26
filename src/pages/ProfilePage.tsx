@@ -31,23 +31,22 @@ import {
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { toast } from 'sonner';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { getFlag, setFlag, getString, removeKey } from '@/lib/persistent-kv';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, society, isSeller, isAdmin, isBuilderMember, signOut, refreshProfile } = useAuth();
   const { isFeatureEnabled } = useEffectiveFeatures();
   const settings = useSystemSettings();
-  const [largeFont, setLargeFont] = useState(() => {
-    return localStorage.getItem('app_large_font') === 'true';
-  });
+  const [largeFont, setLargeFont] = useState(() => getFlag('app_large_font'));
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const [showOnboardingFeedback, setShowOnboardingFeedback] = useState(false);
 
   // Check for post-seller-onboarding feedback prompt
   useEffect(() => {
-    if (localStorage.getItem('seller_onboarding_completed') === 'true') {
+    if (getString('seller_onboarding_completed') === 'true') {
       setShowOnboardingFeedback(true);
-      localStorage.removeItem('seller_onboarding_completed');
+      removeKey('seller_onboarding_completed');
     }
   }, []);
 
@@ -70,7 +69,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (largeFont) document.documentElement.classList.add('large-font');
     else document.documentElement.classList.remove('large-font');
-    localStorage.setItem('app_large_font', String(largeFont));
+    setFlag('app_large_font', largeFont);
   }, [largeFont]);
 
   const handleSignOut = async () => {

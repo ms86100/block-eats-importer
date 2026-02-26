@@ -17,7 +17,7 @@ interface RazorpayOptions {
   customerEmail: string;
   customerPhone: string;
   businessName: string;
-  onSuccess: (paymentId: string, orderId: string) => void;
+  onSuccess: (paymentId: string, razorpayOrderId?: string) => void;
   onFailure: (error: any) => void;
 }
 

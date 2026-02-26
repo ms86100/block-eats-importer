@@ -166,6 +166,9 @@ export default function CategoryGroupPage() {
     );
   }
 
+  // Guard against undefined parentGroup before rendering its properties
+  if (!parentGroup) return null;
+
   return (
     <AppLayout showHeader={false}>
       {/* Sticky Header */}

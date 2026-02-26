@@ -14,8 +14,7 @@ export function FloatingCartBar({ className }: FloatingCartBarProps) {
   const { formatPrice } = useCurrency();
   const location = useLocation();
 
-  // #21/#25: Hide on cart page — works with both BrowserRouter and HashRouter
-  if (itemCount === 0 || location.pathname === '/cart' || location.hash === '#/cart') return null;
+  if (itemCount === 0 || location.pathname === '/cart') return null;
 
   const thumbnails = items
     .filter(i => i.product?.image_url)

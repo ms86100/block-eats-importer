@@ -120,7 +120,7 @@ export default function CartPage() {
                         <span className="w-6 text-center text-sm font-bold text-accent-foreground tabular-nums">{item.quantity}</span>
                         <button className="h-8 w-8 flex items-center justify-center active:scale-95 transition-transform" onClick={() => { hapticImpact('medium'); c.updateQuantity(item.product_id, item.quantity + 1); }}><Plus size={14} className="text-accent-foreground" /></button>
                       </div>
-                      <button className="h-8 w-8 flex items-center justify-center text-muted-foreground" onClick={() => { hapticImpact('medium'); const name = item.product?.name || 'Item'; c.removeItem(item.product_id); toast(`${name} removed`, { action: { label: 'Undo', onClick: () => c.addItem(item.product as any, item.quantity) }, duration: 4000 }); }}><Trash2 size={15} /></button>
+                      <button className="h-8 w-8 flex items-center justify-center text-muted-foreground" onClick={() => { hapticImpact('medium'); const name = item.product?.name || 'Item'; c.removeItem(item.product_id); toast(`${name} removed`, { action: { label: 'Undo', onClick: () => c.addItem(item.product as any, item.quantity, true) }, duration: 4000 }); }}><Trash2 size={15} /></button>
                     </div>
                   </div>
                 ))}

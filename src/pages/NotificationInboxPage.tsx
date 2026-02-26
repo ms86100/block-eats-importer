@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, CheckCheck, Inbox } from 'lucide-react';
+import { Bell, CheckCheck, Inbox, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/queries/useNotifications';
@@ -10,7 +10,7 @@ import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead 
 export default function NotificationInboxPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: notifications = [], isLoading } = useNotifications(user?.id);
+  const { data: notifications = [], isLoading, refetch, isFetching } = useNotifications(user?.id);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
@@ -29,13 +29,16 @@ export default function NotificationInboxPage() {
   return (
     <AppLayout headerTitle="Notifications" showLocation={false}>
       <div className="p-4">
-        {unreadCount > 0 && (
-          <div className="flex justify-end mb-3">
-            <Button variant="ghost" className="text-sm gap-1" onClick={() => user && markAllRead.mutate(user.id)}>
+        <div className="flex items-center justify-between mb-3">
+          <Button variant="ghost" size="sm" className="text-sm gap-1" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
+          </Button>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" className="text-sm gap-1" onClick={() => user && markAllRead.mutate(user.id)}>
               <CheckCheck size={14} /> Mark all read
             </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         {isLoading ? (
           <div className="space-y-3">

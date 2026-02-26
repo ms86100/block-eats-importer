@@ -59,8 +59,11 @@ export function RazorpayCheckout({
       customerEmail,
       customerPhone,
       businessName: sellerName,
-      onSuccess: (paymentId) => {
+      onSuccess: (paymentId, razorpayOrderId) => {
         setStatus('success');
+        if (razorpayOrderId) {
+          console.log('[Payment] Razorpay order_id for reconciliation:', razorpayOrderId);
+        }
         setTimeout(() => onPaymentSuccess(paymentId), 1500);
       },
       onFailure: () => {
