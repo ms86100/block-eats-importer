@@ -11,22 +11,19 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * 
  * PRODUCTION (default — no env var needed):
  *   - Loads from bundled local assets (no server block)
- *   - No allowNavigation restrictions (prevents silent iOS blocks)
  *   - WebView debugging disabled
- *   - Splash stays until app explicitly hides it
+ *   - Splash auto-hides as safety net
  */
 
-// Safe default: production unless explicitly development.
-// This prevents white-screen on device if env var is missing.
-const isDevelopment = process.env.CAPACITOR_ENV === 'development';
+const isProduction = process.env.CAPACITOR_ENV === 'production';
 
 const config: CapacitorConfig = {
   appId: 'app.sociva.community',
   appName: 'Sociva',
   webDir: 'dist',
 
-  // Only inject dev server when explicitly in development mode
-  ...(isDevelopment && {
+  // Dev server only when NOT in production
+  ...(!isProduction && {
     server: {
       url: 'https://b3f6efce-9b8e-4071-b39d-b038b9b1adf4.lovableproject.com?forceHideBadge=true',
       cleartext: true,
@@ -35,18 +32,21 @@ const config: CapacitorConfig = {
     },
   }),
 
-  // Production: minimal server config, NO allowNavigation
-  // Capacitor loads from bundled dist/ assets by default
-  ...(!isDevelopment && {
+  // Production: minimal server config with allowNavigation for Supabase/app domains
+  ...(isProduction && {
     server: {
       androidScheme: 'https',
+      allowNavigation: [
+        'rvvctaikytfeyzkwoqxg.supabase.co',
+        'block-eats.lovable.app',
+      ],
     },
   }),
 
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      launchAutoHide: false, // App controls hide via capacitor.ts
+      launchAutoHide: true,
       backgroundColor: '#ffffff',
       androidSplashResourceName: 'splash',
       iosSplashResourceName: 'LaunchScreen',
@@ -68,7 +68,7 @@ const config: CapacitorConfig = {
   // iOS-specific configuration
   ios: {
     scheme: 'sociva',
-    contentInset: 'never',
+    contentInset: 'automatic',
     preferredContentMode: 'mobile',
     plistOverrides: {
       ITSAppUsesNonExemptEncryption: false,
@@ -80,9 +80,9 @@ const config: CapacitorConfig = {
 
   // Android-specific configuration
   android: {
-    allowMixedContent: isDevelopment,
+    allowMixedContent: !isProduction,
     captureInput: true,
-    webContentsDebuggingEnabled: isDevelopment,
+    webContentsDebuggingEnabled: !isProduction,
   },
 };
 
