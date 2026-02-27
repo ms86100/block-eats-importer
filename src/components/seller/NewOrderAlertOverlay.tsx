@@ -24,7 +24,12 @@ export function NewOrderAlertOverlay({ order, onDismiss }: NewOrderAlertOverlayP
 
   const handleView = () => {
     onDismiss();
-    navigate(`/orders/${order!.id}`);
+    try {
+      navigate(`/orders/${order!.id}`);
+    } catch (e) {
+      console.error('[OrderAlert] Navigation failed, falling back:', e);
+      navigate('/orders');
+    }
   };
 
   return (

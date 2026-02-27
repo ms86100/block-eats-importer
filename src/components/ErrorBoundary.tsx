@@ -45,8 +45,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-    // Clear auth tokens before reload to break crash loops
-    try { localStorage.removeItem('sb-rvvctaikytfeyzkwoqxg-auth-token'); } catch {}
+    // Only clear auth tokens after repeated crashes (3+), not on first reload
+    const fails = Number(sessionStorage.getItem('boot-fails') || '0');
+    if (fails >= 3) {
+      try { localStorage.removeItem('sb-rvvctaikytfeyzkwoqxg-auth-token'); } catch {}
+    }
     window.location.reload();
   };
 

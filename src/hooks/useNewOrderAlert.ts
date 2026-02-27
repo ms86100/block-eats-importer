@@ -8,6 +8,8 @@ import { hapticVibrate, hapticNotification } from '@/lib/haptics';
  * Uses Supabase Realtime as primary + smart polling fallback to ensure no order is missed.
  */
 
+const ACTIONABLE_STATUSES = ['placed', 'enquired', 'quoted'] as const;
+
 function createAlarmSound(audioContext: AudioContext) {
   const now = audioContext.currentTime;
   for (let i = 0; i < 3; i++) {
@@ -45,20 +47,35 @@ export function useNewOrderAlert(sellerId: string | null) {
   const pollDelayRef = useRef(MIN_POLL_MS);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const dismissedIdsRef = useRef<Set<string>>(new Set());
 
   const handleNewOrder = useCallback((order: NewOrder) => {
-    if (seenIdsRef.current.has(order.id)) return; // deduplicate
+    if (seenIdsRef.current.has(order.id)) return;
+    if (dismissedIdsRef.current.has(order.id)) return;
+    if (!ACTIONABLE_STATUSES.includes(order.status as typeof ACTIONABLE_STATUSES[number])) return;
     seenIdsRef.current.add(order.id);
-    // Update lastSeenAt to skip this order in future polls
     if (order.created_at > lastSeenAtRef.current) {
       lastSeenAtRef.current = order.created_at;
     }
-    // Reset backoff on new order
     pollDelayRef.current = MIN_POLL_MS;
     setPendingAlert(order);
     queryClient.invalidateQueries({ queryKey: ['seller-orders', sellerId] });
     queryClient.invalidateQueries({ queryKey: ['seller-dashboard-stats', sellerId] });
   }, [sellerId, queryClient]);
+
+  const stopBuzzing = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    // Close AudioContext to fully silence
+    try {
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close();
+        audioCtxRef.current = null;
+      }
+    } catch {}
+  }, []);
 
   const startBuzzing = useCallback(() => {
     hapticNotification('warning');
@@ -83,17 +100,13 @@ export function useNewOrderAlert(sellerId: string | null) {
     }, 3000);
   }, []);
 
-  const stopBuzzing = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
   const dismiss = useCallback(() => {
+    if (pendingAlert) {
+      dismissedIdsRef.current.add(pendingAlert.id);
+    }
     stopBuzzing();
     setPendingAlert(null);
-  }, [stopBuzzing]);
+  }, [stopBuzzing, pendingAlert]);
 
   // ── Realtime subscription (primary, instant) ──
   useEffect(() => {
@@ -138,13 +151,13 @@ export function useNewOrderAlert(sellerId: string | null) {
           .select('id, status, total_amount, created_at')
           .eq('seller_id', sellerId)
           .gt('created_at', lastSeenAtRef.current)
+          .in('status', ACTIONABLE_STATUSES)
           .order('created_at', { ascending: false })
           .limit(1);
 
         if (data && data.length > 0) {
           handleNewOrder(data[0] as NewOrder);
         } else {
-          // No new orders → increase backoff
           pollDelayRef.current = Math.min(pollDelayRef.current * BACKOFF_FACTOR, MAX_POLL_MS);
         }
       } catch {
@@ -156,7 +169,6 @@ export function useNewOrderAlert(sellerId: string | null) {
       }
     };
 
-    // Start first poll after initial delay
     pollTimerRef.current = setTimeout(poll, MIN_POLL_MS);
 
     return () => {
@@ -174,6 +186,13 @@ export function useNewOrderAlert(sellerId: string | null) {
     }
     return () => stopBuzzing();
   }, [pendingAlert, startBuzzing, stopBuzzing]);
+
+  // ── Cleanup on unmount or sellerId change ──
+  useEffect(() => {
+    return () => {
+      stopBuzzing();
+    };
+  }, [sellerId, stopBuzzing]);
 
   return { pendingAlert, dismiss };
 }
