@@ -1,25 +1,19 @@
 
 
-## Issues to Fix
+## Root Cause (Verified)
 
-### 1. Codemagic YAML Parse Error (P0 - Build Blocker)
+The previous fix only re-indented the heredoc content, but the fundamental problem persists: **Codemagic's YAML parser does not correctly handle the `deviceToken: Data` pattern inside a `|` block scalar**. It interprets the colon-space as a YAML mapping delimiter regardless of being inside a literal block. Re-indenting does not fix this — the heredoc approach itself is the problem.
 
-**Root cause:** The shell heredoc content (Swift code) inside the `script: |` YAML block scalar is indented at 4 spaces, which is *less* than the parent block's indentation level (~12 spaces). YAML interprets this as exiting the block scalar, then encounters `deviceToken: Data` which it tries to parse as a YAML mapping — hence the error. This affects both the `ios-release` workflow (lines 47-63) and the `release-all` workflow (lines 233-249).
+## Fix
 
-**Fix:** Re-indent all heredoc content (the Swift lines and the `SWIFT` terminator) to match the parent script block's indentation level. Every line of Swift code and the `SWIFT` delimiter must be indented at least to the same level as the other script lines (12 spaces).
+**Replace the shell heredoc (`<< 'SWIFT' ... SWIFT`) with `printf` statements** in both locations (ios-release workflow lines 46-62, release-all workflow lines 232-248). This completely eliminates any YAML-parseable colon patterns from the script content.
 
-**Files:** `codemagic.yaml` — two locations (lines 47-63 and lines 233-249).
+The Swift code will be written using `printf '%s\n'` with each line as a separate argument, or a single `printf` with `\n` separators. The content itself stays identical — only the shell mechanism for writing it changes.
 
-### 2. Cart shows unavailable products (P2)
+### Files changed
+- `codemagic.yaml` — two locations (lines 46-62 and lines 232-248)
 
-**Root cause:** `useCart.tsx` line 44 queries `cart_items` joined to `products` without filtering `is_available`. Unavailable products appear in the cart UI.
-
-**Fix:** Add `.eq('product.is_available', true)` to the cart query, or filter client-side after fetch. The minimal approach is a client-side filter on the returned data since the join filter syntax can be tricky with nested selects.
-
-**Files:** `src/hooks/useCart.tsx` — line 44-47.
-
-### Implementation Steps
-
-1. **Fix codemagic.yaml heredoc indentation** — Re-indent the Swift heredoc content in both `ios-release` and `release-all` workflows so all lines sit within the YAML block scalar's indentation.
-2. **Filter unavailable products from cart** — Add a client-side filter after the cart query to exclude items where `product.is_available === false`.
+### What must NOT be touched
+- All other scripts, workflows, artifacts, and publishing config
+- The actual Swift code content being injected (must remain identical)
 
