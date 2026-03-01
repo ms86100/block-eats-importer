@@ -10,7 +10,7 @@ import { hapticNotification } from '@/lib/haptics';
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'permission_denied' | 'failed';
 
 const MAX_RETRIES = 3;
-const WATCHDOG_TIMEOUT_MS = 5000;
+const WATCHDOG_TIMEOUT_MS = 8000; // Slightly longer for Firebase token exchange
 
 /**
  * Reject 64-char hex strings on iOS — these are raw APNs tokens, not FCM.
@@ -20,8 +20,21 @@ function isValidFcmToken(token: string, platform: string): boolean {
   if (platform === 'ios' && /^[A-Fa-f0-9]{64}$/.test(token)) {
     return false;
   }
-  // Basic sanity: FCM tokens are long strings
   return token.length > 20;
+}
+
+/**
+ * Dynamically import @capacitor-firebase/messaging for iOS.
+ * Returns null on non-iOS or if the plugin is unavailable.
+ */
+async function getFirebaseMessaging() {
+  try {
+    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+    return FirebaseMessaging;
+  } catch (e) {
+    console.warn('[Push] @capacitor-firebase/messaging not available:', e);
+    return null;
+  }
 }
 
 export function usePushNotifications() {
@@ -34,14 +47,12 @@ export function usePushNotifications() {
   const userRef = useRef(user);
   userRef.current = user;
 
-  // ── State machine refs (in-memory only) ──
   const registrationStateRef = useRef<RegistrationState>('idle');
   const retryCountRef = useRef(0);
   const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastErrorRef = useRef<unknown>(null);
   const tokenRef = useRef<string | null>(null);
 
-  // Keep tokenRef in sync
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
@@ -127,11 +138,120 @@ export function usePushNotifications() {
     }
   }, [user, token]);
 
-  // ── Core registration with state machine ──
+  // ── Handle a valid token (shared by iOS Firebase path and Android path) ──
+  const handleValidToken = useCallback(async (tokenValue: string) => {
+    clearWatchdog();
+    registrationStateRef.current = 'registered';
+    retryCountRef.current = 0;
+
+    setToken(tokenValue);
+    tokenRef.current = tokenValue;
+
+    const saved = await saveTokenToDatabase(tokenValue);
+    if (!saved) {
+      console.log('[Push] Token save deferred — will retry when user becomes available');
+    }
+  }, [clearWatchdog, saveTokenToDatabase]);
+
+  // ── iOS registration via @capacitor-firebase/messaging ──
+  const attemptIosRegistration = useCallback(async () => {
+    const FirebaseMessaging = await getFirebaseMessaging();
+    if (!FirebaseMessaging) {
+      console.error('[Push] FirebaseMessaging plugin not available on iOS — cannot get FCM token');
+      markFailed();
+      return;
+    }
+
+    try {
+      let permStatus = await FirebaseMessaging.checkPermissions();
+      console.log('[Push][iOS] Firebase permission:', permStatus.receive);
+
+      if (permStatus.receive === 'prompt') {
+        permStatus = await FirebaseMessaging.requestPermissions();
+        console.log('[Push][iOS] After request:', permStatus.receive);
+      }
+
+      if (permStatus.receive !== 'granted') {
+        setPermissionStatus('denied');
+        registrationStateRef.current = 'permission_denied';
+        console.log('[Push][iOS] Permission denied — terminal state');
+        return;
+      }
+
+      setPermissionStatus('granted');
+
+      console.log('[Push][iOS] Getting FCM token via FirebaseMessaging.getToken()…');
+      const result = await FirebaseMessaging.getToken();
+      const fcmToken = result.token;
+
+      console.log('[Push][iOS] FCM token received:', fcmToken.substring(0, 20) + '…', 'length:', fcmToken.length);
+
+      if (!isValidFcmToken(fcmToken, 'ios')) {
+        console.warn('[Push][iOS] Token failed FCM validation — rejecting');
+        markFailed();
+        return;
+      }
+
+      await handleValidToken(fcmToken);
+    } catch (err) {
+      console.error('[Push][iOS] Registration error:', err);
+      lastErrorRef.current = err;
+      markFailed();
+    }
+  }, [markFailed, handleValidToken]);
+
+  // ── Android/Web registration via @capacitor/push-notifications ──
+  const attemptAndroidRegistration = useCallback(async () => {
+    try {
+      let permStatus = await PushNotifications.checkPermissions();
+      console.log('[Push][Android] Current permission:', permStatus.receive);
+
+      if (permStatus.receive === 'prompt') {
+        permStatus = await PushNotifications.requestPermissions();
+        console.log('[Push][Android] After request:', permStatus.receive);
+      }
+
+      if (permStatus.receive !== 'granted') {
+        setPermissionStatus('denied');
+        registrationStateRef.current = 'permission_denied';
+        console.log('[Push][Android] Permission denied — terminal state');
+        return;
+      }
+
+      setPermissionStatus('granted');
+      clearWatchdog();
+
+      console.log('[Push][Android] Calling PushNotifications.register()…');
+      await PushNotifications.register();
+      console.log('[Push][Android] register() completed — starting watchdog');
+
+      // Start watchdog timer
+      watchdogTimerRef.current = setTimeout(() => {
+        watchdogTimerRef.current = null;
+
+        if (registrationStateRef.current === 'registered') return;
+
+        retryCountRef.current += 1;
+        console.warn(`[Push][Android] Watchdog expired — no token (attempt ${retryCountRef.current}/${MAX_RETRIES})`);
+
+        if (retryCountRef.current >= MAX_RETRIES) {
+          markFailed();
+        } else {
+          registrationStateRef.current = 'idle';
+          attemptRegistration();
+        }
+      }, WATCHDOG_TIMEOUT_MS);
+    } catch (err) {
+      console.error('[Push][Android] Registration error:', err);
+      lastErrorRef.current = err;
+      markFailed();
+    }
+  }, [clearWatchdog, markFailed]);
+
+  // ── Core registration dispatcher ──
   const attemptRegistration = useCallback(async () => {
     const state = registrationStateRef.current;
 
-    // Terminal states → no-op
     if (state === 'registered' || state === 'failed' || state === 'permission_denied') {
       console.log(`[Push] attemptRegistration skipped — state: ${state}`);
       return;
@@ -139,7 +259,8 @@ export function usePushNotifications() {
 
     registrationStateRef.current = 'registering';
     const attempt = retryCountRef.current + 1;
-    console.log(`[Push] attemptRegistration — attempt ${attempt}/${MAX_RETRIES}, platform: ${Capacitor.getPlatform()}`);
+    const platform = Capacitor.getPlatform();
+    console.log(`[Push] attemptRegistration — attempt ${attempt}/${MAX_RETRIES}, platform: ${platform}`);
 
     if (!Capacitor.isNativePlatform()) {
       console.log('[Push] Skipping — not a native platform');
@@ -147,116 +268,94 @@ export function usePushNotifications() {
       return;
     }
 
-    try {
-      let permStatus = await PushNotifications.checkPermissions();
-      console.log('[Push] Current permission:', permStatus.receive);
-
-      if (permStatus.receive === 'prompt') {
-        permStatus = await PushNotifications.requestPermissions();
-        console.log('[Push] After request:', permStatus.receive);
-      }
-
-      if (permStatus.receive !== 'granted') {
-        setPermissionStatus('denied');
-        registrationStateRef.current = 'permission_denied';
-        console.log('[Push] Permission denied — terminal state');
-        return;
-      }
-
-      setPermissionStatus('granted');
-
-      // Clear any previous watchdog
-      clearWatchdog();
-
-      console.log('[Push] Calling PushNotifications.register()…');
-      await PushNotifications.register();
-      console.log('[Push] register() completed — starting watchdog');
-
-      // Start watchdog timer
-      watchdogTimerRef.current = setTimeout(() => {
-        watchdogTimerRef.current = null;
-
-        // If token arrived while we waited, nothing to do
-        if (registrationStateRef.current === 'registered') {
-          return;
-        }
-
-        retryCountRef.current += 1;
-        console.warn(`[Push] Watchdog expired — no token received (attempt ${retryCountRef.current}/${MAX_RETRIES})`);
-
-        if (retryCountRef.current >= MAX_RETRIES) {
-          markFailed();
-        } else {
-          // Reset to idle so attemptRegistration can run again
-          registrationStateRef.current = 'idle';
-          attemptRegistration();
-        }
-      }, WATCHDOG_TIMEOUT_MS);
-    } catch (err) {
-      console.error('[Push] Registration error:', err);
-      lastErrorRef.current = err;
-      markFailed();
+    // iOS: use @capacitor-firebase/messaging for direct FCM token
+    // Android: use @capacitor/push-notifications (already returns FCM tokens)
+    if (platform === 'ios') {
+      await attemptIosRegistration();
+    } else {
+      await attemptAndroidRegistration();
     }
-  }, [clearWatchdog, markFailed]);
+  }, [attemptIosRegistration, attemptAndroidRegistration]);
 
   // ── Listeners + lifecycle ──
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    // Registration success listener — wrapped in try/catch for crash safety
-    const registrationListener = PushNotifications.addListener(
-      'registration',
-      async (registrationToken) => {
+    const platform = Capacitor.getPlatform();
+    const cleanups: (() => void)[] = [];
+
+    // ── iOS: listen for token refresh via FirebaseMessaging ──
+    if (platform === 'ios') {
+      (async () => {
         try {
-          const tokenValue = registrationToken?.value;
-          if (!tokenValue || typeof tokenValue !== 'string' || tokenValue.length === 0) {
-            console.error('[Push] registration event — invalid token:', registrationToken);
-            return;
-          }
+          const FirebaseMessaging = await getFirebaseMessaging();
+          if (FirebaseMessaging) {
+            const tokenListener = await FirebaseMessaging.addListener('tokenReceived', async (event) => {
+              try {
+                const tokenValue = event.token;
+                console.log('[Push][iOS] tokenReceived event:', tokenValue.substring(0, 20) + '…', 'length:', tokenValue.length);
 
-          console.log('[Push] registration event — token:', tokenValue.substring(0, 20) + '…', 'length:', tokenValue.length);
+                if (!isValidFcmToken(tokenValue, 'ios')) {
+                  console.warn('[Push][iOS] Refreshed token failed validation — ignoring');
+                  return;
+                }
 
-          // Reject APNs hex tokens on iOS — wait for FCM token instead
-          const currentPlatform = Capacitor.getPlatform();
-          if (!isValidFcmToken(tokenValue, currentPlatform)) {
-            console.warn(`[Push] Rejected non-FCM token (platform=${currentPlatform}, len=${tokenValue.length}) — waiting for FCM token`);
-            return;
-          }
-
-          // Clear watchdog — we got a valid FCM token
-          clearWatchdog();
-          registrationStateRef.current = 'registered';
-          retryCountRef.current = 0;
-
-          setToken(tokenValue);
-          tokenRef.current = tokenValue;
-
-          const saved = await saveTokenToDatabase(tokenValue);
-          if (!saved) {
-            console.log('[Push] Token save deferred — will retry when user becomes available');
+                await handleValidToken(tokenValue);
+              } catch (err) {
+                console.error('[Push][iOS] tokenReceived listener exception:', err);
+              }
+            });
+            cleanups.push(() => tokenListener.remove());
           }
         } catch (err) {
-          console.error('[Push] registration listener exception:', err);
-          // Don't crash — just log
+          console.error('[Push][iOS] Failed to set up tokenReceived listener:', err);
         }
-      }
-    );
+      })();
+    }
 
-    // Registration error listener — hard failure, no retry
-    const registrationErrorListener = PushNotifications.addListener(
-      'registrationError',
-      (error) => {
-        try {
-          console.error('[Push] registrationError:', JSON.stringify(error));
-          lastErrorRef.current = error;
-          markFailed();
-        } catch (err) {
-          console.error('[Push] registrationError listener exception:', err);
+    // ── Android: listen for 'registration' event from PushNotifications ──
+    if (platform === 'android') {
+      const registrationListener = PushNotifications.addListener(
+        'registration',
+        async (registrationToken) => {
+          try {
+            const tokenValue = registrationToken?.value;
+            if (!tokenValue || typeof tokenValue !== 'string' || tokenValue.length === 0) {
+              console.error('[Push][Android] registration event — invalid token:', registrationToken);
+              return;
+            }
+
+            console.log('[Push][Android] registration event — token:', tokenValue.substring(0, 20) + '…', 'length:', tokenValue.length);
+
+            if (!isValidFcmToken(tokenValue, 'android')) {
+              console.warn('[Push][Android] Token failed validation — ignoring');
+              return;
+            }
+
+            await handleValidToken(tokenValue);
+          } catch (err) {
+            console.error('[Push][Android] registration listener exception:', err);
+          }
         }
-      }
-    );
+      );
+      cleanups.push(() => { registrationListener.then(l => l.remove()).catch(() => {}); });
 
-    // ── Foreground notification: show toast + sound + haptic ──
+      const registrationErrorListener = PushNotifications.addListener(
+        'registrationError',
+        (error) => {
+          try {
+            console.error('[Push][Android] registrationError:', JSON.stringify(error));
+            lastErrorRef.current = error;
+            markFailed();
+          } catch (err) {
+            console.error('[Push][Android] registrationError listener exception:', err);
+          }
+        }
+      );
+      cleanups.push(() => { registrationErrorListener.then(l => l.remove()).catch(() => {}); });
+    }
+
+    // ── Foreground notification: show toast + sound + haptic (both platforms) ──
     const notificationReceivedListener = PushNotifications.addListener(
       'pushNotificationReceived',
       (notification) => {
@@ -304,8 +403,9 @@ export function usePushNotifications() {
         }
       }
     );
+    cleanups.push(() => { notificationReceivedListener.then(l => l.remove()).catch(() => {}); });
 
-    // Action performed
+    // Action performed (both platforms)
     const notificationActionListener = PushNotifications.addListener(
       'pushNotificationActionPerformed',
       (notification) => {
@@ -322,8 +422,9 @@ export function usePushNotifications() {
         }
       }
     );
+    cleanups.push(() => { notificationActionListener.then(l => l.remove()).catch(() => {}); });
 
-    // ── Foreground resume retry (conditional) ──
+    // ── Foreground resume retry ──
     let appListenerCleanup: (() => void) | undefined;
 
     (async () => {
@@ -368,9 +469,8 @@ export function usePushNotifications() {
       }
     })();
 
-    // ── Trigger registration if user is ready ──
+    // Trigger registration if user is ready
     if (user) {
-      // Small delay to ensure native bridge is fully ready after app launch
       setTimeout(() => {
         attemptRegistration();
       }, 500);
@@ -378,13 +478,10 @@ export function usePushNotifications() {
 
     return () => {
       clearWatchdog();
-      registrationListener.then(l => l.remove()).catch(() => {});
-      registrationErrorListener.then(l => l.remove()).catch(() => {});
-      notificationReceivedListener.then(l => l.remove()).catch(() => {});
-      notificationActionListener.then(l => l.remove()).catch(() => {});
+      cleanups.forEach(fn => fn());
       appListenerCleanup?.();
     };
-  }, [user, attemptRegistration, saveTokenToDatabase, navigate, clearWatchdog, markFailed]);
+  }, [user, attemptRegistration, handleValidToken, navigate, clearWatchdog, markFailed]);
 
   // ── Retry token save when user becomes available ──
   useEffect(() => {
