@@ -49,15 +49,11 @@ workflows:
       - name: Patch AppDelegate for Push Notifications
         script: |
           APPDELEGATE="ios/App/App/AppDelegate.swift"
-          if ! grep -q "didRegisterForRemoteNotificationsWithDeviceToken" "$APPDELEGATE"; then
+          # @capacitor-firebase/messaging handles APNs→FCM token exchange internally.
+          # We only need to keep the didFailToRegister forwarding for Capacitor.
+          if ! grep -q "didFailToRegisterForRemoteNotificationsWithError" "$APPDELEGATE"; then
             sed -i '' '$ d' "$APPDELEGATE"
             printf '%s\n' \
-              '' \
-              '    func application(_ application: UIApplication,' \
-              '                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {' \
-              '        // Pass APNs token to Firebase so it can exchange for an FCM token' \
-              '        Messaging.messaging().apnsToken = deviceToken' \
-              '    }' \
               '' \
               '    func application(_ application: UIApplication,' \
               '                     didFailToRegisterForRemoteNotificationsWithError error: Error) {' \
@@ -66,7 +62,7 @@ workflows:
               '            object: error)' \
               '    }' \
               '}' >> "$APPDELEGATE"
-            echo "✅ AppDelegate patched with push notification forwarding methods"
+            echo "✅ AppDelegate patched with push notification error forwarding"
           else
             echo "ℹ️ AppDelegate already contains push notification methods — skipping"
           fi
@@ -148,42 +144,24 @@ workflows:
           fi
           pod install
 
-      - name: Inject Firebase + Messaging into AppDelegate
+      - name: Inject Firebase into AppDelegate
         script: |
           APPDELEGATE="ios/App/App/AppDelegate.swift"
-          # Normalize import for CocoaPods module naming
+          # @capacitor-firebase/messaging handles MessagingDelegate internally.
+          # We only need FirebaseApp.configure() so the SDK initializes.
           sed -i '' 's/^import Firebase$/import FirebaseCore/' "$APPDELEGATE"
           if ! grep -q "import FirebaseCore" "$APPDELEGATE"; then
             sed -i '' '1s/^/import FirebaseCore\n/' "$APPDELEGATE"
             echo "✅ Added 'import FirebaseCore' to AppDelegate"
           fi
-          if ! grep -q "import FirebaseMessaging" "$APPDELEGATE"; then
-            sed -i '' '/import FirebaseCore/a\
-          import FirebaseMessaging' "$APPDELEGATE"
-            echo "✅ Added 'import FirebaseMessaging' to AppDelegate"
-          fi
           if ! grep -q "FirebaseApp.configure" "$APPDELEGATE"; then
             sed -i '' '/func application.*didFinishLaunchingWithOptions/,/{/ {
               /^.*{$/a\
-                  FirebaseApp.configure()\
-                  Messaging.messaging().delegate = self
+                  FirebaseApp.configure()
             }' "$APPDELEGATE"
-            echo "✅ Added FirebaseApp.configure() + Messaging delegate to AppDelegate"
+            echo "✅ Added FirebaseApp.configure() to AppDelegate"
           else
             echo "ℹ️ FirebaseApp.configure() already present — skipping"
-          fi
-          # Add MessagingDelegate conformance — post FCM token to Capacitor's notification name
-          if ! grep -q "MessagingDelegate" "$APPDELEGATE"; then
-            printf '\n// MARK: - Firebase Messaging\nextension AppDelegate: MessagingDelegate {\n    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {\n        guard let token = fcmToken else { return }\n        print("[Firebase] FCM token: \\(token.prefix(20))…")\n        // Post FCM token using Capacitor notification name so the JS plugin receives it\n        NotificationCenter.default.post(\n            name: .capacitorDidRegisterForRemoteNotifications,\n            object: token\n        )\n    }\n}\n' >> "$APPDELEGATE"
-            echo "✅ Added MessagingDelegate extension to AppDelegate"
-          fi
-          # Disable swizzling so Capacitor plugin receives APNs token and we forward to FCM
-          PLIST="ios/App/App/Info.plist"
-          if ! grep -q "FirebaseAppDelegateProxyEnabled" "$PLIST"; then
-            sed -i '' '/<dict>/a\
-              <key>FirebaseAppDelegateProxyEnabled</key>\
-              <false/>' "$PLIST"
-            echo "✅ Disabled Firebase swizzling in Info.plist"
           fi
 
       - name: Add GoogleService-Info.plist to Xcode build target
@@ -384,15 +362,11 @@ workflows:
       - name: Patch AppDelegate for Push Notifications
         script: |
           APPDELEGATE="ios/App/App/AppDelegate.swift"
-          if ! grep -q "didRegisterForRemoteNotificationsWithDeviceToken" "$APPDELEGATE"; then
+          # @capacitor-firebase/messaging handles APNs→FCM token exchange internally.
+          # We only need the didFailToRegister forwarding for Capacitor.
+          if ! grep -q "didFailToRegisterForRemoteNotificationsWithError" "$APPDELEGATE"; then
             sed -i '' '$ d' "$APPDELEGATE"
             printf '%s\n' \
-              '' \
-              '    func application(_ application: UIApplication,' \
-              '                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {' \
-              '        // Pass APNs token to Firebase so it can exchange for an FCM token' \
-              '        Messaging.messaging().apnsToken = deviceToken' \
-              '    }' \
               '' \
               '    func application(_ application: UIApplication,' \
               '                     didFailToRegisterForRemoteNotificationsWithError error: Error) {' \
@@ -401,7 +375,7 @@ workflows:
               '            object: error)' \
               '    }' \
               '}' >> "$APPDELEGATE"
-            echo "✅ AppDelegate patched with push notification forwarding methods"
+            echo "✅ AppDelegate patched with push notification error forwarding"
           else
             echo "ℹ️ AppDelegate already contains push notification methods — skipping"
           fi
@@ -483,42 +457,24 @@ workflows:
           fi
           pod install
 
-      - name: Inject Firebase + Messaging into AppDelegate
+      - name: Inject Firebase into AppDelegate
         script: |
           APPDELEGATE="ios/App/App/AppDelegate.swift"
-          # Normalize import for CocoaPods module naming
+          # @capacitor-firebase/messaging handles MessagingDelegate internally.
+          # We only need FirebaseApp.configure() so the SDK initializes.
           sed -i '' 's/^import Firebase$/import FirebaseCore/' "$APPDELEGATE"
           if ! grep -q "import FirebaseCore" "$APPDELEGATE"; then
             sed -i '' '1s/^/import FirebaseCore\n/' "$APPDELEGATE"
             echo "✅ Added 'import FirebaseCore' to AppDelegate"
           fi
-          if ! grep -q "import FirebaseMessaging" "$APPDELEGATE"; then
-            sed -i '' '/import FirebaseCore/a\
-          import FirebaseMessaging' "$APPDELEGATE"
-            echo "✅ Added 'import FirebaseMessaging' to AppDelegate"
-          fi
           if ! grep -q "FirebaseApp.configure" "$APPDELEGATE"; then
             sed -i '' '/func application.*didFinishLaunchingWithOptions/,/{/ {
               /^.*{$/a\
-                  FirebaseApp.configure()\
-                  Messaging.messaging().delegate = self
+                  FirebaseApp.configure()
             }' "$APPDELEGATE"
-            echo "✅ Added FirebaseApp.configure() + Messaging delegate to AppDelegate"
+            echo "✅ Added FirebaseApp.configure() to AppDelegate"
           else
             echo "ℹ️ FirebaseApp.configure() already present — skipping"
-          fi
-          # Add MessagingDelegate conformance — post FCM token to Capacitor's notification name
-          if ! grep -q "MessagingDelegate" "$APPDELEGATE"; then
-            printf '\n// MARK: - Firebase Messaging\nextension AppDelegate: MessagingDelegate {\n    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {\n        guard let token = fcmToken else { return }\n        print("[Firebase] FCM token: \\(token.prefix(20))…")\n        // Post FCM token using Capacitor notification name so the JS plugin receives it\n        NotificationCenter.default.post(\n            name: .capacitorDidRegisterForRemoteNotifications,\n            object: token\n        )\n    }\n}\n' >> "$APPDELEGATE"
-            echo "✅ Added MessagingDelegate extension to AppDelegate"
-          fi
-          # Disable swizzling so Capacitor plugin receives APNs token and we forward to FCM
-          PLIST="ios/App/App/Info.plist"
-          if ! grep -q "FirebaseAppDelegateProxyEnabled" "$PLIST"; then
-            sed -i '' '/<dict>/a\
-              <key>FirebaseAppDelegateProxyEnabled</key>\
-              <false/>' "$PLIST"
-            echo "✅ Disabled Firebase swizzling in Info.plist"
           fi
 
       - name: Add GoogleService-Info.plist to Xcode build target
