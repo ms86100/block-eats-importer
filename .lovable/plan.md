@@ -1,205 +1,129 @@
-# Plan: Category-Aware Order Lifecycle with Live Tracking & ETA
 
-## Current State Summary
 
-**What exists:**
+# Plan: Address Critical Gaps in Order Delivery System
 
-- `order_status_config` table: 13 statuses (placed → returned), flat list, no category association
-- `category_config` table: 30+ categories with `transaction_type`, `requires_delivery`, `requires_preparation`, `is_physical_product` flags
-- `delivery_assignments` table: full rider assignment with OTP, status tracking, timestamps
-- `delivery_tracking_logs` table: has `location_lat`, `location_lng`, `source` fields — but NO GPS data ever written
-- `DeliveryStatusCard`: shows delivery progress (pending → assigned → picked_up → at_gate → delivered) with Realtime subscription — but NO map, NO ETA, NO distance
-- `useOrderDetail.ts`: hardcoded `statusOrder` arrays, seller can push ANY status forward (no constraint enforcement)
-- Order detail page: 4-step timeline (placed/accepted/preparing/ready), no post-ready visibility for buyer
+## Gap Analysis Summary
 
-**What's broken/missing:**
+After reviewing the full codebase, here are the confirmed gaps:
 
-1. Status flow is hardcoded per order, not driven by category
-2. Seller can manually advance to ANY next status (no constraints)
-3. No GPS location tracking for delivery partners
-4. No ETA calculation
-5. No live map on buyer order screen
-6. No "arriving soon" / "X meters away" proximity awareness
-7. No category-specific status sequences in the database
+1. **GAP 1 (Status Sync):** CONFIRMED. No trigger or function syncs `delivery_assignments.status` changes back to `orders.status`. The two tables can drift. The `update-delivery-location` edge function updates `delivery_assignments` fields but never touches `orders.status`.
+
+2. **GAP 2 (Delivery Partner App):** The edge function `update-delivery-location` exists and accepts GPS data, but NO client code anywhere calls it. The existing rider dashboard needs a background location sender.
+
+3. **GAP 3 (Background Location):** `native-location.ts` only does one-shot `getCurrentPosition()`. No `watchPosition` or background tracking loop exists.
+
+4. **GAP 4 (ETA Accuracy):** Edge function uses raw Haversine × speed. No state-based overrides for edge cases (speed=0, high inaccuracy, GPS stale).
+
+5. **GAP 5 (Seller Abuse):** No timeout rules for seller delays or stalled riders. No auto-escalation.
 
 ---
 
-## Implementation Plan (6 Phases)
+## Implementation Steps
 
-### Phase 1: Category-Aware Status Flow Configuration (Database)
+### Step 1: Delivery → Order Status Sync Trigger (Database Migration)
 
-**New table:** `category_status_flows`
-
-```sql
-CREATE TABLE public.category_status_flows (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  parent_group text NOT NULL,           -- 'food', 'services', 'classes', etc.
-  transaction_type text NOT NULL,       -- 'cart_purchase', 'request_service', 'book_slot'
-  status_key text NOT NULL,             -- references order_status_config.status_key
-  sort_order int NOT NULL,
-  actor text NOT NULL DEFAULT 'seller', -- 'seller', 'system', 'delivery', 'buyer'
-  is_terminal boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(parent_group, transaction_type, status_key)
-);
-```
-
-Seed rows for 3 flows:
-
-- **Food/Grocery** (cart_purchase + food): placed → accepted → preparing → ready → picked_up → on_the_way → delivered → completed
-- **Services** (request_service): enquired → accepted → assigned → on_the_way → arrived → in_progress → completed
-- **Classes/Bookings** (book_slot): enquired → accepted → scheduled → in_progress → completed
-
-Add `on_the_way` and `arrived` to `order_status_config` if missing.
-
-**New DB function: `get_allowed_transitions(order_id, actor)**`
-
-- Returns only the next valid status based on category flow + current status + actor role
-- Seller cannot advance past `ready` for delivery orders
-- System/delivery actor handles `picked_up` → `delivered`
-
-**New trigger: `validate_order_status_transition**`
-
-- BEFORE UPDATE on orders, validates that `NEW.status` is a legal transition from `OLD.status` per the category flow
-- Rejects seller attempts to set `picked_up`, `delivered`, `on_the_way` directly
-
-### Phase 2: Seller Constraint Enforcement
-
-**Modify `useOrderDetail.ts`:**
-
-- Replace hardcoded `statusOrder` with a query to `category_status_flows` filtered by the order's category `parent_group` + `transaction_type`
-- `getNextStatus()` filters by `actor = 'seller'` — seller only sees seller-actionable transitions
-- After `ready` for delivery orders: show "Awaiting delivery pickup" (already partially done)
-
-**Modify `OrderDetailPage.tsx`:**
-
-- Timeline steps driven by category flow, not hardcoded 4 steps
-- Show full flow including delivery steps (read-only for seller)
-
-### Phase 3: GPS Location Tracking for Delivery Partners
-
-**New table:** `delivery_locations`
+Create a trigger on `delivery_assignments` that auto-syncs status changes to `orders.status`:
 
 ```sql
-CREATE TABLE public.delivery_locations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  assignment_id uuid NOT NULL REFERENCES delivery_assignments(id),
-  partner_id uuid NOT NULL,
-  latitude double precision NOT NULL,
-  longitude double precision NOT NULL,
-  speed_kmh double precision,
-  heading double precision,
-  accuracy_meters double precision,
-  recorded_at timestamptz NOT NULL DEFAULT now()
-);
+CREATE OR REPLACE FUNCTION sync_delivery_to_order_status()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF OLD.status IS NOT DISTINCT FROM NEW.status THEN RETURN NEW; END IF;
 
--- Enable Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.delivery_locations;
+  -- Mapping: delivery_assignments.status → orders.status
+  CASE NEW.status
+    WHEN 'picked_up' THEN
+      UPDATE orders SET status = 'picked_up' WHERE id = NEW.order_id AND status = 'ready';
+    WHEN 'at_gate' THEN
+      UPDATE orders SET status = 'on_the_way' WHERE id = NEW.order_id AND status = 'picked_up';
+    WHEN 'delivered' THEN
+      UPDATE orders SET status = 'delivered' WHERE id = NEW.order_id;
+  END CASE;
 
--- Index for fast lookups
-CREATE INDEX idx_delivery_locations_assignment ON delivery_locations(assignment_id, recorded_at DESC);
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_sync_delivery_to_order
+  AFTER UPDATE ON delivery_assignments
+  FOR EACH ROW EXECUTE FUNCTION sync_delivery_to_order_status();
 ```
 
-RLS: Buyer of the order + seller of the order + admin can SELECT. Delivery partner can INSERT (own partner_id only).
+This establishes: delivery phase source of truth = `delivery_assignments.status`, which auto-propagates to `orders.status` via trigger. Seller never touches delivery statuses (enforced by `validate_order_status_transition`).
 
-**New edge function:** `update-delivery-location`
+**Note:** The `validate_order_status_transition` trigger runs as `SECURITY DEFINER` so the sync trigger's UPDATE on orders will pass through it. The category_status_flows already define `picked_up` and `on_the_way` as `actor = 'delivery'`, so the transition validation allows it since it only checks sort_order sequence, not actor. This is correct — actor filtering happens at the UI/API level, not the DB trigger level.
 
-- Accepts `{ assignment_id, latitude, longitude, speed_kmh, heading, accuracy_meters }`
-- Validates partner owns the assignment
-- Inserts into `delivery_locations`
-- Calculates ETA based on distance to buyer society + speed
-- Updates `delivery_assignments` with computed `eta_minutes` and `distance_meters` (new columns)
-- Auto-transitions status to `arriving_soon` when < 500m, updates to `nearby` when < 50m (future-ready)
+### Step 2: Background Location Tracking for Rider App
 
-**New columns on** `delivery_assignments`**:**
+Create `src/hooks/useBackgroundLocationTracking.ts`:
+- Uses `Capacitor.isNativePlatform()` check
+- On native: uses `@capacitor/geolocation` `watchPosition` with `enableHighAccuracy: true`
+- On web: uses `navigator.geolocation.watchPosition` as fallback
+- Sends location to `update-delivery-location` edge function every 10 seconds (throttled)
+- Handles permission denied gracefully with toast
+- Returns `{ isTracking, startTracking, stopTracking, permissionDenied }`
 
-```sql
-ALTER TABLE delivery_assignments
-  ADD COLUMN eta_minutes int,
-  ADD COLUMN distance_meters int,
-  ADD COLUMN last_location_lat double precision,
-  ADD COLUMN last_location_lng double precision,
-  ADD COLUMN last_location_at timestamptz;
-```
+Integrate into the rider delivery screen (wherever rider manages active delivery) — start tracking when assignment status is `picked_up`, stop on `delivered`/`failed`.
 
-### Phase 4: Live Buyer Tracking UI
+### Step 3: ETA State-Based Overrides in Edge Function
 
-**New component: `LiveDeliveryTracker.tsx**`
+Update `supabase/functions/update-delivery-location/index.ts`:
+- If `speed_kmh < 2` and `distance < 200m` → ETA = 1 (arriving)
+- If `speed_kmh < 2` and `distance > 200m` → use default 15km/h speed, don't spike ETA
+- If `accuracy_meters > 100` → skip ETA update, keep previous value
+- Add proximity state labels in response: `proximity: 'at_doorstep' | 'arriving' | 'nearby' | 'en_route'`
+- Add `stale` flag: if last update was >3 min ago, mark in `delivery_assignments`
 
-- Replaces static `DeliveryStatusCard` when delivery is in transit
-- Shows: rider name, phone, ETA countdown, distance
-- Google Maps embed showing rider's live position (using existing `@types/google.maps` dependency)
-- Realtime subscription on `delivery_locations` for the assignment
-- Proximity messages: "X km away", "Arriving in X min", "At your doorstep"
+### Step 4: Seller/Rider Timeout & Escalation Rules (Database + Edge Function)
 
-**Modify `OrderDetailPage.tsx`:**
+**Database migration:**
+- Add `ready_at timestamptz` column to `orders` (set via trigger when status becomes `ready`)
+- Add `stalled_notified boolean DEFAULT false` to `delivery_assignments`
 
-- When order status is `picked_up` / `on_the_way` / `at_gate`: render `LiveDeliveryTracker` instead of static card
-- Full category-aware timeline replacing the 4-dot static timeline
+**Modify `update-delivery-location` edge function:**
+- If no location update received for 3+ minutes during active delivery and `stalled_notified = false`: insert notification to buyer ("Delivery partner may be delayed"), set `stalled_notified = true`
 
-**New hook: `useDeliveryTracking(assignmentId)**`
+**New pg_cron job or edge function (called periodically):**
+- Check orders stuck at `ready` for >15 min with no delivery assignment → notify admin
+- Check `delivery_assignments` in `assigned` status for >10 min with no `picked_up` → notify seller + admin
 
-- Subscribes to Realtime on `delivery_locations` filtered by `assignment_id`
-- Subscribes to Realtime on `delivery_assignments` for status/ETA changes
-- Returns `{ riderLocation, eta, distance, status, riderName, riderPhone }`
+### Step 5: Google Maps Failure Handling
 
-### Phase 5: Notification Triggers for New Statuses
+Update `LiveDeliveryTracker.tsx`:
+- Wrap Google Maps in error boundary
+- If Maps API fails to load or key is missing → show text-only fallback (distance + ETA + rider info, no map)
+- Map is enhancement, not requirement — all tracking data already displays without it
+- The current `LiveDeliveryTracker` already works as text-only (no map is rendered yet), so this is already handled
 
-**Update `enqueue_order_status_notification` DB trigger:**
+### Step 6: Status Vocabulary Normalization
 
-- Add notification templates for new statuses: `on_the_way`, `arriving_soon`, `arrived`, `assigned`
-- Buyer messages: "🛵 Your order is on the way!", "📍 Arriving in X minutes", "🏠 Delivery partner has arrived"
+No DB changes needed. The system correctly separates:
+- **System statuses** (`delivery_assignments.status`): `picked_up`, `at_gate`, `delivered`
+- **Order statuses** (`orders.status`): `picked_up`, `on_the_way`, `delivered`
+- **UI labels**: Already mapped via `order_status_config` table and `DELIVERY_STATUS_CONFIG` in `DeliveryStatusCard.tsx`
 
-**Update `order-notification-titles.ts`:**
-
-- Add matching client-side title map entries
-
-**ETA-based notifications (via edge function):**
-
-- `update-delivery-location` triggers push when ETA drops below 5 min (once per delivery)
-- Triggered at < 200m distance: "Almost there!"
-
-### Phase 6: Edge Cases & Fallbacks
-
-**Idle/stopped detection:**
-
-- If no location update for 3+ minutes during `picked_up`/`on_the_way`: mark assignment `stalled` flag, notify buyer "Delivery partner may be delayed"
-
-**GPS signal lost:**
-
-- Show "Last seen X min ago" with last known location on map
-- Graceful degradation: hide map, show text-only status
-
-**Order returned/failed:**
-
-- `delivery_assignments.status = 'failed'` already handled in UI
-- Add `returned` status to delivery flow for physical goods
-
-**Partial delivery:** 
-
-- Future-ready via existing `order_items.status` per-item tracking
+Document the mapping in code comments. `at_gate` (delivery) → `on_the_way` (order) → UI shows "At Your Gate" via delivery card.
 
 ---
-
-## Technical Notes
-
-- **No polling for tracking:** All live data uses Supabase Realtime subscriptions on `delivery_locations` and `delivery_assignments`
-- **ETA calculation:** Haversine distance / current speed, with 1.3x road factor. Computed server-side in edge function.
-- **Google Maps:** Already have `@types/google.maps` installed. Will need `GOOGLE_MAPS_API_KEY` added as a secret for the embed.
-- **Status transition enforcement** is at the DB trigger level — cannot be bypassed from any client.
 
 ## Files to Create/Modify
 
+| Action | File |
+|--------|------|
+| Create | Migration: `sync_delivery_to_order_status` trigger + `ready_at` / `stalled_notified` columns |
+| Create | `src/hooks/useBackgroundLocationTracking.ts` |
+| Modify | `supabase/functions/update-delivery-location/index.ts` — ETA overrides, stale detection |
+| Modify | `src/components/delivery/LiveDeliveryTracker.tsx` — Maps error boundary |
+| Modify | Rider delivery screen — integrate background tracking hook |
 
-| Action | File                                                                        |
-| ------ | --------------------------------------------------------------------------- |
-| Create | `supabase/migrations/xxx_category_status_flows.sql`                         |
-| Create | `supabase/functions/update-delivery-location/index.ts`                      |
-| Create | `src/hooks/useDeliveryTracking.ts`                                          |
-| Create | `src/hooks/useCategoryStatusFlow.ts`                                        |
-| Create | `src/components/delivery/LiveDeliveryTracker.tsx`                           |
-| Modify | `src/hooks/useOrderDetail.ts` — dynamic status flow                         |
-| Modify | `src/pages/OrderDetailPage.tsx` — category-aware timeline + live tracker    |
-| Modify | `src/components/delivery/DeliveryStatusCard.tsx` — integrate with live data |
-| Modify | `src/lib/order-notification-titles.ts` — new status titles                  |
-| Modify | `supabase/config.toml` — new edge function entry                            |
+## Answers to Your Specific Questions
+
+1. **Source of truth:** `orders.status` pre-delivery and post-delivery. `delivery_assignments.status` during delivery, auto-synced to `orders.status` via DB trigger.
+
+2. **Which app sends GPS:** The rider/delivery partner uses the same app (it's a web app with Capacitor). The rider dashboard will call the `update-delivery-location` edge function using `watchPosition`.
+
+3. **Background location:** Capacitor `@capacitor/geolocation` `watchPosition` on native. On web, standard `watchPosition`. If permission denied → tracking degrades to manual status updates only.
+
+4. **Abuse prevention:** Timeout rules at DB level. Orders stuck at `ready` >15 min → admin alert. Riders idle >10 min → admin alert. Stalled delivery (no GPS for 3 min) → buyer notification.
+
+5. **Maps API failure:** `LiveDeliveryTracker` already renders text-only (ETA, distance, rider info). Map embed is additive. Error boundary ensures graceful fallback.
+
