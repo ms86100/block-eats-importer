@@ -1,8 +1,6 @@
-import { useSystemSettings } from '@/hooks/useSystemSettings';
-import { Mail, Shield, UserCheck, MapPin } from 'lucide-react';
+import { Mail, MapPin } from 'lucide-react';
 
 export function LandingContact() {
-  const { supportEmail, grievanceEmail, dpoEmail, grievanceOfficerName } = useSystemSettings();
 
   return (
     <section id="contact" className="py-20 lg:py-28">
@@ -14,24 +12,11 @@ export function LandingContact() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           <div className="p-6 rounded-2xl bg-card border border-border text-center">
             <Mail className="mx-auto text-primary mb-3" size={24} />
             <h3 className="font-semibold text-foreground mb-1 text-sm">General Support</h3>
-            <a href={`mailto:${supportEmail}`} className="text-sm text-primary hover:underline break-all">{supportEmail}</a>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-card border border-border text-center">
-            <Shield className="mx-auto text-primary mb-3" size={24} />
-            <h3 className="font-semibold text-foreground mb-1 text-sm">Grievance Officer</h3>
-            <p className="text-xs text-muted-foreground mb-1">{grievanceOfficerName}</p>
-            <a href={`mailto:${grievanceEmail}`} className="text-sm text-primary hover:underline break-all">{grievanceEmail}</a>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-card border border-border text-center">
-            <UserCheck className="mx-auto text-primary mb-3" size={24} />
-            <h3 className="font-semibold text-foreground mb-1 text-sm">Data Protection Officer</h3>
-            <a href={`mailto:${dpoEmail}`} className="text-sm text-primary hover:underline break-all">{dpoEmail}</a>
+            <a href="mailto:support@sociva.in" className="text-sm text-primary hover:underline break-all">support@sociva.in</a>
           </div>
 
           <div className="p-6 rounded-2xl bg-card border border-border text-center">
