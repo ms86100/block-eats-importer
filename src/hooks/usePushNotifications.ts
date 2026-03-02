@@ -754,6 +754,23 @@ export function usePushNotificationsInternal() {
                 retryCountRef.current = 0;
                 attemptRegistration();
               }
+
+              // SAFETY NET: If still no token after all attempts above,
+              // schedule a delayed retry. The iOS FCM bridge often needs
+              // several seconds after app resume before it can return a token.
+              if (!tokenRef.current && registrationStateRef.current !== 'registered') {
+                setTimeout(async () => {
+                  if (tokenRef.current || registrationStateRef.current === 'registered') return;
+                  pushLog('info', 'Resume safety-net: delayed reconcile attempt (5s)');
+                  const delayedOk = await reconcileRuntimeToken('app_resume_delayed_safety_net');
+                  if (delayedOk) {
+                    setPermissionStatus('granted');
+                    pushLog('info', 'Resume safety-net: delayed reconcile SUCCEEDED');
+                  } else {
+                    pushLog('warn', 'Resume safety-net: delayed reconcile also failed');
+                  }
+                }, 5000);
+              }
             }
           } catch (err) {
             console.error('[Push] appStateChange listener exception:', err);
@@ -804,6 +821,34 @@ export function usePushNotificationsInternal() {
             registrationStateRef.current = 'idle';
             retryCountRef.current = 0;
             attemptRegistration();
+          }
+
+          // SAFETY NET: Schedule a delayed reconcile 5s after login.
+          // On cold start the iOS FCM bridge often isn't ready for the
+          // first few seconds, so this catches what the initial attempt misses.
+          if (!tokenRef.current && registrationStateRef.current !== 'registered') {
+            setTimeout(async () => {
+              if (tokenRef.current || registrationStateRef.current === 'registered') return;
+              pushLog('info', 'Login safety-net: delayed reconcile attempt (5s)');
+              const delayedOk = await reconcileRuntimeToken('login_delayed_safety_net');
+              if (delayedOk) {
+                setPermissionStatus('granted');
+                pushLog('info', 'Login safety-net: delayed reconcile SUCCEEDED');
+              } else {
+                pushLog('warn', 'Login safety-net: delayed reconcile also failed — scheduling 10s attempt');
+                // One more attempt at 10s for really slow cold starts
+                setTimeout(async () => {
+                  if (tokenRef.current || registrationStateRef.current === 'registered') return;
+                  const lastResort = await reconcileRuntimeToken('login_10s_last_resort');
+                  if (lastResort) {
+                    setPermissionStatus('granted');
+                    pushLog('info', 'Login 10s last-resort reconcile SUCCEEDED');
+                  } else {
+                    pushLog('error', 'Login: all reconcile attempts failed (0.5s, 5s, 10s)');
+                  }
+                }, 5000);
+              }
+            }, 5000);
           }
         } else if (stage === 'none' || stage === 'deferred') {
           pushLog('info', 'First login — auto-requesting notification permission');
