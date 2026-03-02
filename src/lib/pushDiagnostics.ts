@@ -111,8 +111,9 @@ export async function runPushDiagnostics(userId?: string): Promise<DiagnosticRes
         ok: true,
         detail: 'Inserted into notification_queue — will be delivered shortly',
       });
-    } catch (e) {
-      results.push({ step: '7. Queued test notification', ok: false, detail: String(e) });
+    } catch (e: any) {
+      const msg = e?.message ?? JSON.stringify(e);
+      results.push({ step: '7. Queued test notification', ok: false, detail: msg });
     }
   } else {
     results.push({ step: '7. Queued test notification', ok: false, detail: 'No userId — skipped' });

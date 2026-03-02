@@ -40,16 +40,20 @@ export default function PushDebugPage() {
   };
 
   const handleOpenSettings = async () => {
+    const platform = Capacitor.getPlatform();
     try {
-      const { NativeSettings, AndroidSettings, IOSSettings } = await import('capacitor-native-settings');
-      const platform = Capacitor.getPlatform();
       if (platform === 'ios') {
-        await NativeSettings.open({ optionIOS: IOSSettings.App, optionAndroid: AndroidSettings.ApplicationDetails });
-      } else if (platform === 'android') {
-        await NativeSettings.open({ optionIOS: IOSSettings.App, optionAndroid: AndroidSettings.AppNotification });
+        // Use Capacitor App plugin to open app settings via URL scheme
+        const { App } = await import('@capacitor/app');
+        // This is the standard iOS URL scheme to open the app's own settings page
+        await (App as any).openUrl({ url: 'app-settings:' });
+        return;
       }
+      // Android: try native-settings plugin
+      const { NativeSettings, AndroidSettings, IOSSettings } = await import('capacitor-native-settings');
+      await NativeSettings.open({ optionIOS: IOSSettings.App, optionAndroid: AndroidSettings.AppNotification });
     } catch (e) {
-      toast.error('Could not open settings: ' + String(e));
+      toast.error('Go to Settings → Sociva → Notifications manually to enable.');
     }
   };
 
