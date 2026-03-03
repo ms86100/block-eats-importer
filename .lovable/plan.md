@@ -1,56 +1,45 @@
 
 
-## Diagnosis: Proven Root Cause
+## Plan: Direct APNs Test Edge Function (Bypass Firebase Completely)
 
-Your isolation test proved everything:
+### Problem
+FCM returns 200 OK but notifications never arrive. The token format is valid (`fZYG2oOwOUNWsrKm8TX3vJ:APA91b...`). Since you're certain Firebase is correctly configured, the only remaining variable is whether the FCM token maps to the correct APNs environment.
 
-| Step | Result | What it proves |
-|---|---|---|
-| Request Permission | Granted | iOS permission dialog works, plugin bridge works |
-| Trigger Registration | Token stays null | `attemptRegistration()` hangs silently after initial log |
-| Save FCM Token Manually | Succeeded | `FCM.getToken()` works, DB save works, RLS is fine |
+### What We'll Build
+A new edge function `test-apns-direct` that:
+1. Takes the **raw APNs device token** (not the FCM token) from the device
+2. Sends directly to `api.push.apple.com` (production) using your `.p8` key
+3. Returns the **exact APNs response code** — no Firebase in the middle
 
-The "Save FCM Token to DB Manually" button calls `FCM.getToken()` **directly** and saves to DB. It works perfectly. This proves:
-- APNs is registered
-- FCM token conversion works
-- Database persistence works
-- The entire pipeline from token to DB is healthy
+### Why This Is Definitive
+- If APNs returns **200**: your `.p8` key and APNs environment are correct → problem is Firebase token mapping
+- If APNs returns **400 BadDeviceToken**: the binary is signed for sandbox, not production
+- If APNs returns **403 InvalidProviderToken**: the `.p8` key or Team ID is wrong
+- If APNs returns **410 Unregistered**: the app was uninstalled or token expired
 
-The **only** problem is inside `attemptRegistration()`. After logging "attemptRegistration — attempt 1/3", zero additional logs appear. The function hangs somewhere in its complex flow: `checkPermissions → listener gate → PN.register() → wait for 'registration' event → FCM.getToken()`.
+### Steps
 
-## What to Fix
+1. **Add APNs secrets** — You'll need to provide:
+   - `APNS_KEY_P8`: Your `.p8` key contents
+   - `APNS_KEY_ID`: The Key ID from Apple Developer Portal
+   - `APNS_TEAM_ID`: Your Apple Team ID
+   - `APNS_BUNDLE_ID`: Your app's bundle ID (e.g., `com.sociva.app`)
 
-### 1. Simplify `attemptRegistration` on iOS — bypass event-based flow
+2. **Create `test-apns-direct` edge function** that:
+   - Constructs a JWT using the `.p8` key (ES256 algorithm)
+   - Sends HTTP/2 POST to `https://api.push.apple.com/3/device/{apns_token}`
+   - Returns the raw APNs status code and response
 
-The current flow relies on the `registration` event firing after `PN.register()`, then converting the APNs token to FCM via `FCM.getToken()`. This event-based chain has proven unreliable across multiple builds.
+3. **Modify the push debug page** to:
+   - Extract the **raw APNs token** (the 64-char hex string from `PushNotifications.register()`)
+   - Add a "Send Direct APNs Test" button
+   - Display the raw APNs response
 
-The fix: After confirming permission is granted, call `FCM.getToken()` **directly** (the same thing the manual save button does). Skip the event-listener-based flow entirely on iOS.
+4. **Update `usePushNotifications` hook** to expose the raw APNs token alongside the FCM token
 
-```text
-Current (broken):
-  checkPermissions → listener gate → PN.register() → wait for event → FCM.getToken()
+### Technical Detail
+The critical difference: FCM tokens are Firebase abstractions. APNs tokens are what Apple actually uses. By testing APNs directly, we eliminate Firebase as a variable entirely. The hook already receives the APNs token in the `registration` event on iOS — we just need to capture and expose it.
 
-Fixed:
-  checkPermissions → PN.register() → FCM.getToken() directly → save to DB
-```
-
-### 2. Revert the speculative `apns-topic` change in edge function
-
-Your advisor correctly identified this was a red herring. FCM v1 API auto-sets `apns-topic` from Firebase project config. No FCM call was ever made for your user (zero tokens in DB), so the header was irrelevant. Remove the manually added `apns-topic` header.
-
-### 3. Add granular logging between each step
-
-Every `await` in `attemptRegistration` should have a pushLog before and after, so if it hangs again, we know the exact line.
-
-### Files to modify
-
-- **`src/hooks/usePushNotifications.ts`** — Rewrite `attemptRegistration` to call `FCM.getToken()` directly on iOS after permissions, add per-step logging
-- **`supabase/functions/send-push-notification/index.ts`** — Remove speculative `apns-topic` header
-
-### What this does NOT change
-
-- All listener setup (foreground notifications, tap handling) stays the same
-- Android flow stays the same (registration event gives FCM token directly)
-- Login flow, resume flow, safety nets — all unchanged
-- Edge function delivery logic — unchanged (only removing the unnecessary header)
+### Key Requirement
+You will need to provide the `.p8` key file contents and associated metadata (Key ID, Team ID, Bundle ID) as secrets before this can work.
 
