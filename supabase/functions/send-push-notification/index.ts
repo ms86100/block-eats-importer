@@ -127,6 +127,7 @@ async function sendFCMNotification(
         headers: {
           "apns-push-type": "alert",
           "apns-priority": "10",
+          "apns-topic": "app.sociva.community",
         },
         payload: {
           aps: {
