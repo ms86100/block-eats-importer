@@ -12,7 +12,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
  * BUILD FINGERPRINT — if the device logs this, the bundle is current.
  * If not, the device is running stale JS.
  */
-export const PUSH_BUILD_ID = '2026-03-03-K-TOKEN-REFRESH';
+export const PUSH_BUILD_ID = '2026-03-03-L-APNS-TOPIC';
 
 /**
  * NEW APPROACH: Uses @capacitor/push-notifications for permissions + registration
@@ -931,130 +931,86 @@ export function usePushNotificationsInternal() {
           return;
         }
         try {
-          pushLog('info', 'GET_PUSH_STAGE_CALLING', { ts: Date.now() });
-          const stage = await getPushStage();
-          pushLog('info', 'PUSH_STAGE_RESULT', { stage, ts: Date.now() });
-          pushLog('info', `Push stage on login: ${stage}`, { platform });
+          // ── SIMPLIFIED LOGIN FLOW: always register, regardless of stage ──
+          // Previous builds had complex stage/build-change checks that could
+          // block registration. Now we always ensure registration happens.
 
-          // ── BUILD-CHANGE DETECTION: clear stale tokens on new build ──
-          let buildChanged = false;
+          pushLog('info', 'GET_PUSH_STAGE_CALLING', { ts: Date.now() });
+          let stage: string = 'none';
+          try {
+            stage = await getPushStage();
+          } catch (stageErr) {
+            pushLog('warn', 'getPushStage threw — defaulting to none', { error: String(stageErr) });
+          }
+          pushLog('info', 'PUSH_STAGE_RESULT', { stage, ts: Date.now() });
+
+          // Build-change detection (non-blocking — wrapped in try/catch)
           try {
             const lastBuild = await getLastBuildId();
-            buildChanged = lastBuild !== null && lastBuild !== PUSH_BUILD_ID;
+            const buildChanged = lastBuild !== null && lastBuild !== PUSH_BUILD_ID;
             pushLog('info', 'BUILD_CHANGE_CHECK', { lastBuild, currentBuild: PUSH_BUILD_ID, changed: buildChanged, ts: Date.now() });
             if (buildChanged) {
-              pushLog('info', 'BUILD_CHANGED — clearing stale device tokens from DB', { lastBuild, currentBuild: PUSH_BUILD_ID });
-              // Delete all tokens for this user so a fresh one is registered
-              const { error: delErr } = await supabase
-                .from('device_tokens')
-                .delete()
-                .eq('user_id', userId);
-              if (delErr) {
-                pushLog('warn', 'BUILD_CHANGE_TOKEN_DELETE_FAILED', { error: delErr.message });
-              } else {
-                pushLog('info', 'BUILD_CHANGE_TOKEN_DELETE_OK');
-              }
-              // Reset registration state to force fresh registration
-              registrationStateRef.current = 'idle';
-              retryCountRef.current = 0;
+              pushLog('info', 'BUILD_CHANGED — clearing stale device tokens from DB');
+              await supabase.from('device_tokens').delete().eq('user_id', userId);
               tokenRef.current = null;
               setToken(null);
             }
             await setLastBuildId(PUSH_BUILD_ID);
           } catch (buildErr) {
-            pushLog('warn', 'BUILD_CHANGE_CHECK_FAILED', { error: String(buildErr) });
+            pushLog('warn', 'BUILD_CHANGE_CHECK_FAILED — continuing with registration', { error: String(buildErr) });
           }
 
-          // Force-flush so we can see this log even if app crashes later
+          // Ensure stage is set to 'full' for future sessions
+          if (stage !== 'full') {
+            try { await setPushStage('full'); } catch {}
+          }
+
+          // Force-flush before registration
           flushPushLogs().catch(() => {});
 
-          if (stage === 'full') {
-            const PN = await getPushNotificationsPlugin();
-            let loginPerm = 'prompt';
-            if (PN) {
-              const p = await PN.checkPermissions();
-              loginPerm = p.receive;
-            }
-            pushLog('info', `Stage full, checkPermissions=${loginPerm}`, { platform });
+          // ── ALWAYS attempt registration on login ──
+          pushLog('info', 'LOGIN_ALWAYS_REGISTER', { stage, ts: Date.now() });
+          registrationStateRef.current = 'idle';
+          retryCountRef.current = 0;
 
-            // CRITICAL FIX: On iOS, checkPermissions() can return 'prompt' even
-            // when notifications ARE enabled. Always try reconcileRuntimeToken
-            // first when stage is 'full' — FCM.getToken() works regardless of
-            // what the Capacitor permission API reports.
-            const reconciled = await reconcileRuntimeTokenRef.current('login_stage_full');
-            if (reconciled) {
-              pushLog('info', 'Token reconciled on login (bypassed permission gate)');
-              setPermissionStatus('granted');
-            } else if (loginPerm === 'granted') {
-              setPermissionStatus('granted');
-              pushLog('warn', 'Reconciliation failed but permission granted — falling back to register()');
-              registrationStateRef.current = 'idle';
-              retryCountRef.current = 0;
-              attemptRegistrationRef.current();
-            } else if (loginPerm === 'denied') {
-              setPermissionStatus('denied');
-              pushLog('warn', 'Permission denied — waiting for user action');
-            } else {
-              // Still 'prompt' and reconciliation failed — try register() anyway
-              pushLog('warn', `Permission=${loginPerm} + reconcile failed — attempting register() as last resort`);
-              registrationStateRef.current = 'idle';
-              retryCountRef.current = 0;
-              attemptRegistrationRef.current();
-            }
+          // First try reconcileRuntimeToken (fast path for iOS)
+          const reconciled = await reconcileRuntimeTokenRef.current('login_always');
+          if (reconciled) {
+            pushLog('info', 'Token reconciled on login');
+            setPermissionStatus('granted');
+          } else {
+            // Fall back to full registration flow
+            pushLog('info', 'Reconcile failed — calling attemptRegistration');
+            await attemptRegistrationRef.current();
+          }
 
-            // Force-flush after registration attempts
-            flushPushLogs().catch(() => {});
+          flushPushLogs().catch(() => {});
 
-            // SAFETY NET: Schedule a delayed reconcile 5s after login.
-            if (!tokenRef.current && registrationStateRef.current !== 'registered') {
-              setTimeout(async () => {
-                try {
-                  if (tokenRef.current || registrationStateRef.current === 'registered') return;
-                  pushLog('info', 'Login safety-net: delayed reconcile attempt (5s)');
-                  const delayedOk = await reconcileRuntimeTokenRef.current('login_delayed_safety_net');
-                  if (delayedOk) {
-                    setPermissionStatus('granted');
-                    pushLog('info', 'Login safety-net: delayed reconcile SUCCEEDED');
-                  } else {
-                    pushLog('warn', 'Login safety-net: delayed reconcile also failed — scheduling 10s attempt');
-                    setTimeout(async () => {
-                      try {
-                        if (tokenRef.current || registrationStateRef.current === 'registered') return;
-                        const lastResort = await reconcileRuntimeTokenRef.current('login_10s_last_resort');
-                        if (lastResort) {
-                          setPermissionStatus('granted');
-                          pushLog('info', 'Login 10s last-resort reconcile SUCCEEDED');
-                        } else {
-                          pushLog('error', 'Login: all reconcile attempts failed (0.5s, 5s, 10s)');
-                        }
-                      } catch (err) {
-                        pushLog('error', '10s safety-net crashed', { error: String(err) });
-                      }
-                      flushPushLogs().catch(() => {});
-                    }, 5000);
-                  }
-                } catch (err) {
-                  pushLog('error', '5s safety-net crashed', { error: String(err) });
+          // Safety net: delayed reconcile if still no token
+          if (!tokenRef.current && (registrationStateRef.current as string) !== 'registered') {
+            setTimeout(async () => {
+              try {
+                if (tokenRef.current || registrationStateRef.current === 'registered') return;
+                pushLog('info', 'Login safety-net: delayed reconcile (5s)');
+                const ok = await reconcileRuntimeTokenRef.current('login_5s_safety');
+                if (ok) {
+                  setPermissionStatus('granted');
+                  pushLog('info', 'Login safety-net SUCCEEDED');
+                } else {
+                  pushLog('warn', 'Login safety-net failed — trying 10s');
+                  setTimeout(async () => {
+                    try {
+                      if (tokenRef.current || registrationStateRef.current === 'registered') return;
+                      const last = await reconcileRuntimeTokenRef.current('login_10s_last');
+                      if (last) { setPermissionStatus('granted'); }
+                      else { pushLog('error', 'All login reconcile attempts failed'); }
+                    } catch (e) { pushLog('error', '10s safety crashed', { error: String(e) }); }
+                    flushPushLogs().catch(() => {});
+                  }, 5000);
                 }
-                flushPushLogs().catch(() => {});
-              }, 5000);
-            }
-          } else if (stage === 'none' || stage === 'deferred') {
-            pushLog('info', 'First login — auto-requesting notification permission');
-            await setPushStage('full');
-            registrationStateRef.current = 'idle';
-            retryCountRef.current = 0;
-
-            // Crash-proof logging around first-login registration
-            pushLog('info', 'FIRST_LOGIN_CALLING_ATTEMPT_REGISTRATION', { ts: Date.now() });
-            await flushPushLogs().catch(() => {});
-            try {
-              await attemptRegistrationRef.current();
-              pushLog('info', 'FIRST_LOGIN_ATTEMPT_REGISTRATION_RETURNED', { ts: Date.now() });
-            } catch (regErr) {
-              pushLog('error', 'FIRST_LOGIN_ATTEMPT_REGISTRATION_THREW', { error: String(regErr), ts: Date.now() });
-            }
-            await flushPushLogs().catch(() => {});
+              } catch (e) { pushLog('error', '5s safety crashed', { error: String(e) }); }
+              flushPushLogs().catch(() => {});
+            }, 5000);
           }
         } catch (err) {
           pushLog('error', 'Login registration setTimeout CRASHED', {
