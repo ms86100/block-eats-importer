@@ -122,24 +122,6 @@ async function sendFCMNotification(
         body,
       },
       data: data || {},
-      // iOS specific configuration
-      apns: {
-        headers: {
-          "apns-push-type": "alert",
-          "apns-priority": "10",
-          "apns-topic": "app.sociva.community",
-        },
-        payload: {
-          aps: {
-            alert: {
-              title,
-              body,
-            },
-            sound: "default",
-            badge: 1,
-          },
-        },
-      },
       // Android specific configuration
       android: {
         priority: "high",

@@ -12,7 +12,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
  * BUILD FINGERPRINT — if the device logs this, the bundle is current.
  * If not, the device is running stale JS.
  */
-export const PUSH_BUILD_ID = '2026-03-03-L-APNS-TOPIC';
+export const PUSH_BUILD_ID = '2026-03-03-M-DIRECT-FCM';
 
 /**
  * NEW APPROACH: Uses @capacitor/push-notifications for permissions + registration
@@ -409,17 +409,18 @@ export function usePushNotificationsInternal() {
 
     const PN = await getPushNotificationsPlugin();
     if (!PN) { markFailed(); return; }
+    pushLog('info', 'AR_PLUGIN_LOADED', { ts: Date.now() });
 
     try {
+      // Step 1: Check permissions
+      pushLog('info', 'AR_CHECK_PERMISSIONS_CALLING', { ts: Date.now() });
       let permStatus = await PN.checkPermissions();
-      console.log(`[Push][${platform}] ▶ checkPermissions:`, permStatus.receive);
+      pushLog('info', 'AR_CHECK_PERMISSIONS_RESULT', { receive: permStatus.receive, ts: Date.now() });
 
       if (permStatus.receive === 'prompt') {
-        pushLog('info', 'REQUEST_PERMISSIONS_CALLING', { ts: Date.now() });
-        console.log(`[Push][${platform}] ▶ Calling requestPermissions()…`);
+        pushLog('info', 'AR_REQUEST_PERMISSIONS_CALLING', { ts: Date.now() });
         permStatus = await PN.requestPermissions();
-        pushLog('info', 'REQUEST_PERMISSIONS_RESULT', { receive: permStatus.receive, ts: Date.now() });
-        pushLog('info', `requestPermissions result: ${permStatus.receive}`, { platform });
+        pushLog('info', 'AR_REQUEST_PERMISSIONS_RESULT', { receive: permStatus.receive, ts: Date.now() });
       }
 
       if (permStatus.receive !== 'granted') {
@@ -433,64 +434,91 @@ export function usePushNotificationsInternal() {
       setPermissionStatus('granted');
       clearWatchdog();
 
-      // ── LISTENER GATE: wait for listeners to be ready before register() ──
-      console.log(`[Push][${platform}] ▶ Waiting for listeners to be ready…`);
-      try {
-        await Promise.race([
-          listenersReadyRef.current,
-          new Promise<void>((_, reject) =>
-            setTimeout(() => reject(new Error('Listener gate timeout')), 5000)
-          ),
-        ]);
-        console.log(`[Push][${platform}] ✓ Listeners ready`);
-      } catch (gateErr) {
-        console.warn(`[Push][${platform}] Listener gate timed out — proceeding anyway:`, gateErr);
-      }
-
-      const preRegPerm = await PN.checkPermissions();
-      pushLog('info', 'PERMISSION_BEFORE_REGISTER', { receive: preRegPerm.receive, ts: Date.now() });
-      pushLog('info', 'REGISTER_CALLED_AT', { ts: Date.now() });
-      console.log(`[Push][${platform}] ▶ Calling PushNotifications.register()…`);
+      // Step 2: Call PN.register() to ensure APNs registration
+      pushLog('info', 'AR_REGISTER_CALLING', { ts: Date.now() });
       await PN.register();
-      console.log(`[Push][${platform}] ✓ register() completed — starting watchdog`);
+      pushLog('info', 'AR_REGISTER_RETURNED', { ts: Date.now() });
 
-      // Start watchdog for token arrival
-      watchdogTimerRef.current = setTimeout(async () => {
-        watchdogTimerRef.current = null;
-        if (registrationStateRef.current === 'registered') return;
+      // Step 3: Platform-specific token retrieval
+      if (platform === 'ios') {
+        // ── iOS DIRECT PATH: Call FCM.getToken() directly ──
+        // The 'registration' event listener is unreliable on iOS.
+        // Proven: manual "Save FCM Token" button (which calls FCM.getToken() directly) works.
+        // So we do the same thing here, bypassing the event-based flow.
+        pushLog('info', 'AR_IOS_DIRECT_FCM_CALLING', { ts: Date.now() });
 
-        retryCountRef.current += 1;
-        console.warn(`[Push][${platform}] Watchdog expired — no token (attempt ${retryCountRef.current}/${MAX_RETRIES})`);
+        const fcm = await getFcmPlugin();
+        if (!fcm) {
+          pushLog('error', 'AR_IOS_FCM_PLUGIN_MISSING');
+          markFailed();
+          return;
+        }
+        pushLog('info', 'AR_IOS_FCM_PLUGIN_LOADED', { ts: Date.now() });
 
-        // ── iOS WATCHDOG FALLBACK: try FCM.getToken() directly ──
-        if (platform === 'ios') {
-          console.log('[Push][iOS] Watchdog fallback — trying FCM.getToken() directly…');
+        // Retry loop with backoff — iOS bridge can be slow after register()
+        let fcmToken: string | null = null;
+        for (let i = 1; i <= 3; i++) {
           try {
-            const fcm = await getFcmPlugin();
-            if (fcm) {
-              const result = await fcm.getToken();
-              const directToken = result.token;
-              if (directToken && isValidFcmToken(directToken, 'ios')) {
-                console.log('[Push][iOS] ✓ Watchdog fallback got valid FCM token:', directToken.substring(0, 20) + '…');
-                await handleValidToken(directToken);
-                return;
-              }
-              console.warn('[Push][iOS] Watchdog fallback — token invalid or missing');
+            pushLog('info', `AR_IOS_FCM_GETTOKEN_ATTEMPT_${i}`, { ts: Date.now() });
+            const result = await fcm.getToken();
+            const candidate = result.token;
+            pushLog('info', `AR_IOS_FCM_GETTOKEN_RESULT_${i}`, {
+              tokenPrefix: candidate?.substring(0, 20) ?? null,
+              length: candidate?.length ?? 0,
+              valid: candidate ? isValidFcmToken(candidate, 'ios') : false,
+              ts: Date.now(),
+            });
+
+            if (candidate && isValidFcmToken(candidate, 'ios')) {
+              fcmToken = candidate;
+              break;
             }
-          } catch (fcmErr) {
-            console.warn('[Push][iOS] Watchdog fallback FCM.getToken() failed:', fcmErr);
+          } catch (err) {
+            pushLog('warn', `AR_IOS_FCM_GETTOKEN_ERROR_${i}`, { error: String(err), ts: Date.now() });
+          }
+          // Wait before retry
+          if (i < 3) {
+            await new Promise((r) => setTimeout(r, i * 1000));
           }
         }
 
-        if (retryCountRef.current >= MAX_RETRIES) {
-          markFailed();
-        } else {
-          registrationStateRef.current = 'idle';
-          attemptRegistration();
+        if (!fcmToken) {
+          pushLog('error', 'AR_IOS_FCM_ALL_ATTEMPTS_FAILED');
+          retryCountRef.current += 1;
+          if (retryCountRef.current >= MAX_RETRIES) {
+            markFailed();
+          } else {
+            registrationStateRef.current = 'idle';
+            // Retry after delay
+            setTimeout(() => attemptRegistration(), 2000);
+          }
+          return;
         }
-      }, WATCHDOG_TIMEOUT_MS);
+
+        pushLog('info', 'AR_IOS_TOKEN_OBTAINED', { tokenPrefix: fcmToken.substring(0, 20), ts: Date.now() });
+        await handleValidToken(fcmToken);
+
+      } else {
+        // ── Android: token arrives via 'registration' event listener ──
+        // Set up watchdog in case the event never fires
+        pushLog('info', 'AR_ANDROID_WAITING_FOR_EVENT', { ts: Date.now() });
+        watchdogTimerRef.current = setTimeout(async () => {
+          watchdogTimerRef.current = null;
+          if (registrationStateRef.current === 'registered') return;
+
+          retryCountRef.current += 1;
+          pushLog('warn', `Android watchdog expired — attempt ${retryCountRef.current}/${MAX_RETRIES}`);
+
+          if (retryCountRef.current >= MAX_RETRIES) {
+            markFailed();
+          } else {
+            registrationStateRef.current = 'idle';
+            attemptRegistration();
+          }
+        }, WATCHDOG_TIMEOUT_MS);
+      }
     } catch (err) {
-      console.error(`[Push][${platform}] Registration error:`, err);
+      pushLog('error', 'AR_EXCEPTION', { error: String(err), stack: (err as Error)?.stack?.substring(0, 300), ts: Date.now() });
       lastErrorRef.current = err;
       markFailed();
     }
