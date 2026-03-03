@@ -24,11 +24,18 @@ async function getPrefs() {
 export async function getPushStage(): Promise<PushStage> {
   if (!Capacitor.isNativePlatform()) return 'none';
   try {
-    const prefs = await getPrefs();
-    if (!prefs) return 'none';
-    const { value } = await prefs.get({ key: KEY });
-    if (value === 'deferred' || value === 'full') return value;
-    return 'none';
+    // Race against a timeout — Preferences.get() can hang on iOS cold start
+    const result = await Promise.race([
+      (async () => {
+        const prefs = await getPrefs();
+        if (!prefs) return 'none' as PushStage;
+        const { value } = await prefs.get({ key: KEY });
+        if (value === 'deferred' || value === 'full') return value;
+        return 'none' as PushStage;
+      })(),
+      new Promise<PushStage>((resolve) => setTimeout(() => resolve('none'), 3000)),
+    ]);
+    return result;
   } catch {
     return 'none';
   }
