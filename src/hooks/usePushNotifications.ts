@@ -12,7 +12,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
  * BUILD FINGERPRINT — if the device logs this, the bundle is current.
  * If not, the device is running stale JS.
  */
-export const PUSH_BUILD_ID = '2026-03-03-D';
+export const PUSH_BUILD_ID = '2026-03-03-E';
 
 /**
  * NEW APPROACH: Uses @capacitor/push-notifications for permissions + registration
@@ -374,10 +374,10 @@ export function usePushNotificationsInternal() {
       console.log(`[Push][${platform}] ▶ checkPermissions:`, permStatus.receive);
 
       if (permStatus.receive === 'prompt') {
-        console.log("REQUEST_PERMISSIONS_CALLING", { ts: Date.now() });
+        pushLog('info', 'REQUEST_PERMISSIONS_CALLING', { ts: Date.now() });
         console.log(`[Push][${platform}] ▶ Calling requestPermissions()…`);
         permStatus = await PN.requestPermissions();
-        console.log("REQUEST_PERMISSIONS_RESULT", { receive: permStatus.receive, ts: Date.now() });
+        pushLog('info', 'REQUEST_PERMISSIONS_RESULT', { receive: permStatus.receive, ts: Date.now() });
         pushLog('info', `requestPermissions result: ${permStatus.receive}`, { platform });
       }
 
@@ -407,8 +407,8 @@ export function usePushNotificationsInternal() {
       }
 
       const preRegPerm = await PN.checkPermissions();
-      console.log("PERMISSION_BEFORE_REGISTER", { receive: preRegPerm.receive, ts: Date.now() });
-      console.log("REGISTER_CALLED_AT", { ts: Date.now() });
+      pushLog('info', 'PERMISSION_BEFORE_REGISTER', { receive: preRegPerm.receive, ts: Date.now() });
+      pushLog('info', 'REGISTER_CALLED_AT', { ts: Date.now() });
       console.log(`[Push][${platform}] ▶ Calling PushNotifications.register()…`);
       await PN.register();
       console.log(`[Push][${platform}] ✓ register() completed — starting watchdog`);
@@ -531,8 +531,8 @@ export function usePushNotificationsInternal() {
   useEffect(() => {
     const myId = ++activeInstanceId;
     let tornDown = false;
-    console.log("EFFECT_MOUNTED", { myId, userId: user?.id, ts: Date.now() });
-    console.log("EFFECT_RENDER", { userId: user?.id, permissionStatus, hasToken: !!tokenRef.current, regState: registrationStateRef.current, ts: Date.now() });
+    pushLog('info', 'EFFECT_MOUNTED', { myId, userId: user?.id, ts: Date.now() });
+    pushLog('info', 'EFFECT_RENDER', { userId: user?.id, permissionStatus, hasToken: !!tokenRef.current, regState: registrationStateRef.current, ts: Date.now() });
     if (myId !== activeInstanceId) {
       console.warn('[Push] Duplicate instance detected — skipping effects');
       return;
@@ -553,9 +553,9 @@ export function usePushNotificationsInternal() {
       // iOS: gives APNs token → we convert via FCM.getToken()
       const registrationListener = PN.addListener('registration', async (registrationToken) => {
         try {
-          console.log("REGISTRATION_EVENT_THREAD_CHECK", { isNative: Capacitor.isNativePlatform?.(), hasPlugin: !!(window as any).Capacitor?.Plugins?.PushNotifications, ts: Date.now() });
+          pushLog('info', 'REGISTRATION_EVENT_THREAD_CHECK', { isNative: Capacitor.isNativePlatform?.(), hasPlugin: !!(window as any).Capacitor?.Plugins?.PushNotifications, ts: Date.now() });
           const rawToken = registrationToken?.value;
-          console.log("REGISTRATION_EVENT_RECEIVED", { tokenPrefix: rawToken?.substring(0, 20), ts: Date.now() });
+          pushLog('info', 'REGISTRATION_EVENT_RECEIVED', { tokenPrefix: rawToken?.substring(0, 20), ts: Date.now() });
           if (!rawToken || typeof rawToken !== 'string' || rawToken.length === 0) {
             console.error(`[Push][${platform}] registration event — invalid token:`, registrationToken);
             return;
@@ -619,7 +619,7 @@ export function usePushNotificationsInternal() {
       // ── Registration error ──
       const registrationErrorListener = PN.addListener('registrationError', (error) => {
         try {
-          console.log("REGISTRATION_ERROR_EVENT", { error: JSON.stringify(error), ts: Date.now() });
+          pushLog('error', 'REGISTRATION_ERROR_EVENT', { error: JSON.stringify(error), ts: Date.now() });
           console.error(`[Push][${platform}] registrationError:`, JSON.stringify(error));
           pushLog('error', 'registrationError event', {
             platform,
@@ -848,19 +848,19 @@ export function usePushNotificationsInternal() {
 
     // ── Auto-prompt on first login; silent re-register if already granted ──
     if (user) {
-      console.log("USER_BLOCK_ENTERED", { userId: user.id, ts: Date.now() });
+      pushLog('info', 'USER_BLOCK_ENTERED', { userId: user.id, ts: Date.now() });
       setLogUser(user.id);
       pushLog('info', `BUILD_FINGERPRINT on login`, { buildId: PUSH_BUILD_ID, platform, href: window.location.href, readyState: document.readyState, lastModified: document.lastModified });
       setTimeout(async () => {
-        console.log("LOGIN_SETTIMEOUT_FIRED", { userId: user?.id, tornDown, ts: Date.now() });
+        pushLog('info', 'LOGIN_SETTIMEOUT_FIRED', { userId: user?.id, tornDown, ts: Date.now() });
         if (tornDown) {
-          console.log("EFFECT_TORN_DOWN_BEFORE_REGISTRATION", { myId, ts: Date.now() });
+          pushLog('warn', 'EFFECT_TORN_DOWN_BEFORE_REGISTRATION', { myId, ts: Date.now() });
           return;
         }
         try {
-          console.log("GET_PUSH_STAGE_CALLING", { ts: Date.now() });
+          pushLog('info', 'GET_PUSH_STAGE_CALLING', { ts: Date.now() });
           const stage = await getPushStage();
-          console.log("PUSH_STAGE_RESULT", { stage, ts: Date.now() });
+          pushLog('info', 'PUSH_STAGE_RESULT', { stage, ts: Date.now() });
           pushLog('info', `Push stage on login: ${stage}`, { platform });
           // Force-flush so we can see this log even if app crashes later
           flushPushLogs().catch(() => {});
@@ -957,8 +957,8 @@ export function usePushNotificationsInternal() {
 
     return () => {
       tornDown = true;
-      console.log("EFFECT_CLEANUP", { myId, regState: registrationStateRef.current, hasToken: !!tokenRef.current, ts: Date.now() });
-      console.log("EFFECT_CLEANUP_STATE", { myId, regState: registrationStateRef.current, hasToken: !!tokenRef.current, ts: Date.now() });
+      pushLog('info', 'EFFECT_CLEANUP', { myId, regState: registrationStateRef.current, hasToken: !!tokenRef.current, ts: Date.now() });
+      flushPushLogs().catch(() => {});
       clearWatchdog();
       cleanups.forEach(fn => fn());
       appListenerCleanup?.();
