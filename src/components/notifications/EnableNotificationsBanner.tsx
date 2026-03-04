@@ -79,8 +79,8 @@ export function EnableNotificationsBanner() {
       // Trigger APNs registration event
       await PushNotifications.register();
 
-      // Permission already granted — safe to run complex async reconciliation
-      await requestFullPermission();
+      // Fire-and-forget — don't block UI on long reconciliation chain
+      requestFullPermission().catch(e => console.warn('[Push] Background reconciliation:', e));
     } catch {
       setFailedSilently(true);
     } finally {
