@@ -335,21 +335,6 @@ export function usePushNotificationsInternal() {
       return false;
     }
 
-    // ── APNs token fallback in reconcileRuntimeToken ──
-    if (!apnsTokenRef.current && platform === 'ios') {
-      try {
-        const apnsResult = await (fcm as any).getAPNSToken?.();
-        const apnsCandidate = apnsResult?.token;
-        if (apnsCandidate && /^[A-Fa-f0-9]{64}$/.test(apnsCandidate)) {
-          apnsTokenRef.current = apnsCandidate;
-          pushLog('info', 'APNS_TOKEN_RECOVERED_RECONCILE', { prefix: apnsCandidate.substring(0, 16), ts: Date.now() });
-          console.log(`[Push][iOS] ✓ APNs token recovered in reconcileRuntimeToken: ${apnsCandidate.substring(0, 16)}…`);
-        }
-      } catch (apnsErr) {
-        pushLog('warn', 'APNS_TOKEN_RECONCILE_FALLBACK_FAILED', { error: String(apnsErr) });
-      }
-    }
-
     const changed = tokenRef.current !== candidate;
     if (changed) {
       setToken(candidate);
@@ -430,6 +415,7 @@ export function usePushNotificationsInternal() {
 
       // Call PN.register() — fires 'registration' event with APNs token on iOS
       pushLog('info', 'AR_REGISTER_CALLING', { ts: Date.now() });
+      await listenersReadyRef.current; // Ensure registration listener is attached before register()
       await PN.register();
       pushLog('info', 'AR_REGISTER_RETURNED', { ts: Date.now() });
 
@@ -491,21 +477,6 @@ export function usePushNotificationsInternal() {
           apnsPrefix: apnsTokenRef.current?.substring(0, 16) ?? 'none',
           ts: Date.now(),
         });
-
-        // ── APNs token fallback in attemptRegistration ──
-        if (!apnsTokenRef.current) {
-          try {
-            const apnsResult = await (fcm as any).getAPNSToken?.();
-            const apnsCandidate = apnsResult?.token;
-            if (apnsCandidate && /^[A-Fa-f0-9]{64}$/.test(apnsCandidate)) {
-              apnsTokenRef.current = apnsCandidate;
-              pushLog('info', 'APNS_TOKEN_RECOVERED_AR', { prefix: apnsCandidate.substring(0, 16), ts: Date.now() });
-              console.log(`[Push][iOS] ✓ APNs token recovered in attemptRegistration: ${apnsCandidate.substring(0, 16)}…`);
-            }
-          } catch (apnsErr) {
-            pushLog('warn', 'APNS_TOKEN_AR_FALLBACK_FAILED', { error: String(apnsErr) });
-          }
-        }
 
         await handleValidToken(fcmToken);
 
@@ -717,21 +688,6 @@ export function usePushNotificationsInternal() {
               console.error('[Push][iOS] FCM token conversion failed after 3 attempts');
               markFailedRef.current();
               return;
-            }
-
-            // ── APNs token fallback: if registration event didn't capture it, try FCM.getAPNSToken() ──
-            if (!apnsTokenRef.current && platform === 'ios') {
-              try {
-                const apnsResult = await (fcm as any).getAPNSToken?.();
-                const apnsCandidate = apnsResult?.token;
-                if (apnsCandidate && /^[A-Fa-f0-9]{64}$/.test(apnsCandidate)) {
-                  apnsTokenRef.current = apnsCandidate;
-                  pushLog('info', 'APNS_TOKEN_RECOVERED_VIA_FCM_GET_APNS', { prefix: apnsCandidate.substring(0, 16), ts: Date.now() });
-                  console.log(`[Push][iOS] ✓ APNs token recovered via FCM.getAPNSToken(): ${apnsCandidate.substring(0, 16)}…`);
-                }
-              } catch (apnsErr) {
-                pushLog('warn', 'APNS_TOKEN_FALLBACK_FAILED', { error: String(apnsErr) });
-              }
             }
 
             await handleValidTokenRef.current(fcmToken);
@@ -1178,6 +1134,7 @@ export function usePushNotificationsInternal() {
       if (platform === 'ios') {
         try {
           console.log('[Push] iOS permission granted — calling PN.register() to trigger APNs registration event');
+          await listenersReadyRef.current; // Ensure registration listener is attached before register()
           await PN.register();
         } catch (e) {
           console.warn('[Push] PN.register() failed in requestFullPermission:', e);
