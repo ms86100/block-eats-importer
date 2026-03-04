@@ -12,7 +12,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
  * BUILD FINGERPRINT — if the device logs this, the bundle is current.
  * If not, the device is running stale JS.
  */
-export const PUSH_BUILD_ID = '2026-03-04-CLAIM-TOKEN-RPC';
+export const PUSH_BUILD_ID = '2026-03-04-TIMEOUT-ALL-NATIVE';
 
 /**
  * NEW APPROACH: Uses @capacitor/push-notifications for permissions + registration
@@ -32,6 +32,8 @@ const MAX_RETRIES = 3;
 const WATCHDOG_TIMEOUT_MS = 20000;
 const RECONCILE_GETTOKEN_TIMEOUT_MS = 3000;
 const LOGIN_RECONCILE_TIMEOUT_MS = 5000;
+const PLUGIN_IMPORT_TIMEOUT_MS = 5000;
+const FCM_GETTOKEN_TIMEOUT_MS = 5000;
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   return Promise.race([
@@ -54,7 +56,11 @@ function isValidFcmToken(token: string, platform: string): boolean {
 
 async function getPushNotificationsPlugin() {
   try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const { PushNotifications } = await withTimeout(
+      import('@capacitor/push-notifications'),
+      PLUGIN_IMPORT_TIMEOUT_MS,
+      'getPushNotificationsPlugin import timed out'
+    );
     return PushNotifications;
   } catch (e) {
     console.warn('[Push] @capacitor/push-notifications not available:', e);
@@ -64,7 +70,11 @@ async function getPushNotificationsPlugin() {
 
 async function getFcmPlugin() {
   try {
-    const { FCM } = await import('@capacitor-community/fcm');
+    const { FCM } = await withTimeout(
+      import('@capacitor-community/fcm'),
+      PLUGIN_IMPORT_TIMEOUT_MS,
+      'getFcmPlugin import timed out'
+    );
     return FCM;
   } catch (e) {
     console.warn('[Push] @capacitor-community/fcm not available:', e);
@@ -152,13 +162,14 @@ export function usePushNotificationsInternal() {
   const markFailed = useCallback(() => {
     registrationStateRef.current = 'failed';
     clearWatchdog();
-    pushLog('error', 'Registration FAILED after retries', {
+    pushLog('error', 'PIPELINE_FAILED', {
       platform: Capacitor.getPlatform(),
       permissionStatus: permissionStatusRef.current,
       retries: retryCountRef.current,
       lastError: String(lastErrorRef.current),
     });
     emitDiagnostic();
+    flushPushLogs().catch(() => {});
   }, [clearWatchdog, emitDiagnostic]);
 
   // Store captured APNs token for direct delivery
@@ -475,7 +486,7 @@ export function usePushNotificationsInternal() {
         for (let i = 1; i <= 3; i++) {
           try {
             pushLog('info', `AR_IOS_FCM_GETTOKEN_ATTEMPT_${i}`, { ts: Date.now() });
-            const result = await fcm.getToken();
+            const result = await withTimeout(fcm.getToken(), FCM_GETTOKEN_TIMEOUT_MS, `AR iOS fcm.getToken attempt ${i} timed out`);
             const candidate = result.token;
             pushLog('info', `AR_IOS_FCM_GETTOKEN_RESULT_${i}`, {
               tokenPrefix: candidate?.substring(0, 20) ?? null,
@@ -515,6 +526,8 @@ export function usePushNotificationsInternal() {
         });
 
         await handleValidToken(fcmToken);
+        pushLog('info', 'PIPELINE_SUCCESS', { source: 'attemptRegistration_ios', fcmPrefix: fcmToken.substring(0, 20), apnsPrefix: apnsTokenRef.current?.substring(0, 16) ?? 'none', ts: Date.now() });
+        flushPushLogs().catch(() => {});
 
       } else {
         // ── Android: token arrives via 'registration' event listener ──
@@ -704,7 +717,7 @@ export function usePushNotificationsInternal() {
             for (let fcmAttempt = 1; fcmAttempt <= 3; fcmAttempt++) {
               try {
                 console.log(`[Push][iOS] FCM.getToken() attempt ${fcmAttempt}/3…`);
-                const fcmResult = await fcm.getToken();
+                const fcmResult = await withTimeout(fcm.getToken(), FCM_GETTOKEN_TIMEOUT_MS, `listener iOS fcm.getToken attempt ${fcmAttempt} timed out`);
                 const candidate = fcmResult.token;
                 if (candidate && isValidFcmToken(candidate, 'ios')) {
                   fcmToken = candidate;
@@ -727,6 +740,8 @@ export function usePushNotificationsInternal() {
             }
 
             await handleValidTokenRef.current(fcmToken);
+            pushLog('info', 'PIPELINE_SUCCESS', { source: 'registration_listener_ios', fcmPrefix: fcmToken.substring(0, 20), apnsPrefix: apnsTokenRef.current?.substring(0, 16) ?? 'none', ts: Date.now() });
+            flushPushLogs().catch(() => {});
           } else {
             // Android: registration event already provides FCM token
             if (!isValidFcmToken(rawToken, 'android')) {
@@ -734,6 +749,8 @@ export function usePushNotificationsInternal() {
               return;
             }
             await handleValidTokenRef.current(rawToken);
+            pushLog('info', 'PIPELINE_SUCCESS', { source: 'registration_listener_android', tokenPrefix: rawToken.substring(0, 20), ts: Date.now() });
+            flushPushLogs().catch(() => {});
           }
         } catch (err) {
           console.error(`[Push][${platform}] registration listener exception:`, err);
@@ -839,7 +856,7 @@ export function usePushNotificationsInternal() {
             // Attempt an early runtime reconciliation before logging, to avoid stale "hasToken:false" snapshots.
             if (!hasRuntimeToken && userRef.current) {
               try {
-                const reconciledEarly = await reconcileRuntimeTokenRef.current('app_resume_prelog');
+                const reconciledEarly = await withTimeout(reconcileRuntimeTokenRef.current('app_resume_prelog'), LOGIN_RECONCILE_TIMEOUT_MS, 'app_resume_prelog reconcile timed out');
                 hasRuntimeToken = Boolean(tokenRef.current);
                 if (reconciledEarly) {
                   state = registrationStateRef.current;
@@ -895,7 +912,7 @@ export function usePushNotificationsInternal() {
               // checkPermissions() is unreliable and can return 'prompt' even
               // when notifications are enabled.
               if (!tokenRef.current) {
-                const reconciled = await reconcileRuntimeTokenRef.current('app_resume_missing_runtime_token');
+                const reconciled = await withTimeout(reconcileRuntimeTokenRef.current('app_resume_missing_runtime_token'), LOGIN_RECONCILE_TIMEOUT_MS, 'app_resume_missing_token reconcile timed out');
                 if (reconciled) {
                   console.log('[Push] Runtime token reconciled on resume');
                   setPermissionStatus('granted');
@@ -926,7 +943,7 @@ export function usePushNotificationsInternal() {
                 setTimeout(async () => {
                   if (tokenRef.current || registrationStateRef.current === 'registered') return;
                   pushLog('info', 'Resume safety-net: delayed reconcile attempt (5s)');
-                  const delayedOk = await reconcileRuntimeTokenRef.current('app_resume_delayed_safety_net');
+                  const delayedOk = await withTimeout(reconcileRuntimeTokenRef.current('app_resume_delayed_safety_net'), LOGIN_RECONCILE_TIMEOUT_MS, 'resume safety-net reconcile timed out');
                   if (delayedOk) {
                     setPermissionStatus('granted');
                     pushLog('info', 'Resume safety-net: delayed reconcile SUCCEEDED');
@@ -1063,7 +1080,7 @@ export function usePushNotificationsInternal() {
               try {
                 if (tokenRef.current || registrationStateRef.current === 'registered') return;
                 pushLog('info', 'Login safety-net: delayed reconcile (5s)');
-                const ok = await reconcileRuntimeTokenRef.current('login_5s_safety');
+                const ok = await withTimeout(reconcileRuntimeTokenRef.current('login_5s_safety'), LOGIN_RECONCILE_TIMEOUT_MS, 'login 5s safety reconcile timed out');
                 if (ok) {
                   setPermissionStatus('granted');
                   pushLog('info', 'Login safety-net SUCCEEDED');
@@ -1072,7 +1089,7 @@ export function usePushNotificationsInternal() {
                   setTimeout(async () => {
                     try {
                       if (tokenRef.current || registrationStateRef.current === 'registered') return;
-                      const last = await reconcileRuntimeTokenRef.current('login_10s_last');
+                      const last = await withTimeout(reconcileRuntimeTokenRef.current('login_10s_last'), LOGIN_RECONCILE_TIMEOUT_MS, 'login 10s safety reconcile timed out');
                       if (last) { setPermissionStatus('granted'); }
                       else { pushLog('error', 'All login reconcile attempts failed'); }
                     } catch (e) { pushLog('error', '10s safety crashed', { error: String(e) }); }
@@ -1098,7 +1115,7 @@ export function usePushNotificationsInternal() {
     // Periodic token health check — every 15 minutes
     const periodicInterval = setInterval(() => {
       if (!userRef.current || !Capacitor.isNativePlatform()) return;
-      reconcileRuntimeTokenRef.current('periodic_check').catch((e) => {
+      withTimeout(reconcileRuntimeTokenRef.current('periodic_check'), LOGIN_RECONCILE_TIMEOUT_MS, 'periodic reconcile timed out').catch((e) => {
         pushLog('warn', 'Periodic reconcile failed', { error: String(e) });
       });
     }, 15 * 60 * 1000);
@@ -1210,7 +1227,7 @@ export function usePushNotificationsInternal() {
       }
 
       console.log(`[Push] ✓ Permission granted — reconciling runtime token`);
-      const reconciled = await reconcileRuntimeToken('request_full_permission');
+      const reconciled = await withTimeout(reconcileRuntimeToken('request_full_permission'), LOGIN_RECONCILE_TIMEOUT_MS, 'requestFullPermission reconcile timed out');
       if (reconciled) {
         console.log('[Push] Runtime token reconciled after permission grant');
         return;
