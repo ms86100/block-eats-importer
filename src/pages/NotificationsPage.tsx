@@ -187,18 +187,27 @@ export default function NotificationsPage() {
         {osPermission === 'prompt' && Capacitor.isNativePlatform() && (
           <button
             onClick={async () => {
-              // Keep permission request directly in click flow for iOS gesture context.
-              await requestFullPermission();
-              // Re-check after request
               try {
                 const { PushNotifications } = await import('@capacitor/push-notifications');
-                const result = await PushNotifications.checkPermissions();
-                setOsPermission(result.receive as 'granted' | 'denied' | 'prompt');
-                if (result.receive === 'granted') {
-                  toast.success('Notifications enabled!');
+
+                // Direct call in tap handler — preserves iOS user-gesture context
+                const permResult = await PushNotifications.requestPermissions();
+
+                if (permResult.receive !== 'granted') {
+                  setOsPermission(permResult.receive as 'granted' | 'denied' | 'prompt');
+                  return;
                 }
+
+                // Trigger APNs registration event
+                await PushNotifications.register();
+
+                // Permission already granted — safe to run complex async reconciliation
+                await requestFullPermission();
+
+                setOsPermission('granted');
+                toast.success('Notifications enabled!');
               } catch {
-                // ignore check errors
+                // ignore errors
               }
             }}
             className="w-full mb-4 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4 text-left active:scale-[0.98] transition-transform"

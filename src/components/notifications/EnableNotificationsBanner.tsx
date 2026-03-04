@@ -66,21 +66,26 @@ export function EnableNotificationsBanner() {
 
   const handleTurnOn = async () => {
     setLoading(true);
-    // Keep permission request directly in click flow for iOS gesture context.
-    await requestFullPermission();
-    setLoading(false);
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
 
-    // After the permission flow completes, check if it was actually granted
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const { PushNotifications } = await import('@capacitor/push-notifications');
-        const result = await PushNotifications.checkPermissions();
-        if (result.receive !== 'granted') {
-          setFailedSilently(true);
-        }
-      } catch {
+      // Direct call in tap handler — preserves iOS user-gesture context
+      const permResult = await PushNotifications.requestPermissions();
+
+      if (permResult.receive !== 'granted') {
         setFailedSilently(true);
+        return;
       }
+
+      // Trigger APNs registration event
+      await PushNotifications.register();
+
+      // Permission already granted — safe to run complex async reconciliation
+      await requestFullPermission();
+    } catch {
+      setFailedSilently(true);
+    } finally {
+      setLoading(false);
     }
   };
 

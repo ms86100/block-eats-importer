@@ -1092,11 +1092,7 @@ export function usePushNotificationsInternal() {
 
     const platform = Capacitor.getPlatform();
 
-    const timeout = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('requestFullPermission timed out after 20s')), 20000)
-    );
-
-    const doRegister = async () => {
+    try {
       const PN = await getPushNotificationsPlugin();
       if (!PN) {
         console.error('[Push] ✗ PushNotifications plugin not available');
@@ -1104,33 +1100,27 @@ export function usePushNotificationsInternal() {
         return;
       }
 
-      // BUG #2 FIX: No duplicate registration listener here.
-      // The SINGLE main effect listener captures APNs token.
-
-      // Check current permission
+      // Check current permission — if already granted (banner called requestPermissions
+      // directly), skip the prompt and go straight to registration + reconciliation.
       let permStatus = await PN.checkPermissions();
-      console.log(`[Push] requestFullPermission (${platform}) BEFORE checkPermissions:`, permStatus.receive);
+      console.log(`[Push] requestFullPermission (${platform}) checkPermissions:`, permStatus.receive);
 
       if (permStatus.receive === 'prompt') {
-        console.log(`[Push] requestFullPermission (${platform}) ▶ Calling requestPermissions() NOW — OS prompt should appear`);
+        // Only request if still prompt — this path is a fallback;
+        // the banner/settings page should have already called requestPermissions() directly.
+        console.log(`[Push] requestFullPermission (${platform}) ▶ Calling requestPermissions()`);
         permStatus = await PN.requestPermissions();
         console.log(`[Push] requestFullPermission (${platform}) AFTER requestPermissions:`, permStatus.receive);
       }
 
-      // Step 2: Re-check to confirm (guards against silent no-op)
       const recheck = await PN.checkPermissions();
-      console.log(`[Push] requestFullPermission (${platform}) RE-CHECK:`, recheck.receive);
-
       const finalStatus = recheck.receive;
 
       if (finalStatus !== 'granted') {
-        // Permission was NOT granted — either denied or still prompt (silent fail)
         const isDenied = finalStatus === 'denied';
         setPermissionStatus(isDenied ? 'denied' : 'prompt');
-        console.log(`[Push] ✗ Permission not granted after request. Final: ${finalStatus}`);
-        
+        console.log(`[Push] ✗ Permission not granted. Final: ${finalStatus}`);
         if (!isDenied) {
-          // Still 'prompt' after requesting = OS prompt never appeared (plugin conflict)
           console.error('[Push] ✗✗✗ CRITICAL: Permission still "prompt" after requestPermissions() — OS prompt likely suppressed');
         }
         return;
@@ -1139,8 +1129,6 @@ export function usePushNotificationsInternal() {
       setPermissionStatus('granted');
       await setPushStage('full');
 
-      // Match diagnostics flow: explicitly call register() after permission is granted.
-      // This is what triggers the native 'registration' event carrying the raw APNs token.
       if (platform === 'ios') {
         try {
           console.log('[Push] iOS permission granted — calling PN.register() to trigger APNs registration event');
@@ -1165,26 +1153,9 @@ export function usePushNotificationsInternal() {
       registrationStateRef.current = 'idle';
       retryCountRef.current = 0;
       await attemptRegistration();
-    };
-
-    try {
-      await Promise.race([doRegister(), timeout]);
     } catch (err) {
-      console.error('[Push] requestFullPermission error/timeout:', err);
+      console.error('[Push] requestFullPermission error:', err);
       registrationStateRef.current = 'idle';
-      // On timeout, check if permission was actually granted but token just didn't arrive
-      try {
-        const PN = await getPushNotificationsPlugin();
-        if (PN) {
-          const p = await PN.checkPermissions();
-          console.log(`[Push] Post-timeout permission check:`, p.receive);
-          if (p.receive === 'granted') {
-            setPermissionStatus('granted');
-          } else if (p.receive === 'denied') {
-            setPermissionStatus('denied');
-          }
-        }
-      } catch {}
     }
   }, [attemptRegistration, reconcileRuntimeToken]);
 
