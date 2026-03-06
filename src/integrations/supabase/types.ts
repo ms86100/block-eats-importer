@@ -7017,7 +7017,10 @@ export type Database = {
       get_effective_society_features: {
         Args: { _society_id: string }
         Returns: {
+          description: string
+          display_name: string
           feature_key: string
+          icon_name: string
           is_enabled: boolean
           society_configurable: boolean
           source: string
