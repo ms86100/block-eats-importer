@@ -11,9 +11,6 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    // Use capacitorStorage for ALL platforms — on web it delegates to localStorage,
-    // on native it uses @capacitor/preferences (persistent UserDefaults / SharedPreferences).
-    // This eliminates the race condition of patching storage after client creation.
     storage: capacitorStorage,
     persistSession: true,
     autoRefreshToken: true,
