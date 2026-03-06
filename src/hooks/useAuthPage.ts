@@ -305,29 +305,20 @@ export function useAuthPage() {
           setAuthMode('login'); setSignupStep('credentials'); return;
         }
 
-        // Step 2: Now we have a session — handle society creation/validation
+        // Step 2: Fire-and-forget society validation — never block signup
+        const userId = data.user.id;
         if (isPendingSociety) {
-          try {
-            const { data: validateData, error: validateError } = await supabase.functions.invoke('validate-society', {
-              body: { new_society: pendingNewSociety },
-            });
-            if (validateError) throw validateError;
+          supabase.functions.invoke('validate-society', {
+            body: { new_society: pendingNewSociety },
+          }).then(({ data: validateData }) => {
             if (validateData?.society?.id) {
-              // Update the profile with the real society_id
-              await supabase.from('profiles').update({ society_id: validateData.society.id }).eq('id', data.user.id);
+              supabase.from('profiles').update({ society_id: validateData.society.id }).eq('id', userId);
             }
-          } catch (validateErr) {
-            console.warn('Society creation failed, user can update later:', validateErr);
-          }
+          }).catch(err => console.warn('Society creation failed, user can update later:', err));
         } else {
-          // Validate existing society in background
-          try {
-            await supabase.functions.invoke('validate-society', {
-              body: { society_id: selectedSociety.id },
-            });
-          } catch (validateErr) {
-            console.warn('Society validation call failed:', validateErr);
-          }
+          supabase.functions.invoke('validate-society', {
+            body: { society_id: selectedSociety.id },
+          }).catch(err => console.warn('Society validation failed:', err));
         }
 
         // Profile + role are created by the DB trigger — navigate to home
