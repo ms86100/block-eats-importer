@@ -7020,6 +7020,15 @@ export type Database = {
         | "scheduled"
         | "in_progress"
         | "returned"
+        | "on_the_way"
+        | "arrived"
+        | "assigned"
+      product_category:
+        | "home_food"
+        | "bakery"
+        | "snacks"
+        | "groceries"
+        | "other"
       service_category:
         | "home_food"
         | "bakery"
@@ -7076,7 +7085,12 @@ export type Database = {
         | "roommate"
         | "parking"
       user_role: "buyer" | "seller" | "admin" | "security_officer"
-      verification_status: "pending" | "approved" | "rejected" | "suspended"
+      verification_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "suspended"
+        | "draft"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -7218,7 +7232,11 @@ export const Constants = {
         "scheduled",
         "in_progress",
         "returned",
+        "on_the_way",
+        "arrived",
+        "assigned",
       ],
+      product_category: ["home_food", "bakery", "snacks", "groceries", "other"],
       service_category: [
         "home_food",
         "bakery",
@@ -7276,7 +7294,13 @@ export const Constants = {
         "parking",
       ],
       user_role: ["buyer", "seller", "admin", "security_officer"],
-      verification_status: ["pending", "approved", "rejected", "suspended"],
+      verification_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "suspended",
+        "draft",
+      ],
     },
   },
 } as const
