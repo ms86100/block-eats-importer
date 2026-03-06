@@ -32,49 +32,18 @@ export function useAuthState() {
 
       const ctx = data as any;
 
-      // Finding #3: If profile is null for an authenticated user, attempt to create one
+      // Profile should be created by the handle_new_user DB trigger.
+      // If missing, wait briefly and retry (trigger may still be executing).
       if (!ctx.profile) {
-        console.warn('Authenticated user has no profile, attempting to create one');
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          const meta = userData.user.user_metadata || {};
-          const sanitizedSocietyId = meta.society_id && meta.society_id !== 'pending'
-            && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(meta.society_id)
-            ? meta.society_id : null;
-          const { error: insertError } = await supabase.from('profiles').upsert({
-            id: userId,
-            email: userData.user.email || '',
-            name: meta.name || meta.full_name || 'User',
-            phone: meta.phone || null,
-            flat_number: meta.flat_number || '',
-            block: meta.block || '',
-            phase: meta.phase || null,
-            society_id: sanitizedSocietyId,
-          }, { onConflict: 'id' });
-          if (!insertError) {
-            await supabase.from('user_roles').insert({ user_id: userId, role: 'buyer' });
-            const { data: retryData } = await supabase.rpc('get_user_auth_context', { _user_id: userId });
-            if (retryData) {
-              const retryCtx = retryData as any;
-              const retrySellers = (retryCtx.seller_profiles as SellerProfile[]) || [];
-              setState(prev => ({
-                ...prev,
-                profile: retryCtx.profile as Profile | null,
-                society: retryCtx.society as Society | null,
-                societyAdminRole: retryCtx.society_admin_role as SocietyAdmin | null,
-                roles: (retryCtx.roles as UserRole[]) || [],
-                sellerProfiles: retrySellers,
-                currentSellerId: retrySellers.length > 0 ? retrySellers[0].id : null,
-                managedBuilderIds: (retryCtx.builder_ids as string[]) || [],
-                isSecurityOfficer: !!retryCtx.is_security_officer,
-                isWorker: !!retryCtx.is_worker,
-              }));
-              return;
-            }
-          } else {
-            console.error('Failed to auto-create profile:', insertError);
-          }
+        if (retryCount < 2) {
+          const delay = (retryCount + 1) * 1500;
+          console.warn(`[Auth] Profile not yet created by trigger, retrying in ${delay}ms (attempt ${retryCount + 1})`);
+          setTimeout(() => fetchProfile(userId, retryCount + 1), delay);
+          return;
         }
+        // Final fallback: profile still missing after retries
+        console.error('[Auth] Profile missing after retries — trigger may have failed');
+        toast.error('Account setup incomplete. Please contact support.');
         return;
       }
       const sellers = (ctx.seller_profiles as SellerProfile[]) || [];
