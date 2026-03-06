@@ -6934,6 +6934,11 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: undefined
       }
+      calculate_society_trust_score: {
+        Args: { _society_id: string }
+        Returns: number
+      }
+      calculate_trust_score: { Args: { _user_id: string }; Returns: number }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
@@ -6995,6 +7000,36 @@ export type Database = {
           source: string
         }[]
       }
+      get_nearby_societies: {
+        Args: { _radius_km?: number; _society_id: string }
+        Returns: {
+          distance_km: number
+          id: string
+          name: string
+        }[]
+      }
+      get_product_trust_metrics: {
+        Args: { _product_ids: string[] }
+        Returns: {
+          last_ordered_at: string
+          product_id: string
+          repeat_buyer_count: number
+          total_orders: number
+          unique_buyers: number
+        }[]
+      }
+      get_unified_gate_log: {
+        Args: { _date?: string; _society_id: string }
+        Returns: {
+          details: string
+          entry_time: string
+          entry_type: string
+          exit_time: string
+          flat_number: string
+          person_name: string
+          status: string
+        }[]
+      }
       get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
       get_user_society_id: { Args: { _user_id: string }; Returns: string }
       get_visitor_types_for_society: {
@@ -7042,6 +7077,11 @@ export type Database = {
         Args: { _job_id: string; _rating: number; _review?: string }
         Returns: Json
       }
+      recompute_seller_stats: {
+        Args: { _seller_id: string }
+        Returns: undefined
+      }
+      refresh_all_trust_scores: { Args: never; Returns: undefined }
       search_marketplace: {
         Args: {
           _limit?: number
