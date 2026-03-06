@@ -3755,94 +3755,172 @@ export type Database = {
       }
       products: {
         Row: {
+          accepts_preorders: boolean
+          action_type: string
           approval_status: string
           available_slots: Json | null
+          brand: string | null
+          bullet_features: string[] | null
           category: string
           condition: string | null
+          contact_phone: string | null
           created_at: string | null
+          cuisine_type: string | null
+          delivery_time_text: string | null
           deposit_amount: number | null
           description: string | null
+          discount_percentage: number | null
           id: string
           image_url: string | null
+          ingredients: string | null
           is_available: boolean | null
           is_bestseller: boolean | null
           is_negotiable: boolean | null
           is_recommended: boolean | null
           is_urgent: boolean | null
           is_veg: boolean | null
+          lead_time_hours: number | null
           listing_type: string | null
           location_required: boolean | null
+          low_stock_threshold: number | null
           max_rental_duration: number | null
           min_rental_duration: number | null
+          minimum_charge: number | null
+          mrp: number | null
           name: string
+          preorder_cutoff_time: string | null
+          prep_time_minutes: number | null
           price: number
+          price_per_unit: string | null
+          price_stable_since: string | null
           rental_period_type: string | null
+          secondary_images: string[] | null
           seller_id: string
           service_duration_minutes: number | null
+          service_scope: string | null
+          serving_size: string | null
           society_id: string | null
           specifications: Json | null
+          spice_level: string | null
           stock_quantity: number | null
+          subcategory_id: string | null
+          tags: string[] | null
+          unit_type: string | null
           updated_at: string | null
+          visit_charge: number | null
+          warranty_period: string | null
         }
         Insert: {
+          accepts_preorders?: boolean
+          action_type?: string
           approval_status?: string
           available_slots?: Json | null
+          brand?: string | null
+          bullet_features?: string[] | null
           category: string
           condition?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          cuisine_type?: string | null
+          delivery_time_text?: string | null
           deposit_amount?: number | null
           description?: string | null
+          discount_percentage?: number | null
           id?: string
           image_url?: string | null
+          ingredients?: string | null
           is_available?: boolean | null
           is_bestseller?: boolean | null
           is_negotiable?: boolean | null
           is_recommended?: boolean | null
           is_urgent?: boolean | null
           is_veg?: boolean | null
+          lead_time_hours?: number | null
           listing_type?: string | null
           location_required?: boolean | null
+          low_stock_threshold?: number | null
           max_rental_duration?: number | null
           min_rental_duration?: number | null
+          minimum_charge?: number | null
+          mrp?: number | null
           name: string
+          preorder_cutoff_time?: string | null
+          prep_time_minutes?: number | null
           price: number
+          price_per_unit?: string | null
+          price_stable_since?: string | null
           rental_period_type?: string | null
+          secondary_images?: string[] | null
           seller_id: string
           service_duration_minutes?: number | null
+          service_scope?: string | null
+          serving_size?: string | null
           society_id?: string | null
           specifications?: Json | null
+          spice_level?: string | null
           stock_quantity?: number | null
+          subcategory_id?: string | null
+          tags?: string[] | null
+          unit_type?: string | null
           updated_at?: string | null
+          visit_charge?: number | null
+          warranty_period?: string | null
         }
         Update: {
+          accepts_preorders?: boolean
+          action_type?: string
           approval_status?: string
           available_slots?: Json | null
+          brand?: string | null
+          bullet_features?: string[] | null
           category?: string
           condition?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          cuisine_type?: string | null
+          delivery_time_text?: string | null
           deposit_amount?: number | null
           description?: string | null
+          discount_percentage?: number | null
           id?: string
           image_url?: string | null
+          ingredients?: string | null
           is_available?: boolean | null
           is_bestseller?: boolean | null
           is_negotiable?: boolean | null
           is_recommended?: boolean | null
           is_urgent?: boolean | null
           is_veg?: boolean | null
+          lead_time_hours?: number | null
           listing_type?: string | null
           location_required?: boolean | null
+          low_stock_threshold?: number | null
           max_rental_duration?: number | null
           min_rental_duration?: number | null
+          minimum_charge?: number | null
+          mrp?: number | null
           name?: string
+          preorder_cutoff_time?: string | null
+          prep_time_minutes?: number | null
           price?: number
+          price_per_unit?: string | null
+          price_stable_since?: string | null
           rental_period_type?: string | null
+          secondary_images?: string[] | null
           seller_id?: string
           service_duration_minutes?: number | null
+          service_scope?: string | null
+          serving_size?: string | null
           society_id?: string | null
           specifications?: Json | null
+          spice_level?: string | null
           stock_quantity?: number | null
+          subcategory_id?: string | null
+          tags?: string[] | null
+          unit_type?: string | null
           updated_at?: string | null
+          visit_charge?: number | null
+          warranty_period?: string | null
         }
         Relationships: [
           {
@@ -3857,6 +3935,13 @@ export type Database = {
             columns: ["society_id"]
             isOneToOne: false
             referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
             referencedColumns: ["id"]
           },
         ]
@@ -4532,19 +4617,39 @@ export type Database = {
           accepts_upi: boolean | null
           availability_end: string | null
           availability_start: string | null
+          avg_response_minutes: number | null
+          bank_account_holder: string | null
+          bank_account_number: string | null
+          bank_ifsc_code: string | null
           business_name: string
+          cancellation_rate: number | null
           categories: string[]
+          completed_order_count: number | null
           cover_image_url: string | null
           created_at: string | null
+          delivery_handled_by: string | null
+          delivery_note: string | null
+          delivery_radius_km: number
           description: string | null
+          food_license_reviewed_at: string | null
+          food_license_status: string | null
+          food_license_submitted_at: string | null
+          food_license_url: string | null
           fssai_number: string | null
+          fulfillment_mode: string
           id: string
           is_available: boolean | null
           is_featured: boolean | null
+          last_active_at: string | null
+          minimum_order_amount: number | null
+          on_time_delivery_pct: number | null
           operating_days: string[] | null
           primary_group: string | null
           profile_image_url: string | null
           rating: number | null
+          razorpay_account_id: string | null
+          razorpay_onboarding_status: string | null
+          sell_beyond_community: boolean
           society_id: string | null
           total_reviews: number | null
           updated_at: string | null
@@ -4559,19 +4664,39 @@ export type Database = {
           accepts_upi?: boolean | null
           availability_end?: string | null
           availability_start?: string | null
+          avg_response_minutes?: number | null
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_ifsc_code?: string | null
           business_name: string
+          cancellation_rate?: number | null
           categories?: string[]
+          completed_order_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
+          delivery_handled_by?: string | null
+          delivery_note?: string | null
+          delivery_radius_km?: number
           description?: string | null
+          food_license_reviewed_at?: string | null
+          food_license_status?: string | null
+          food_license_submitted_at?: string | null
+          food_license_url?: string | null
           fssai_number?: string | null
+          fulfillment_mode?: string
           id?: string
           is_available?: boolean | null
           is_featured?: boolean | null
+          last_active_at?: string | null
+          minimum_order_amount?: number | null
+          on_time_delivery_pct?: number | null
           operating_days?: string[] | null
           primary_group?: string | null
           profile_image_url?: string | null
           rating?: number | null
+          razorpay_account_id?: string | null
+          razorpay_onboarding_status?: string | null
+          sell_beyond_community?: boolean
           society_id?: string | null
           total_reviews?: number | null
           updated_at?: string | null
@@ -4586,19 +4711,39 @@ export type Database = {
           accepts_upi?: boolean | null
           availability_end?: string | null
           availability_start?: string | null
+          avg_response_minutes?: number | null
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_ifsc_code?: string | null
           business_name?: string
+          cancellation_rate?: number | null
           categories?: string[]
+          completed_order_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
+          delivery_handled_by?: string | null
+          delivery_note?: string | null
+          delivery_radius_km?: number
           description?: string | null
+          food_license_reviewed_at?: string | null
+          food_license_status?: string | null
+          food_license_submitted_at?: string | null
+          food_license_url?: string | null
           fssai_number?: string | null
+          fulfillment_mode?: string
           id?: string
           is_available?: boolean | null
           is_featured?: boolean | null
+          last_active_at?: string | null
+          minimum_order_amount?: number | null
+          on_time_delivery_pct?: number | null
           operating_days?: string[] | null
           primary_group?: string | null
           profile_image_url?: string | null
           rating?: number | null
+          razorpay_account_id?: string | null
+          razorpay_onboarding_status?: string | null
+          sell_beyond_community?: boolean
           society_id?: string | null
           total_reviews?: number | null
           updated_at?: string | null
@@ -5522,6 +5667,7 @@ export type Database = {
           is_verified: boolean | null
           languages: string[] | null
           photo_url: string | null
+          preferred_language: string | null
           rating: number | null
           registered_by: string | null
           skills: Json | null
@@ -5548,6 +5694,7 @@ export type Database = {
           is_verified?: boolean | null
           languages?: string[] | null
           photo_url?: string | null
+          preferred_language?: string | null
           rating?: number | null
           registered_by?: string | null
           skills?: Json | null
@@ -5574,6 +5721,7 @@ export type Database = {
           is_verified?: boolean | null
           languages?: string[] | null
           photo_url?: string | null
+          preferred_language?: string | null
           rating?: number | null
           registered_by?: string | null
           skills?: Json | null
@@ -6064,6 +6212,7 @@ export type Database = {
           is_recurring: boolean
           otp_code: string | null
           otp_expires_at: string | null
+          parking_slot_id: string | null
           photo_url: string | null
           purpose: string | null
           recurring_days: string[] | null
@@ -6089,6 +6238,7 @@ export type Database = {
           is_recurring?: boolean
           otp_code?: string | null
           otp_expires_at?: string | null
+          parking_slot_id?: string | null
           photo_url?: string | null
           purpose?: string | null
           recurring_days?: string[] | null
@@ -6114,6 +6264,7 @@ export type Database = {
           is_recurring?: boolean
           otp_code?: string | null
           otp_expires_at?: string | null
+          parking_slot_id?: string | null
           photo_url?: string | null
           purpose?: string | null
           recurring_days?: string[] | null
@@ -6127,6 +6278,13 @@ export type Database = {
           visitor_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "visitor_entries_parking_slot_id_fkey"
+            columns: ["parking_slot_id"]
+            isOneToOne: false
+            referencedRelation: "parking_slots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "visitor_entries_resident_id_fkey"
             columns: ["resident_id"]
@@ -6417,8 +6575,10 @@ export type Database = {
           society_id: string
           start_time: string | null
           status: string
+          target_society_ids: string[] | null
           updated_at: string
           urgency: string | null
+          visibility_scope: string
           voice_summary_url: string | null
           worker_rating: number | null
           worker_review: string | null
@@ -6444,8 +6604,10 @@ export type Database = {
           society_id: string
           start_time?: string | null
           status?: string
+          target_society_ids?: string[] | null
           updated_at?: string
           urgency?: string | null
+          visibility_scope?: string
           voice_summary_url?: string | null
           worker_rating?: number | null
           worker_review?: string | null
@@ -6471,8 +6633,10 @@ export type Database = {
           society_id?: string
           start_time?: string | null
           status?: string
+          target_society_ids?: string[] | null
           updated_at?: string
           urgency?: string | null
+          visibility_scope?: string
           voice_summary_url?: string | null
           worker_rating?: number | null
           worker_review?: string | null
