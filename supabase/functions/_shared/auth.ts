@@ -2,12 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.3";
 
 /**
  * Shared auth middleware for edge functions.
- * Extracts and validates Bearer token, returns userId and userClient.
- *
- * Usage:
- *   const authResult = await withAuth(req, corsHeaders);
- *   if (authResult instanceof Response) return authResult;
- *   const { userId, userClient } = authResult;
+ * Uses getClaims() instead of getUser() for Lovable Cloud compatibility.
  */
 export async function withAuth(
   req: Request,
@@ -27,13 +22,14 @@ export async function withAuth(
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const { data: { user }, error } = await userClient.auth.getUser();
-  if (error || !user) {
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await userClient.auth.getClaims(token);
+  if (error || !data?.claims?.sub) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  return { userId: user.id, userClient };
+  return { userId: data.claims.sub as string, userClient };
 }

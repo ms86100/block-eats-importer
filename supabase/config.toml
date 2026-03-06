@@ -1,1 +1,4 @@
 project_id = "ywhlqsgvbkvcvqlsniad"
+
+[functions.validate-society]
+verify_jwt = false
