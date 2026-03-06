@@ -1057,6 +1057,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
         ]
       }
       collective_buy_participants: {
@@ -1312,6 +1319,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "coupon_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
         ]
       }
       coupons: {
@@ -1511,6 +1525,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_assignments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "delivery_assignments_partner_id_fkey"
@@ -2949,6 +2970,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
+          {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -3637,6 +3665,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_records_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "payment_records_seller_id_fkey"
@@ -4430,6 +4465,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
+          {
             foreignKeyName: "reviews_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
@@ -4864,6 +4906,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_settlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "seller_settlements_seller_id_fkey"
@@ -5899,6 +5948,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "subscription_deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
+          {
             foreignKeyName: "subscription_deliveries_subscription_id_fkey"
             columns: ["subscription_id"]
             isOneToOne: false
@@ -6831,9 +6887,53 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      transaction_audit_trail: {
+        Row: {
+          buyer_id: string | null
+          buyer_name: string | null
+          net_amount: number | null
+          order_date: string | null
+          order_id: string | null
+          order_status: Database["public"]["Enums"]["order_status"] | null
+          payment_status: string | null
+          payment_type: string | null
+          platform_fee: number | null
+          seller_id: string | null
+          seller_name: string | null
+          society_id: string | null
+          total_amount: number | null
+          transaction_reference: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      accept_worker_job: {
+        Args: { _job_id: string; _worker_id: string }
+        Returns: undefined
+      }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
@@ -6860,6 +6960,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      haversine_km: {
+        Args: { lat1: number; lat2: number; lon1: number; lon2: number }
+        Returns: number
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_builder_for_society: {
         Args: { _society_id: string; _user_id: string }
@@ -6880,6 +6984,25 @@ export type Database = {
       is_society_admin: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_marketplace: {
+        Args: {
+          _limit?: number
+          _offset?: number
+          _query: string
+          _society_id?: string
+        }
+        Returns: {
+          business_name: string
+          category: string
+          id: string
+          image_url: string
+          listing_type: string
+          name: string
+          price: number
+          relevance: number
+          seller_id: string
+        }[]
       }
     }
     Enums: {
