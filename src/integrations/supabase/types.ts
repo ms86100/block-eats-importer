@@ -6934,6 +6934,9 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: undefined
       }
+      apply_maintenance_late_fees: { Args: never; Returns: undefined }
+      auto_checkout_visitors: { Args: never; Returns: undefined }
+      auto_escalate_overdue_disputes: { Args: never; Returns: undefined }
       calculate_society_trust_score: {
         Args: { _society_id: string }
         Returns: number
@@ -6982,6 +6985,7 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: Json
       }
+      generate_recurring_visitor_entries: { Args: never; Returns: undefined }
       get_allowed_transitions: {
         Args: { _actor?: string; _order_id: string }
         Returns: {
@@ -6990,6 +6994,7 @@ export type Database = {
           status_key: string
         }[]
       }
+      get_builder_dashboard: { Args: { _builder_id: string }; Returns: Json }
       get_category_parent_group: { Args: { cat: string }; Returns: string }
       get_effective_society_features: {
         Args: { _society_id: string }
@@ -7018,6 +7023,24 @@ export type Database = {
           unique_buyers: number
         }[]
       }
+      get_seller_demand_stats: { Args: { _seller_id: string }; Returns: Json }
+      get_seller_trust_snapshot: {
+        Args: { _seller_id: string }
+        Returns: {
+          avg_response_min: number
+          completed_orders: number
+          recent_order_count: number
+          repeat_customer_pct: number
+          unique_customers: number
+        }[]
+      }
+      get_society_order_stats: {
+        Args: { _product_ids: string[]; _society_id: string }
+        Returns: {
+          families_this_week: number
+          product_id: string
+        }[]
+      }
       get_unified_gate_log: {
         Args: { _date?: string; _society_id: string }
         Returns: {
@@ -7028,6 +7051,14 @@ export type Database = {
           flat_number: string
           person_name: string
           status: string
+        }[]
+      }
+      get_unmet_demand: {
+        Args: { _seller_categories?: string[]; _society_id: string }
+        Returns: {
+          last_searched: string
+          search_count: number
+          search_term: string
         }[]
       }
       get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
@@ -7073,6 +7104,7 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      notify_upcoming_maintenance_dues: { Args: never; Returns: undefined }
       rate_worker_job: {
         Args: { _job_id: string; _rating: number; _review?: string }
         Returns: Json
