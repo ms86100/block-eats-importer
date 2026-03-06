@@ -10,6 +10,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
+// @ts-ignore - screen export exists at runtime but types mismatch
+const { screen } = await import("@testing-library/react") as any;
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProductAttributeBlocks } from "@/components/product/ProductAttributeBlocks";
 
