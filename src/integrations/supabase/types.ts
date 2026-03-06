@@ -6934,6 +6934,15 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: undefined
       }
+      apply_maintenance_late_fees: { Args: never; Returns: undefined }
+      auto_checkout_visitors: { Args: never; Returns: undefined }
+      auto_escalate_overdue_disputes: { Args: never; Returns: undefined }
+      calculate_society_trust_score: {
+        Args: { _society_id: string }
+        Returns: number
+      }
+      calculate_trust_score: { Args: { _user_id: string }; Returns: number }
+      can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
@@ -6942,17 +6951,148 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      claim_device_token: {
+        Args: {
+          p_apns_token?: string
+          p_platform: string
+          p_token: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      claim_notification_queue: {
+        Args: { batch_size?: number }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          reference_path: string | null
+          status: string
+          title: string
+          type: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_worker_job: {
+        Args: { _job_id: string; _worker_id: string }
+        Returns: Json
+      }
+      create_multi_vendor_orders: {
+        Args: {
+          _buyer_id: string
+          _cart_total: number
+          _coupon_code?: string
+          _coupon_discount?: number
+          _coupon_id?: string
+          _delivery_address: string
+          _delivery_fee?: number
+          _fulfillment_type?: string
+          _has_urgent?: boolean
+          _notes: string
+          _payment_method: string
+          _payment_status: string
+          _seller_groups: Json
+        }
+        Returns: Json
+      }
+      generate_recurring_visitor_entries: { Args: never; Returns: undefined }
+      get_allowed_transitions: {
+        Args: { _actor?: string; _order_id: string }
+        Returns: {
+          actor: string
+          sort_order: number
+          status_key: string
+        }[]
+      }
+      get_builder_dashboard: { Args: { _builder_id: string }; Returns: Json }
+      get_category_parent_group: { Args: { cat: string }; Returns: string }
       get_effective_society_features: {
         Args: { _society_id: string }
         Returns: {
+          description: string
+          display_name: string
           feature_key: string
+          icon_name: string
           is_enabled: boolean
           society_configurable: boolean
           source: string
         }[]
       }
+      get_nearby_societies: {
+        Args: { _radius_km?: number; _society_id: string }
+        Returns: {
+          distance_km: number
+          id: string
+          name: string
+        }[]
+      }
+      get_product_trust_metrics: {
+        Args: { _product_ids: string[] }
+        Returns: {
+          last_ordered_at: string
+          product_id: string
+          repeat_buyer_count: number
+          total_orders: number
+          unique_buyers: number
+        }[]
+      }
+      get_seller_demand_stats: { Args: { _seller_id: string }; Returns: Json }
+      get_seller_trust_snapshot: {
+        Args: { _seller_id: string }
+        Returns: {
+          avg_response_min: number
+          completed_orders: number
+          recent_order_count: number
+          repeat_customer_pct: number
+          unique_customers: number
+        }[]
+      }
+      get_society_order_stats: {
+        Args: { _product_ids: string[]; _society_id: string }
+        Returns: {
+          families_this_week: number
+          product_id: string
+        }[]
+      }
+      get_unified_gate_log: {
+        Args: { _date?: string; _society_id: string }
+        Returns: {
+          details: string
+          entry_time: string
+          entry_type: string
+          exit_time: string
+          flat_number: string
+          person_name: string
+          status: string
+        }[]
+      }
+      get_unmet_demand: {
+        Args: { _seller_categories?: string[]; _society_id: string }
+        Returns: {
+          last_searched: string
+          search_count: number
+          search_term: string
+        }[]
+      }
       get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
       get_user_society_id: { Args: { _user_id: string }; Returns: string }
+      get_visitor_types_for_society: {
+        Args: { _society_id: string }
+        Returns: {
+          display_order: number
+          icon: string
+          label: string
+          type_key: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
@@ -6985,24 +7125,64 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      notify_upcoming_maintenance_dues: { Args: never; Returns: undefined }
+      rate_worker_job: {
+        Args: { _job_id: string; _rating: number; _review?: string }
+        Returns: Json
+      }
+      recompute_seller_stats: {
+        Args: { _seller_id: string }
+        Returns: undefined
+      }
+      refresh_all_trust_scores: { Args: never; Returns: undefined }
       search_marketplace: {
-        Args: {
-          _limit?: number
-          _offset?: number
-          _query: string
-          _society_id?: string
-        }
+        Args: { search_term: string; user_society_id?: string }
         Returns: {
           business_name: string
-          category: string
-          id: string
-          image_url: string
-          listing_type: string
-          name: string
-          price: number
-          relevance: number
+          categories: string[]
+          cover_image_url: string
+          description: string
+          is_available: boolean
+          is_featured: boolean
+          matching_products: Json
+          primary_group: string
+          profile_image_url: string
+          rating: number
           seller_id: string
+          total_reviews: number
+          user_id: string
         }[]
+      }
+      search_nearby_sellers: {
+        Args: {
+          _buyer_society_id: string
+          _category?: string
+          _radius_km?: number
+          _search_term?: string
+        }
+        Returns: {
+          availability_end: string
+          availability_start: string
+          business_name: string
+          categories: string[]
+          cover_image_url: string
+          description: string
+          distance_km: number
+          is_available: boolean
+          is_featured: boolean
+          matching_products: Json
+          primary_group: string
+          profile_image_url: string
+          rating: number
+          seller_id: string
+          society_name: string
+          total_reviews: number
+          user_id: string
+        }[]
+      }
+      validate_worker_entry: {
+        Args: { _society_id: string; _worker_id: string }
+        Returns: Json
       }
     }
     Enums: {
@@ -7020,6 +7200,15 @@ export type Database = {
         | "scheduled"
         | "in_progress"
         | "returned"
+        | "on_the_way"
+        | "arrived"
+        | "assigned"
+      product_category:
+        | "home_food"
+        | "bakery"
+        | "snacks"
+        | "groceries"
+        | "other"
       service_category:
         | "home_food"
         | "bakery"
@@ -7076,7 +7265,12 @@ export type Database = {
         | "roommate"
         | "parking"
       user_role: "buyer" | "seller" | "admin" | "security_officer"
-      verification_status: "pending" | "approved" | "rejected" | "suspended"
+      verification_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "suspended"
+        | "draft"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -7218,7 +7412,11 @@ export const Constants = {
         "scheduled",
         "in_progress",
         "returned",
+        "on_the_way",
+        "arrived",
+        "assigned",
       ],
+      product_category: ["home_food", "bakery", "snacks", "groceries", "other"],
       service_category: [
         "home_food",
         "bakery",
@@ -7276,7 +7474,13 @@ export const Constants = {
         "parking",
       ],
       user_role: ["buyer", "seller", "admin", "security_officer"],
-      verification_status: ["pending", "approved", "rejected", "suspended"],
+      verification_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "suspended",
+        "draft",
+      ],
     },
   },
 } as const
