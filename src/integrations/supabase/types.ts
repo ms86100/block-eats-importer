@@ -6934,6 +6934,7 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: undefined
       }
+      can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
@@ -6942,6 +6943,49 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      claim_device_token: {
+        Args: {
+          p_apns_token?: string
+          p_platform: string
+          p_token: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      claim_notification_queue: {
+        Args: { batch_size?: number }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          reference_path: string | null
+          status: string
+          title: string
+          type: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_worker_job: {
+        Args: { _job_id: string; _worker_id: string }
+        Returns: Json
+      }
+      get_allowed_transitions: {
+        Args: { _actor?: string; _order_id: string }
+        Returns: {
+          actor: string
+          sort_order: number
+          status_key: string
+        }[]
+      }
+      get_category_parent_group: { Args: { cat: string }; Returns: string }
       get_effective_society_features: {
         Args: { _society_id: string }
         Returns: {
@@ -6953,6 +6997,15 @@ export type Database = {
       }
       get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
       get_user_society_id: { Args: { _user_id: string }; Returns: string }
+      get_visitor_types_for_society: {
+        Args: { _society_id: string }
+        Returns: {
+          display_order: number
+          icon: string
+          label: string
+          type_key: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
@@ -6985,6 +7038,10 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      rate_worker_job: {
+        Args: { _job_id: string; _rating: number; _review?: string }
+        Returns: Json
+      }
       search_marketplace: {
         Args: {
           _limit?: number
@@ -7003,6 +7060,10 @@ export type Database = {
           relevance: number
           seller_id: string
         }[]
+      }
+      validate_worker_entry: {
+        Args: { _society_id: string; _worker_id: string }
+        Returns: Json
       }
     }
     Enums: {
