@@ -1341,8 +1341,10 @@ export function usePushNotificationsInternal() {
       await setPushStage('full');
 
       if (platform === 'ios') {
+        // register() may have already been called by the banner's handleTurnOn.
+        // Call it again (idempotent) to ensure the registration event fires.
         try {
-          console.log('[Push] iOS permission granted — calling PN.register() to trigger APNs registration event');
+          console.log('[Push] iOS permission granted — ensuring PN.register() is called');
           await waitForListenersReady('request_full_permission');
           await withTimeout(
             PN.register(),
@@ -1350,15 +1352,14 @@ export function usePushNotificationsInternal() {
             'requestFullPermission register timed out'
           );
         } catch (e) {
-          console.warn('[Push] PN.register() failed in requestFullPermission:', e);
-          lastErrorRef.current = e;
-          markFailed('request_full_permission_register_failed', { source: 'request_full_permission' });
-          return;
+          // Non-fatal if banner already called register() successfully
+          console.warn('[Push] PN.register() in requestFullPermission (may be duplicate):', e);
         }
 
-        // Give the registration event a moment to fire and capture APNs token.
-        await new Promise((r) => setTimeout(r, 800));
-        console.log(`[Push] APNs token after register(): ${apnsTokenRef.current?.substring(0, 16) ?? 'null'}`);
+        // Wait for the registration event to fire and capture APNs token.
+        // Use longer wait + polling since iOS APNs delivery can be slow.
+        const apnsReady = await waitForApnsToken('requestFullPermission');
+        console.log(`[Push] APNs token after register(): ${apnsTokenRef.current?.substring(0, 16) ?? 'null'} (ready: ${apnsReady})`);
       }
 
       console.log(`[Push] ✓ Permission granted — reconciling runtime token`);
