@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -181,7 +182,7 @@ export function AdminCatalogManager() {
               {taxonomyTree.map((group) => (
                 <div key={group.id}>
                   <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                    <span>{group.icon}</span>
+                    <DynamicIcon name={group.icon} size={16} />
                     <span>{group.name}</span>
                     <span className="text-muted-foreground font-normal">(Section)</span>
                   </div>
@@ -192,14 +193,14 @@ export function AdminCatalogManager() {
                     <div key={cat.id} className="ml-5">
                       <div className="flex items-center gap-1.5">
                         <span className="text-muted-foreground">{ci === group.categories.length - 1 ? '└──' : '├──'}</span>
-                        <span>{cat.icon}</span>
+                        <span><DynamicIcon name={cat.icon} size={14} /></span>
                         <span className="font-medium">{cat.displayName || cat.display_name}</span>
                         <span className="text-muted-foreground font-normal">(Category)</span>
                       </div>
                       {cat.subcategories.map((sub: any, si: number) => (
                         <div key={sub.id} className="ml-8 flex items-center gap-1.5">
                           <span className="text-muted-foreground">{si === cat.subcategories.length - 1 ? '└──' : '├──'}</span>
-                          <span>{sub.icon || '📂'}</span>
+                          <span><DynamicIcon name={sub.icon || '📂'} size={12} /></span>
                           <span>{sub.display_name}</span>
                           <span className="text-muted-foreground font-normal">(Sub)</span>
                         </div>
@@ -250,7 +251,7 @@ export function AdminCatalogManager() {
                         <CardContent className="p-3.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="text-lg shrink-0">{cat.icon}</span>
+                              <DynamicIcon name={cat.icon} size={18} className="shrink-0" />
                               <div className="min-w-0">
                                 <p className="font-semibold text-sm truncate">
                                   {cat.displayName || cat.display_name}
