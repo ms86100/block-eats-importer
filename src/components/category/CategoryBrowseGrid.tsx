@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -55,10 +56,12 @@ export function CategoryBrowseGrid({ activeCategories }: CategoryBrowseGridProps
               className={cn(
                 'w-14 h-14 rounded-2xl flex items-center justify-center',
                 'bg-accent/50 border border-border/20',
-                'transition-all group-hover:scale-105 group-hover:shadow-md group-active:scale-95'
+                'transition-all group-hover:scale-105 group-hover:shadow-md group-active:scale-95',
+                resolveColorProps(cat.color).className,
               )}
+              style={resolveColorProps(cat.color).style}
             >
-              <span className="text-[22px]">{cat.icon}</span>
+              <DynamicIcon name={cat.icon} size={22} />
             </div>
             <span className="text-[10px] font-medium text-center leading-tight text-muted-foreground line-clamp-2 max-w-[60px]">
               {cat.displayName}

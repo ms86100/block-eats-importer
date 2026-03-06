@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { ProductCategory } from '@/types/database';
+import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -47,8 +48,8 @@ export function CategoryGrid({
                 : 'hover:bg-muted'
             )}
           >
-            <div className={cn('w-12 h-12 rounded-full flex items-center justify-center text-2xl', config.color)}>
-              {config.icon}
+            <div className={cn('w-12 h-12 rounded-full flex items-center justify-center', resolveColorProps(config.color).className)} style={resolveColorProps(config.color).style}>
+              <DynamicIcon name={config.icon} size={24} />
             </div>
             <span className="text-[10px] font-medium text-center leading-tight">
               {config.displayName}
@@ -69,11 +70,12 @@ export function CategoryGrid({
         >
           <div
             className={cn(
-              'w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm transition-transform hover:scale-105',
-              config.color
+              'w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform hover:scale-105',
+              resolveColorProps(config.color).className,
             )}
+            style={resolveColorProps(config.color).style}
           >
-            {config.icon}
+            <DynamicIcon name={config.icon} size={24} />
           </div>
           <span className="text-xs font-medium text-center">{config.displayName}</span>
         </Link>
