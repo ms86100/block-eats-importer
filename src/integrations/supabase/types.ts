@@ -6985,6 +6985,24 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: Json
       }
+      create_multi_vendor_orders: {
+        Args: {
+          _buyer_id: string
+          _cart_total: number
+          _coupon_code?: string
+          _coupon_discount?: number
+          _coupon_id?: string
+          _delivery_address: string
+          _delivery_fee?: number
+          _fulfillment_type?: string
+          _has_urgent?: boolean
+          _notes: string
+          _payment_method: string
+          _payment_status: string
+          _seller_groups: Json
+        }
+        Returns: Json
+      }
       generate_recurring_visitor_entries: { Args: never; Returns: undefined }
       get_allowed_transitions: {
         Args: { _actor?: string; _order_id: string }
@@ -7115,22 +7133,48 @@ export type Database = {
       }
       refresh_all_trust_scores: { Args: never; Returns: undefined }
       search_marketplace: {
-        Args: {
-          _limit?: number
-          _offset?: number
-          _query: string
-          _society_id?: string
-        }
+        Args: { search_term: string; user_society_id?: string }
         Returns: {
           business_name: string
-          category: string
-          id: string
-          image_url: string
-          listing_type: string
-          name: string
-          price: number
-          relevance: number
+          categories: string[]
+          cover_image_url: string
+          description: string
+          is_available: boolean
+          is_featured: boolean
+          matching_products: Json
+          primary_group: string
+          profile_image_url: string
+          rating: number
           seller_id: string
+          total_reviews: number
+          user_id: string
+        }[]
+      }
+      search_nearby_sellers: {
+        Args: {
+          _buyer_society_id: string
+          _category?: string
+          _radius_km?: number
+          _search_term?: string
+        }
+        Returns: {
+          availability_end: string
+          availability_start: string
+          business_name: string
+          categories: string[]
+          cover_image_url: string
+          description: string
+          distance_km: number
+          is_available: boolean
+          is_featured: boolean
+          matching_products: Json
+          primary_group: string
+          profile_image_url: string
+          rating: number
+          seller_id: string
+          society_name: string
+          total_reviews: number
+          user_id: string
         }[]
       }
       validate_worker_entry: {
