@@ -277,81 +277,69 @@ export function useAuthPage() {
     if (!selectedSociety) { toast.error('Please select your society first'); setSignupStep('society'); return; }
     setIsLoading(true);
     try {
+      // Step 1: Resolve society_id BEFORE signUp so the DB trigger gets a real UUID
+      let finalSocietyId = selectedSociety.id;
+
+      if (pendingNewSociety && selectedSociety.id === 'pending') {
+        try {
+          const { data: validateData, error: validateError } = await supabase.functions.invoke('validate-society', {
+            body: { new_society: pendingNewSociety },
+          });
+          if (validateError) throw validateError;
+          if (validateData?.society?.id) {
+            finalSocietyId = validateData.society.id;
+          }
+        } catch (validateErr) {
+          console.warn('Society creation via edge function failed:', validateErr);
+          toast.error('Failed to register society. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (!finalSocietyId || finalSocietyId === 'pending') {
+        toast.error('Failed to set up your society. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Step 2: Sign up with all profile data in metadata
+      // The handle_new_user DB trigger will auto-create the profile + buyer role
       const redirectUrl = `${window.location.origin}/auth`;
       const { data, error } = await supabase.auth.signUp({
         email, password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: { name: profileData.name, phone: `${settings.defaultCountryCode}${profileData.phone}`, flat_number: profileData.flat_number, block: profileData.block, phase: profileData.phase, society_id: selectedSociety.id !== 'pending' ? selectedSociety.id : null }
+          data: {
+            name: profileData.name,
+            phone: `${settings.defaultCountryCode}${profileData.phone}`,
+            flat_number: profileData.flat_number,
+            block: profileData.block,
+            phase: profileData.phase,
+            society_id: finalSocietyId,
+          }
         },
       });
       if (error) throw error;
+
       if (data.user) {
         if (data.user.identities?.length === 0) {
           toast.error('This email is already registered. Please login instead.');
           setAuthMode('login'); setSignupStep('credentials'); return;
         }
-        let finalSocietyId = selectedSociety.id;
 
-        if (pendingNewSociety && selectedSociety.id === 'pending') {
-          try {
-            const { data: validateData, error: validateError } = await supabase.functions.invoke('validate-society', {
-              body: { new_society: pendingNewSociety },
-            });
-            if (validateError) throw validateError;
-            if (validateData?.society?.id) {
-              finalSocietyId = validateData.society.id;
-            }
-          } catch (validateErr) {
-            console.warn('Society creation via edge function failed:', validateErr);
-            toast.error('Failed to register society. Please try again.');
-            await supabase.auth.signOut();
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        if (!finalSocietyId || finalSocietyId === 'pending') {
-          toast.error('Failed to set up your society. Please try again.');
-          await supabase.auth.signOut();
-          setIsLoading(false);
-          return;
-        }
-
-        // A6 FIX: Use auth response email (Supabase-normalized/lowercased) instead of component state
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: data.user.id, email: data.user.email ?? email, phone: `${settings.defaultCountryCode}${profileData.phone}`, name: profileData.name,
-          flat_number: profileData.flat_number, block: profileData.block,
-          phase: profileData.phase || null, society_id: finalSocietyId,
-        }, { onConflict: 'id' });
-
-        if (profileError) {
-          console.error('Profile insert error:', profileError);
-          const msg = profileError.message || '';
-          if (msg.includes('idx_profiles_email_unique') || msg.includes('profiles_email')) {
-            toast.error('This email is already registered. Please login instead.');
-            setAuthMode('login'); setSignupStep('credentials'); setIsLoading(false); return;
-          } else if (msg.includes('idx_profiles_phone_unique') || msg.includes('profiles_phone')) {
-            toast.error('This phone number is already in use by another account.');
-            setIsLoading(false); return;
-          }
-          await supabase.auth.signOut();
-          toast.error('Account setup failed. Please try signing up again. If the problem persists, contact support.', { duration: 8000 });
-          setIsLoading(false);
-          return;
-        }
-
-        await supabase.from('user_roles').insert({ user_id: data.user.id, role: 'buyer' });
-
-        if (!pendingNewSociety && selectedSociety.id !== 'pending') {
+        // Validate existing society (non-pending) in background
+        if (!pendingNewSociety && finalSocietyId !== 'pending') {
           try {
             await supabase.functions.invoke('validate-society', {
-              body: { society_id: selectedSociety.id },
+              body: { society_id: finalSocietyId },
             });
           } catch (validateErr) {
             console.warn('Society validation call failed, will be validated by admin:', validateErr);
           }
         }
+
+        // Profile + role are created by the DB trigger — no manual insert needed
         setSignupStep('verification');
         toast.success('Please check your email to verify your account');
       }
