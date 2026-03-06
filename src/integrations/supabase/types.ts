@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      builder_members: {
+        Row: {
+          builder_id: string
+          created_at: string
+          deactivated_at: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          builder_id: string
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          builder_id?: string
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_members_builder_id_fkey"
+            columns: ["builder_id"]
+            isOneToOne: false
+            referencedRelation: "builders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      builders: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           created_at: string | null
@@ -562,6 +640,51 @@ export type Database = {
           },
         ]
       }
+      security_staff: {
+        Row: {
+          created_at: string
+          deactivated_at: string | null
+          id: string
+          is_active: boolean | null
+          role: string
+          society_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: string
+          society_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: string
+          society_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_staff_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_staff_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_profiles: {
         Row: {
           accepts_cod: boolean | null
@@ -665,6 +788,9 @@ export type Database = {
         Row: {
           address: string | null
           admin_user_id: string | null
+          approval_method: string | null
+          auto_approve_residents: boolean | null
+          builder_id: string | null
           city: string | null
           created_at: string
           geofence_radius_meters: number | null
@@ -675,6 +801,7 @@ export type Database = {
           latitude: number | null
           logo_url: string | null
           longitude: number | null
+          max_society_admins: number | null
           member_count: number | null
           name: string
           pincode: string | null
@@ -686,6 +813,9 @@ export type Database = {
         Insert: {
           address?: string | null
           admin_user_id?: string | null
+          approval_method?: string | null
+          auto_approve_residents?: boolean | null
+          builder_id?: string | null
           city?: string | null
           created_at?: string
           geofence_radius_meters?: number | null
@@ -696,6 +826,7 @@ export type Database = {
           latitude?: number | null
           logo_url?: string | null
           longitude?: number | null
+          max_society_admins?: number | null
           member_count?: number | null
           name: string
           pincode?: string | null
@@ -707,6 +838,9 @@ export type Database = {
         Update: {
           address?: string | null
           admin_user_id?: string | null
+          approval_method?: string | null
+          auto_approve_residents?: boolean | null
+          builder_id?: string | null
           city?: string | null
           created_at?: string
           geofence_radius_meters?: number | null
@@ -717,6 +851,7 @@ export type Database = {
           latitude?: number | null
           logo_url?: string | null
           longitude?: number | null
+          max_society_admins?: number | null
           member_count?: number | null
           name?: string
           pincode?: string | null
@@ -729,6 +864,58 @@ export type Database = {
           {
             foreignKeyName: "societies_admin_user_id_fkey"
             columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      society_admins: {
+        Row: {
+          appointed_by: string | null
+          created_at: string
+          deactivated_at: string | null
+          id: string
+          role: string
+          society_id: string
+          user_id: string
+        }
+        Insert: {
+          appointed_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          role?: string
+          society_id: string
+          user_id: string
+        }
+        Update: {
+          appointed_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          id?: string
+          role?: string
+          society_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "society_admins_appointed_by_fkey"
+            columns: ["appointed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "society_admins_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "society_admins_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -769,6 +956,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
       get_user_society_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -778,6 +966,14 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_security_officer: {
+        Args: { _society_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_society_admin: {
+        Args: { _society_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       order_status:
