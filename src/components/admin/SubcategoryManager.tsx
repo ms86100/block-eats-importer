@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { Loader2, Plus, Edit2, Trash2, Tag, RefreshCw, Sparkles, ImageIcon } from 'lucide-react';
 import { friendlyError, cn } from '@/lib/utils';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { motion } from 'framer-motion';
 
 interface Subcategory {
@@ -335,7 +336,7 @@ export function SubcategoryManager() {
                   {sub.image_url ? (
                     <img src={sub.image_url} alt={sub.display_name} className="w-8 h-8 rounded-lg object-cover" />
                   ) : (
-                    <span className="text-lg">{sub.icon || '📂'}</span>
+                    <DynamicIcon name={sub.icon || '📂'} size={18} />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{sub.display_name}</p>

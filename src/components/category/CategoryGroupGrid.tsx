@@ -4,6 +4,7 @@ import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useParentGroups } from '@/hooks/useParentGroups';
 import { ServiceCategory } from '@/types/categories';
 import { cn } from '@/lib/utils';
+import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -105,7 +106,7 @@ export function CategoryGroupGrid({
                     to={`/category/${value}?sub=${config.category}`}
                     className="flex flex-col items-center gap-1 p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
                   >
-                    <span className="text-xl">{config.icon}</span>
+                    <DynamicIcon name={config.icon} size={20} />
                     <span className="text-xs font-medium text-center">{config.displayName}</span>
                   </Link>
                 ))}
@@ -133,8 +134,8 @@ export function CategoryGroupGrid({
                   : 'border-border hover:border-muted-foreground/30'
               )}
             >
-              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-lg', color)}>
-                {icon}
+              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', resolveColorProps(color).className)} style={resolveColorProps(color).style}>
+                <DynamicIcon name={icon} size={18} />
               </div>
               <span className="font-medium text-sm">{label}</span>
             </button>
@@ -158,7 +159,7 @@ export function CategoryGroupGrid({
                         : 'border-border hover:border-muted-foreground/30'
                     )}
                   >
-                    <span className="text-lg">{config.icon}</span>
+                    <DynamicIcon name={config.icon} size={18} />
                     <span className="text-sm font-medium">{config.displayName}</span>
                   </button>
                 );

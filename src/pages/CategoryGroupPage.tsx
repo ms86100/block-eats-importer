@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { useParentGroups } from '@/hooks/useParentGroups';
 import { useCategoryProducts } from '@/hooks/queries/usePopularProducts';
 import { ServiceCategory } from '@/types/categories';
@@ -234,7 +235,7 @@ export default function CategoryGroupPage() {
                         : 'bg-background text-foreground border-border'
                     )}
                   >
-                    <span className="text-xs">{config.icon}</span>
+                    <DynamicIcon name={config.icon} size={12} />
                     {config.displayName}
                   </button>
                 ))}

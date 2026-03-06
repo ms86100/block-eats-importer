@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { TransactionTypeConfirmSave } from './TransactionTypeConfirmSave';
 import { supabase } from '@/integrations/supabase/client';
+import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,8 +78,8 @@ function SortableSectionItem({ group, groupCats, onToggle, onEdit, onDelete, onA
           <button className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors" {...attributes} {...listeners}>
             <GripVertical size={16} />
           </button>
-          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0', group.color)}>
-            {group.icon}
+          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0', resolveColorProps(group.color).className)} style={resolveColorProps(group.color).style}>
+            <DynamicIcon name={group.icon} size={20} />
           </div>
           <div>
             <h4 className="font-bold text-sm">{group.name}</h4>
@@ -120,7 +121,7 @@ function SortableCategoryItem({ cat, groupIsActive, onToggle, onEdit, onDelete, 
         {cat.image_url ? (
           <img src={cat.image_url} alt={cat.display_name} className="w-7 h-7 rounded-lg object-cover" />
         ) : (
-          <span className="text-lg">{cat.icon}</span>
+          <DynamicIcon name={cat.icon} size={18} />
         )}
         <span className={cn('text-sm font-medium', !cat.is_active && 'text-muted-foreground')}>{cat.display_name}</span>
         <span className="text-[10px] text-muted-foreground font-mono">({cat.category})</span>
