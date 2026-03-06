@@ -23,13 +23,13 @@ export async function withAuth(
   );
 
   const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await userClient.auth.getClaims(token);
-  if (error || !data?.claims?.sub) {
+  const { data: { user }, error } = await userClient.auth.getUser(token);
+  if (error || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  return { userId: data.claims.sub as string, userClient };
+  return { userId: user.id, userClient };
 }
