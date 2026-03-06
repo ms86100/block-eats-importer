@@ -9,7 +9,6 @@
  * ensuring the rendering logic is validated independently.
  */
 import { describe, it, expect, vi } from "vitest";
-// @ts-expect-error - screen type mismatch with @testing-library/react v16
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProductAttributeBlocks } from "@/components/product/ProductAttributeBlocks";
