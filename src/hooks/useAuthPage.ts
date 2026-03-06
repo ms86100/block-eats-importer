@@ -277,34 +277,11 @@ export function useAuthPage() {
     if (!selectedSociety) { toast.error('Please select your society first'); setSignupStep('society'); return; }
     setIsLoading(true);
     try {
-      // Step 1: Resolve society_id BEFORE signUp so the DB trigger gets a real UUID
-      let finalSocietyId = selectedSociety.id;
+      const isPendingSociety = pendingNewSociety && selectedSociety.id === 'pending';
+      const initialSocietyId = isPendingSociety ? null : selectedSociety.id;
 
-      if (pendingNewSociety && selectedSociety.id === 'pending') {
-        try {
-          const { data: validateData, error: validateError } = await supabase.functions.invoke('validate-society', {
-            body: { new_society: pendingNewSociety },
-          });
-          if (validateError) throw validateError;
-          if (validateData?.society?.id) {
-            finalSocietyId = validateData.society.id;
-          }
-        } catch (validateErr) {
-          console.warn('Society creation via edge function failed:', validateErr);
-          toast.error('Failed to register society. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      if (!finalSocietyId || finalSocietyId === 'pending') {
-        toast.error('Failed to set up your society. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Step 2: Sign up with all profile data in metadata
-      // The handle_new_user DB trigger will auto-create the profile + buyer role
+      // Step 1: Sign up first — with auto-confirm this gives us a session immediately
+      // The handle_new_user DB trigger auto-creates profile + buyer role
       const redirectUrl = `${window.location.origin}/auth`;
       const { data, error } = await supabase.auth.signUp({
         email, password,
@@ -316,7 +293,7 @@ export function useAuthPage() {
             flat_number: profileData.flat_number,
             block: profileData.block,
             phase: profileData.phase,
-            society_id: finalSocietyId,
+            society_id: initialSocietyId,
           }
         },
       });
@@ -328,20 +305,34 @@ export function useAuthPage() {
           setAuthMode('login'); setSignupStep('credentials'); return;
         }
 
-        // Validate existing society (non-pending) in background
-        if (!pendingNewSociety && finalSocietyId !== 'pending') {
+        // Step 2: Now we have a session — handle society creation/validation
+        if (isPendingSociety) {
+          try {
+            const { data: validateData, error: validateError } = await supabase.functions.invoke('validate-society', {
+              body: { new_society: pendingNewSociety },
+            });
+            if (validateError) throw validateError;
+            if (validateData?.society?.id) {
+              // Update the profile with the real society_id
+              await supabase.from('profiles').update({ society_id: validateData.society.id }).eq('id', data.user.id);
+            }
+          } catch (validateErr) {
+            console.warn('Society creation failed, user can update later:', validateErr);
+          }
+        } else {
+          // Validate existing society in background
           try {
             await supabase.functions.invoke('validate-society', {
-              body: { society_id: finalSocietyId },
+              body: { society_id: selectedSociety.id },
             });
           } catch (validateErr) {
-            console.warn('Society validation call failed, will be validated by admin:', validateErr);
+            console.warn('Society validation call failed:', validateErr);
           }
         }
 
-        // Profile + role are created by the DB trigger — no manual insert needed
-        setSignupStep('verification');
-        toast.success('Please check your email to verify your account');
+        // Profile + role are created by the DB trigger — navigate to home
+        toast.success('Account created successfully! Welcome!');
+        navigate('/');
       }
     } catch (error: any) {
       if (error.message.includes('already registered')) {
