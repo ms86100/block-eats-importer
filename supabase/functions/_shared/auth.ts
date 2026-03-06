@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 /**
  * Shared auth middleware for edge functions.
