@@ -1,73 +1,50 @@
 
 
-# Push Notification System — Full Audit & Restoration Plan
+## Notification Health Check — User-Friendly UI
 
-## Current State Summary
+### What We'll Build
 
-The push notification **architecture is complete and correct**. The frontend hook (`usePushNotifications.ts`, 1395 lines), edge functions (`send-push-notification`, `process-notification-queue`, `test-apns-direct`), database functions (`claim_device_token`, `claim_notification_queue`), and the provider/context wiring are all in place and match the original project.
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-The system is **not broken at the code level**. The reason push notifications are not working automatically is a **missing secrets configuration**.
+### UI Design
 
----
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-## Root Cause: Missing Secrets
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-The `send-push-notification` and `test-apns-direct` edge functions require **5 secrets** that are **not currently configured**:
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-| Secret | Required By | Status |
-|--------|------------|--------|
-| `FIREBASE_SERVICE_ACCOUNT` | `send-push-notification` (FCM for Android + fallback) | **MISSING** |
-| `APNS_KEY_P8` | `send-push-notification`, `test-apns-direct` (iOS direct APNs) | **MISSING** |
-| `APNS_KEY_ID` | Both APNs functions (value: `SA4J5B62V2` per PDF) | **MISSING** |
-| `APNS_TEAM_ID` | Both APNs functions (value: `6HBR38JB8Z` per PDF) | **MISSING** |
-| `APNS_BUNDLE_ID` | Both APNs functions (value: `app.sociva.community` per PDF) | **MISSING** |
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-Only `LOVABLE_API_KEY` exists. Without these secrets, the backend edge functions fail silently — notifications are queued but never delivered.
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
----
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-## Verification: Frontend Pipeline is Intact
+### Implementation
 
-The registration pipeline follows the correct flow from the PDF:
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
 
-1. **Login** → `attemptRegistration()` → `checkPermissions()` only (never auto-requests)
-2. **User taps "Turn On"** → `requestFullPermission()` → iOS system prompt
-3. **Permission granted** → `PN.register()` → APNs token captured via `registration` event → FCM token via `FCM.getToken()`
-4. **Both tokens saved** → `claim_device_token` RPC → `device_tokens` table
-5. **Backend delivery** → `process-notification-queue` → `send-push-notification` → direct APNs (iOS) / FCM (Android)
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
 
-All critical rules from the PDF are followed:
-- Never auto-calls `requestPermissions()`
-- Permission prompt only from user tap
-- Token ownership is 1:1 via `claim_device_token` (SECURITY DEFINER)
-- APNs token stored alongside FCM token
-- Direct APNs delivery for iOS, FCM for Android
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
 
----
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
 
-## Implementation Plan
-
-### Step 1: Add Missing Secrets
-
-Prompt the user to provide the 5 required secrets:
-
-- **`FIREBASE_SERVICE_ACCOUNT`** — The full Firebase service account JSON (from Firebase Console → Project Settings → Service Accounts → Generate New Private Key)
-- **`APNS_KEY_P8`** — The .p8 private key file contents (the full PEM including `-----BEGIN PRIVATE KEY-----` markers)
-- **`APNS_KEY_ID`** — `SA4J5B62V2`
-- **`APNS_TEAM_ID`** — `6HBR38JB8Z`
-- **`APNS_BUNDLE_ID`** — `app.sociva.community`
-
-### Step 2: Verify Edge Function Deployment
-
-After secrets are added, test the `send-push-notification` and `test-apns-direct` edge functions using the invoke tool to confirm they respond correctly (no 500 errors from missing env vars).
-
-### Step 3: No Code Changes Required
-
-The frontend registration pipeline, edge functions, database functions, RLS policies, and context providers are all correctly implemented. No code modifications are needed.
-
----
-
-## Summary
-
-The push notification system is architecturally complete. The only gap is **5 missing backend secrets** that the edge functions need to actually deliver notifications. Once these are configured, the automatic flow (login → permission → token capture → delivery) will work end-to-end without the debug page.
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 
