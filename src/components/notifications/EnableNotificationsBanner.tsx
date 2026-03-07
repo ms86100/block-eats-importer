@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Bell, X, ExternalLink } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
+import { getCachedFirebaseMessaging } from '@/hooks/usePushNotifications';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
