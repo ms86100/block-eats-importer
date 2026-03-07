@@ -10,7 +10,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
 /**
  * BUILD FINGERPRINT — bump on every push-related update.
  */
-export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V1';
+export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V2-LISTENER-GATE';
 
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'failed';
 
@@ -40,6 +40,9 @@ export function usePushNotificationsInternal() {
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const regStateRef = useRef<RegistrationState>('idle');
+  const listenersReadyRef = useRef(false);
+  const listenersReadyPromiseRef = useRef<Promise<void> | null>(null);
+  const listenersResolveRef = useRef<(() => void) | null>(null);
 
   // ── Set log user ──
   useEffect(() => {
@@ -69,6 +72,7 @@ export function usePushNotificationsInternal() {
         p_user_id: currentUser.id,
         p_token: fcmToken,
         p_platform: platform,
+        p_apns_token: apnsToken ?? null,
       });
 
       if (error) {
@@ -107,6 +111,15 @@ export function usePushNotificationsInternal() {
   // ── Core registration logic ──
   const registerPush = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
+
+    if (!listenersReadyRef.current && listenersReadyPromiseRef.current) {
+      pushLog('warn', 'WAITING_FOR_LISTENERS');
+      await Promise.race([
+        listenersReadyPromiseRef.current,
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    }
+
     if (regStateRef.current === 'registering') return;
     regStateRef.current = 'registering';
 
@@ -198,6 +211,11 @@ export function usePushNotificationsInternal() {
 
     const instanceId = ++activeInstanceId;
     pushLog('info', 'EFFECT_INIT', { instanceId, userId: user?.id ?? null });
+
+    listenersReadyRef.current = false;
+    listenersReadyPromiseRef.current = new Promise<void>((resolve) => {
+      listenersResolveRef.current = resolve;
+    });
 
     let cleanupListeners: (() => void)[] = [];
 
@@ -309,6 +327,11 @@ export function usePushNotificationsInternal() {
       });
       cleanupListeners.push(() => tapListener.remove());
 
+      listenersReadyRef.current = true;
+      listenersResolveRef.current?.();
+      listenersResolveRef.current = null;
+      pushLog('info', 'LISTENERS_READY');
+
       // If user is logged in, register
       if (user?.id) {
         await registerPush();
@@ -333,6 +356,8 @@ export function usePushNotificationsInternal() {
 
     return () => {
       pushLog('info', 'EFFECT_CLEANUP', { instanceId });
+      listenersReadyRef.current = false;
+      listenersResolveRef.current = null;
       cleanupListeners.forEach((fn) => fn());
       appListener?.remove?.();
     };
