@@ -1,9 +1,26 @@
-import { useEffect, useContext } from 'react';
+import { useEffect, useContext, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { IdentityContext } from '@/contexts/auth/contexts';
 import { toast } from 'sonner';
-import { hapticNotification } from '@/lib/haptics';
+import { hapticNotification, hapticVibrate } from '@/lib/haptics';
 import { useQueryClient } from '@tanstack/react-query';
+
+function createBuyerAlertSound(audioContext: AudioContext) {
+  const now = audioContext.currentTime;
+  for (let i = 0; i < 2; i++) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    osc.frequency.value = i % 2 === 0 ? 700 : 500;
+    osc.type = 'sine';
+    const start = now + i * 0.25;
+    gain.gain.setValueAtTime(0.2, start);
+    gain.gain.exponentialRampToValueAtTime(0.01, start + 0.22);
+    osc.start(start);
+    osc.stop(start + 0.25);
+  }
+}
 
 /**
  * Real-time listener for buyer order status updates.
@@ -27,6 +44,23 @@ export function useBuyerOrderAlerts() {
   const identity = useContext(IdentityContext);
   const user = identity?.user ?? null;
   const queryClient = useQueryClient();
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playBuzzer = useCallback(() => {
+    hapticNotification('success');
+    hapticVibrate(400);
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      createBuyerAlertSound(audioCtxRef.current);
+    } catch (e) {
+      console.warn('[BuyerAlert] Sound failed:', e);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -45,13 +79,12 @@ export function useBuyerOrderAlerts() {
           const newStatus = (payload.new as any)?.status;
           const oldStatus = (payload.old as any)?.status;
 
-          // C4: If old status is undefined (REPLICA IDENTITY not FULL), skip to avoid spam toasts
           if (!newStatus || oldStatus === undefined || newStatus === oldStatus) return;
 
           const msg = STATUS_MESSAGES[newStatus];
           if (!msg) return;
 
-          hapticNotification(msg.haptic);
+          playBuzzer();
 
           toast(msg.title, {
             description: msg.description,
@@ -73,5 +106,15 @@ export function useBuyerOrderAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [user?.id, queryClient, playBuzzer]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          audioCtxRef.current.close();
+        }
+      } catch {}
+    };
+  }, []);
 }
