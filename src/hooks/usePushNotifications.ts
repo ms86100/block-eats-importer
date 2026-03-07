@@ -327,6 +327,11 @@ export function usePushNotificationsInternal() {
       });
       cleanupListeners.push(() => tapListener.remove());
 
+      listenersReadyRef.current = true;
+      listenersResolveRef.current?.();
+      listenersResolveRef.current = null;
+      pushLog('info', 'LISTENERS_READY');
+
       // If user is logged in, register
       if (user?.id) {
         await registerPush();
