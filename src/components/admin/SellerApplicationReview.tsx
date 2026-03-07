@@ -169,7 +169,7 @@ export function SellerApplicationReview() {
                             <div key={lic.id} className="bg-muted/40 rounded-xl p-3.5 space-y-2.5">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="flex items-center gap-1.5"><span className="text-xs">{(lic as any).group?.icon}</span><span className="text-xs font-semibold">{lic.license_type}</span></div>
+                                  <div className="flex items-center gap-1.5"><DynamicIcon name={(lic as any).group?.icon || ''} size={14} /><span className="text-xs font-semibold">{lic.license_type}</span></div>
                                   {lic.license_number && <p className="text-[10px] text-muted-foreground">#{lic.license_number}</p>}
                                   <p className="text-[10px] text-muted-foreground">Submitted {format(new Date(lic.submitted_at), 'dd MMM yyyy')}</p>
                                   <div className="mt-1">{statusBadge(lic.status)}</div>

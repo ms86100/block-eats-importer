@@ -1,73 +1,50 @@
 
 
-## Full System Audit Report
+## Notification Health Check — User-Friendly UI
 
-### 1. Icon-as-Text Bugs (Remaining)
+### What We'll Build
 
-**Bug 1.1 — ProductDetailSheet renders icon as raw text**
-- **File**: `src/components/product/ProductDetailSheet.tsx` (lines 65, 84)
-- **Issue**: `categoryIcon` is passed as a string (e.g., "ChefHat") from `catConfig?.icon` and rendered as `<span>{categoryIcon}</span>`. This displays the Lucide icon name as plain text. Should use `<DynamicIcon name={categoryIcon} />`.
-- **Affected flows**: Product detail bottom sheet across MarketplaceSection, CategoryGroupPage, SellerDetailPage — all pass `_catIcon` which is a Lucide icon name string.
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-**Bug 1.2 — SellerApplicationReview license group icon rendered as text**
-- **File**: `src/components/admin/SellerApplicationReview.tsx` (line 172)
-- **Issue**: `{(lic as any).group?.icon}` renders the icon name as plain text in a `<span>`. Should use `<DynamicIcon>`.
+### UI Design
 
-### 2. Category Consistency ✅ (Mostly Fixed)
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-The previous fixes correctly addressed BulkProductUpload, DraftProductManager, SellerProductsPage, SellerDetailPage, SubcategoryManager, AdminCatalogManager, and SellerSettingsPage. The remaining issues are in section 1 above.
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-The core data pipeline (`fetchCategoryConfigs` → `category_config` table → dynamic rendering) is correct. Categories are loaded from the database, not hardcoded.
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-### 3. Buyer–Seller Flow
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-**No critical bugs found.** The flow from `search_nearby_sellers` RPC → `useNearbyProducts` → `mergeProducts` → marketplace display is intact. The RPC correctly enforces `sell_beyond_community`, `verification_status = 'approved'`, `is_available = true`, and haversine distance filtering.
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-**Minor concern**: The `search_marketplace` RPC does not filter by `approval_status` on products (unlike `search_nearby_sellers`), meaning unapproved products could appear in same-society search results. This is by design if same-society products don't require approval, but worth verifying.
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-### 4. Feature Assignment & Access Control ✅
+### Implementation
 
-The `get_effective_society_features` function correctly implements the hierarchy: Builder → Feature Package → Package Items → Platform Features, with society-level overrides. The `can_access_feature` function checks the current user's society. No gaps found.
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
 
-### 5. Database & RLS
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
 
-**No critical issues identified** in the schema functions. The `handle_new_user` trigger correctly validates society_id format and auto-approves when configured. The `check_seller_license` allows draft/pending sellers to manage products during onboarding.
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
 
-### 6. Routing ✅
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
 
-All routes are properly defined with appropriate guards (ProtectedRoute, AdminRoute, SellerRoute, SecurityRoute, BuilderRoute, WorkerRoute, ManagementRoute, SocietyAdminRoute). Catch-all `*` route maps to NotFound. Legacy redirects exist for `/domestic-help` → `/workforce` and `/security/verify` → `/guard-kiosk`.
-
-### 7. Silent Failures
-
-**Observation**: Many `catch {}` blocks exist (58+ files) with empty or minimal handling. Most are intentional (haptics, storage fallbacks, JSON parsing), but some in critical paths like `useSellerSettings.ts` line 148 silently swallow errors with only a toast. This is acceptable for UX but could hide underlying issues from debugging.
-
-### 8. Auth Lifecycle
-
-The `IdentityContext` emission counter shows **30 emissions** in the console logs, which is higher than expected for a stable session. This is caused by the session refresh interval (every 5 minutes) and realtime subscription changes triggering `setPartial` → new identity memo. Not a bug, but adds unnecessary re-renders. The `useMemo` dependencies on `user` object reference (which changes on each `getSession`) cause this.
-
----
-
-## Recommended Fixes (Priority Order)
-
-### Fix 1 — ProductDetailSheet: Render icon with DynamicIcon
-**File**: `src/components/product/ProductDetailSheet.tsx`
-- Import `DynamicIcon` from `@/components/ui/DynamicIcon`
-- Line 65: Replace `<span className="text-6xl">{categoryIcon || '🛍️'}</span>` with `<DynamicIcon name={categoryIcon || '🛍️'} size={72} />`
-- Line 84: Replace `{categoryIcon && <span>{categoryIcon}</span>}` with `{categoryIcon && <DynamicIcon name={categoryIcon} size={14} />}`
-
-### Fix 2 — SellerApplicationReview: Render license group icon with DynamicIcon
-**File**: `src/components/admin/SellerApplicationReview.tsx`
-- Import `DynamicIcon`
-- Line 172: Replace `<span className="text-xs">{(lic as any).group?.icon}</span>` with `<DynamicIcon name={(lic as any).group?.icon || ''} size={14} />`
-
-### Summary
-| Area | Status | Issues |
-|------|--------|--------|
-| Icon-as-text | 2 remaining | ProductDetailSheet, SellerApplicationReview |
-| Category pipeline | Clean | All dynamic from DB |
-| Buyer-Seller flow | Clean | RPC logic correct |
-| Feature gating | Clean | Hierarchy enforced |
-| Routing | Clean | All guarded, catch-all present |
-| Auth stability | Minor | Excessive context emissions (cosmetic) |
-| Silent failures | Acceptable | Most are intentional fallbacks |
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 
