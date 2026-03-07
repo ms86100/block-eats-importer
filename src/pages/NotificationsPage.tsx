@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Bell, MessageCircle, Tag, Volume2, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
-// Push permission checks use @capacitor-firebase/messaging (dynamic import)
+// Push permission checks use @capacitor/push-notifications (dynamic import)
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -42,8 +42,8 @@ export default function NotificationsPage() {
 
     const checkPermission = async () => {
       try {
-        const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-        const result = await FirebaseMessaging.checkPermissions();
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        const result = await PushNotifications.checkPermissions();
         setOsPermission(result.receive as 'granted' | 'denied' | 'prompt');
       } catch {
         setOsPermission('granted');
@@ -189,8 +189,8 @@ export default function NotificationsPage() {
           <button
             onClick={async () => {
               try {
-                const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-                const permResult = await FirebaseMessaging.requestPermissions();
+                const { PushNotifications } = await import('@capacitor/push-notifications');
+                const permResult = await PushNotifications.requestPermissions();
 
                 if (permResult.receive !== 'granted') {
                   setOsPermission(permResult.receive as 'granted' | 'denied' | 'prompt');

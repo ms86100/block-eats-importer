@@ -1,14 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, X, ExternalLink } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
-import { getCachedFirebaseMessaging } from '@/hooks/usePushNotifications';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const DISMISSED_KEY = 'notif_banner_dismissed';
 const GRANTED_KEY = 'notif_permission_granted';
-// Tracks if user has explicitly denied after we prompted them
 const DENIED_CONFIRMED_KEY = 'notif_permission_denied_confirmed';
 
 export function EnableNotificationsBanner() {
@@ -20,21 +18,9 @@ export function EnableNotificationsBanner() {
   const [grantedLocally, setGrantedLocally] = useState(
     () => sessionStorage.getItem(GRANTED_KEY) === '1'
   );
-  // Only show "Blocked" if user has explicitly denied in this session or a prior one
   const [confirmedDenied, setConfirmedDenied] = useState(
     () => localStorage.getItem(DENIED_CONFIRMED_KEY) === '1'
   );
-  // Ref to hold the pre-warmed FM instance for synchronous access in tap handler
-  const fmRef = useRef<any>(null);
-
-  // Pre-warm the FirebaseMessaging module on mount so it's ready before any tap
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    // Eagerly load the module — this ensures getCachedFirebaseMessaging() won't be null
-    import('@capacitor-firebase/messaging').then(({ FirebaseMessaging }) => {
-      fmRef.current = FirebaseMessaging;
-    }).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -47,10 +33,9 @@ export function EnableNotificationsBanner() {
       return;
     }
 
-    // Double-check via cached plugin if status is ambiguous
-    const FM = getCachedFirebaseMessaging();
-    if (FM) {
-      FM.checkPermissions().then((result) => {
+    // Double-check via native plugin
+    import('@capacitor/push-notifications').then(({ PushNotifications }) => {
+      PushNotifications.checkPermissions().then((result) => {
         if (result.receive === 'granted') {
           sessionStorage.setItem(GRANTED_KEY, '1');
           localStorage.removeItem(DENIED_CONFIRMED_KEY);
@@ -58,17 +43,14 @@ export function EnableNotificationsBanner() {
           setConfirmedDenied(false);
         }
       }).catch(() => {});
-    }
+    }).catch(() => {});
   }, [permissionStatus, token]);
 
-  // Not native → no banner
   if (!Capacitor.isNativePlatform()) return null;
-  // Already granted → no banner
   if (permissionStatus === 'granted' || !!token || grantedLocally) return null;
-  // Dismissed and not confirmed-denied → no banner
   if (dismissed && !confirmedDenied) return null;
 
-  // ── "Notifications Blocked" variant — only when user explicitly denied ──
+  // ── "Notifications Blocked" variant ──
   if (confirmedDenied) {
     const openSettings = async () => {
       try {
@@ -113,35 +95,26 @@ export function EnableNotificationsBanner() {
     );
   }
 
-  // ── "Turn On" prompt variant ──
+  // ── "Turn On" prompt — calls requestFullPermission which uses @capacitor/push-notifications ──
   const handleTurnOn = async () => {
     setLoading(true);
     try {
-      // Use pre-warmed instance (fmRef) or cached singleton — NO dynamic import in tap path
-      const FM = fmRef.current || getCachedFirebaseMessaging();
-      if (!FM) {
-        console.error('[Push][Banner] FirebaseMessaging not pre-loaded — cannot show iOS prompt');
-        toast.error('Notification setup not ready. Please try again.');
-        return;
-      }
+      await requestFullPermission();
 
-      const permResult = await FM.requestPermissions();
-
-      if (permResult.receive === 'granted') {
-        sessionStorage.setItem(GRANTED_KEY, '1');
-        localStorage.removeItem(DENIED_CONFIRMED_KEY);
-        setGrantedLocally(true);
-        setConfirmedDenied(false);
-
-        try {
-          await requestFullPermission();
-        } catch (e) {
-          console.error('[Push][Banner] requestFullPermission failed:', e);
+      // Re-check permission after the call
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        const result = await PushNotifications.checkPermissions();
+        if (result.receive === 'granted') {
+          sessionStorage.setItem(GRANTED_KEY, '1');
+          localStorage.removeItem(DENIED_CONFIRMED_KEY);
+          setGrantedLocally(true);
+          setConfirmedDenied(false);
+        } else if (result.receive === 'denied') {
+          localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
+          setConfirmedDenied(true);
         }
-      } else {
-        localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
-        setConfirmedDenied(true);
-      }
+      } catch {}
     } catch {
       sessionStorage.setItem(DISMISSED_KEY, '1');
       setDismissed(true);

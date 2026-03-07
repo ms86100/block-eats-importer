@@ -68,9 +68,27 @@ export default function PushDebugPage() {
     if (!user) return toast.error('Not logged in');
     setSavingToken(true);
     try {
-      const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-      const result = await FirebaseMessaging.getToken();
-      const fcmToken = result.token;
+      const platform = Capacitor.getPlatform();
+      let fcmToken: string | null = null;
+      let apnsToken: string | null = null;
+
+      if (platform === 'ios') {
+        // Get FCM token via @capacitor-community/fcm
+        try {
+          const { FCM } = await import('@capacitor-community/fcm');
+          const result = await FCM.getToken();
+          fcmToken = result.token;
+        } catch (e) {
+          toast.error('FCM.getToken() failed: ' + String(e));
+          setSavingToken(false);
+          return;
+        }
+      } else {
+        // Android — use PushNotifications (token comes from registration event, but we can try)
+        toast.info('On Android, trigger registration instead. Token is captured automatically.');
+        setSavingToken(false);
+        return;
+      }
 
       if (!fcmToken) {
         toast.error('Could not retrieve FCM token');
@@ -78,7 +96,6 @@ export default function PushDebugPage() {
         return;
       }
 
-      const platform = Capacitor.getPlatform();
       await supabase
         .from('device_tokens')
         .delete()
@@ -86,7 +103,13 @@ export default function PushDebugPage() {
         .neq('user_id', user.id);
 
       const { error } = await supabase.from('device_tokens').upsert(
-        { user_id: user.id, token: fcmToken, platform, updated_at: new Date().toISOString() },
+        {
+          user_id: user.id,
+          token: fcmToken,
+          platform,
+          apns_token: apnsToken,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: 'user_id,token' }
       );
       if (error) throw error;
@@ -158,6 +181,10 @@ export default function PushDebugPage() {
       <p className="text-sm text-muted-foreground">
         <strong>BUILD_ID: {PUSH_BUILD_ID}</strong>
         <br />
+        Architecture: @capacitor/push-notifications + @capacitor-community/fcm
+        <br />
+        iOS delivery: Direct APNs | Android: FCM
+        <br />
         User: {user?.id?.substring(0, 8) ?? 'not logged in'}…
         <br />
         Hook token: {token ? `${token.substring(0, 20)}…` : 'null'} | Permission: {permissionStatus}
@@ -180,7 +207,7 @@ export default function PushDebugPage() {
           </Button>
           <Button onClick={handleSaveTokenManually} disabled={savingToken} variant="outline" className="w-full">
             {savingToken ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-            Save FCM Token to DB Manually
+            Save Token to DB Manually (iOS)
           </Button>
         </CardContent>
       </Card>
