@@ -2,7 +2,6 @@ import { memo } from 'react';
 import { Home, Building2, LayoutGrid, ShoppingCart, User, Shield, ClipboardList, Briefcase, ListChecks } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { cn } from '@/lib/utils';
 import { useEffectiveFeatures } from '@/hooks/useEffectiveFeatures';
 import { useCartCount } from '@/hooks/useCartCount';
 import { useAuth } from '@/contexts/AuthContext';
