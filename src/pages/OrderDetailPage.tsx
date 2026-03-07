@@ -95,8 +95,8 @@ export default function OrderDetailPage() {
               <div className="flex items-center justify-between mt-4 gap-1">
                 {displayStatuses.map((status, index) => {
                   const statusIndex = o.statusOrder.indexOf(status as OrderStatus);
-                  const isCompleted = statusIndex <= o.currentStatusIndex;
-                  const isCurrent = statusIndex === o.currentStatusIndex;
+                  const isCompleted = statusIndex !== -1 && o.currentStatusIndex !== -1 && statusIndex <= o.currentStatusIndex;
+                  const isCurrent = statusIndex !== -1 && statusIndex === o.currentStatusIndex;
                   return (
                     <div key={status} className="flex flex-col items-center flex-1">
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${isCompleted ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'} ${isCurrent ? 'ring-2 ring-accent ring-offset-1 ring-offset-background' : ''}`}>

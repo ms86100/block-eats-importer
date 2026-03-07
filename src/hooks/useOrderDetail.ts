@@ -6,6 +6,7 @@ import { useUrgentOrderSound } from '@/hooks/useUrgentOrderSound';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCategoryStatusFlow, getNextStatusForActor, getTimelineSteps } from '@/hooks/useCategoryStatusFlow';
 import { logAudit } from '@/lib/audit';
+import { sendOrderStatusNotification } from '@/lib/notifications';
 import { Order, OrderStatus } from '@/types/database';
 import { toast } from 'sonner';
 
@@ -68,7 +69,15 @@ export function useOrderDetail(id: string | undefined) {
 
   // Derive timeline and next status from flow
   const timelineSteps = useMemo(() => getTimelineSteps(flow), [flow]);
-  const statusOrder = useMemo(() => flow.map(s => s.status_key as OrderStatus), [flow]);
+
+  // Use flow-based statusOrder if available, otherwise fallback to hardcoded
+  const statusOrder = useMemo(() => {
+    if (flow.length > 0) return flow.map(s => s.status_key as OrderStatus);
+    // Fallback when category_status_flows is empty
+    return isEnquiryOrder
+      ? ['enquired' as OrderStatus, 'quoted' as OrderStatus, 'accepted' as OrderStatus, 'preparing' as OrderStatus, 'ready' as OrderStatus, 'completed' as OrderStatus]
+      : ['placed' as OrderStatus, 'accepted' as OrderStatus, 'preparing' as OrderStatus, 'ready' as OrderStatus, 'picked_up' as OrderStatus, 'delivered' as OrderStatus, 'completed' as OrderStatus];
+  }, [flow, isEnquiryOrder]);
   const currentStatusIndex = order ? statusOrder.indexOf(order.status) : -1;
 
   const getNextStatus = (): OrderStatus | null => {
@@ -158,6 +167,20 @@ export function useOrderDetail(id: string | undefined) {
       setOrder({ ...order, ...updateData });
       toast.success(`Order ${getOrderStatus(newStatus).label.toLowerCase()}`);
       supabase.functions.invoke('process-notification-queue').catch(() => {});
+
+      // Send dynamic push notification to buyer/seller
+      const sellerObj = (order as any)?.seller;
+      const buyerObj = (order as any)?.buyer;
+      sendOrderStatusNotification(
+        order.id,
+        newStatus,
+        order.buyer_id,
+        order.seller_id,
+        sellerObj?.user_id || '',
+        sellerObj?.business_name || 'Seller',
+        buyerObj?.name || 'Customer'
+      ).catch(err => console.warn('Push notification failed:', err));
+
       if (order.society_id) {
         logAudit(`order_${newStatus}`, 'order', order.id, order.society_id, { old_status: order.status, new_status: newStatus, rejection_reason: rejectionReason });
       }
