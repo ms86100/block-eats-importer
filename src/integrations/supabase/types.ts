@@ -7035,6 +7035,15 @@ export type Database = {
         Args: { _job_id: string; _worker_id: string }
         Returns: Json
       }
+      compute_store_status: {
+        Args: {
+          p_available: boolean
+          p_days: string[]
+          p_end: string
+          p_start: string
+        }
+        Returns: Json
+      }
       create_multi_vendor_orders: {
         Args: {
           _buyer_id: string
