@@ -16,7 +16,8 @@ export function usePopularProducts(limit = 12) {
         .select(`
           *,
           seller:seller_profiles!products_seller_id_fkey(
-            id, business_name, rating, society_id, verification_status, fulfillment_mode, delivery_note
+            id, business_name, rating, society_id, verification_status, fulfillment_mode, delivery_note,
+            availability_start, availability_end, operating_days, is_available
           )
         `)
         .eq('is_available', true)
@@ -41,6 +42,10 @@ export function usePopularProducts(limit = 12) {
           seller_id: p.seller_id,
           fulfillment_mode: p.seller?.fulfillment_mode || null,
           delivery_note: p.seller?.delivery_note || null,
+          seller_availability_start: p.seller?.availability_start || null,
+          seller_availability_end: p.seller?.availability_end || null,
+          seller_operating_days: p.seller?.operating_days || null,
+          seller_is_available: p.seller?.is_available ?? true,
         }));
     },
     enabled: !!effectiveSocietyId,
@@ -67,7 +72,8 @@ export function useCategoryProducts(parentGroup: string | null, societyId: strin
         .select(`
           *,
           seller:seller_profiles!products_seller_id_fkey(
-            id, business_name, rating, society_id, verification_status, primary_group, fulfillment_mode, delivery_note
+            id, business_name, rating, society_id, verification_status, primary_group, fulfillment_mode, delivery_note,
+            availability_start, availability_end, operating_days, is_available
           )
         `)
         .eq('is_available', true)
@@ -90,6 +96,10 @@ export function useCategoryProducts(parentGroup: string | null, societyId: strin
         seller_id: p.seller_id,
         fulfillment_mode: p.seller?.fulfillment_mode || null,
         delivery_note: p.seller?.delivery_note || null,
+        seller_availability_start: p.seller?.availability_start || null,
+        seller_availability_end: p.seller?.availability_end || null,
+        seller_operating_days: p.seller?.operating_days || null,
+        seller_is_available: p.seller?.is_available ?? true,
       }));
     },
     enabled: !!parentGroup,
