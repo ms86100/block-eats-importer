@@ -275,6 +275,16 @@ function ProductListingCardInner({
             </div>
           )}
 
+          {/* Store closed overlay */}
+          {isStoreClosed && !isOutOfStock && (
+            <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-muted-foreground bg-muted/90 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Clock size={8} />
+                {storeClosedMessage}
+              </span>
+            </div>
+          )}
+
           {/* Badges top-left */}
           {badges.length > 0 && (
             <div className="absolute top-1.5 left-1.5 flex flex-col gap-0.5">
@@ -325,7 +335,7 @@ function ProductListingCardInner({
         </div>
 
         {/* ━━━ ADD button overlapping image bottom edge ━━━ */}
-        {!viewOnly && !isOutOfStock && (
+        {!viewOnly && !isOutOfStock && !isStoreClosed && (
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10">
             {isCartAction && quantity > 0 ? (
               <div className="flex items-center bg-primary rounded-lg overflow-hidden shadow-cta animate-stepper-pop">
