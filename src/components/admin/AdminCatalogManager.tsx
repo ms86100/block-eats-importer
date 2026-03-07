@@ -266,7 +266,7 @@ export function AdminCatalogManager() {
                                 <div className="flex flex-wrap gap-1">
                                   {linkedBlocks.slice(0, 3).map(b => (
                                     <Badge key={b.id} variant="secondary" className="text-[9px] px-1.5 py-0.5 h-auto rounded-md">
-                                      {b.icon} {b.display_name}
+                                      {b.display_name}
                                     </Badge>
                                   ))}
                                   {linkedBlocks.length > 3 && (

@@ -85,7 +85,7 @@ export function BulkProductUpload({ isOpen, onClose, sellerId, allowedCategories
                       <TableCell>
                         <Select value={row.category} onValueChange={(v) => b.updateRow(idx, 'category', v)}>
                           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>{allowedCategories.map(c => <SelectItem key={c.category} value={c.category}>{c.icon} {c.displayName}</SelectItem>)}</SelectContent>
+                          <SelectContent>{allowedCategories.map(c => <SelectItem key={c.category} value={c.category}>{c.displayName}</SelectItem>)}</SelectContent>
                         </Select>
                       </TableCell>
                     )}

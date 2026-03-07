@@ -173,7 +173,7 @@ export function SubcategoryManager() {
 
   const getCategoryName = (configId: string) => {
     const c = allConfigs.find(cfg => cfg.id === configId);
-    return c ? `${c.icon} ${c.display_name}` : configId;
+    return c ? c.display_name : configId;
   };
 
   const getParentCategoryName = (configId: string) => {
@@ -306,7 +306,7 @@ export function SubcategoryManager() {
             <SelectContent>
               <SelectItem value="all">All categories</SelectItem>
               {allConfigs.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.icon} {c.display_name}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>{c.display_name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -381,7 +381,7 @@ export function SubcategoryManager() {
                       <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>
                         {allConfigs.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.icon} {c.display_name}</SelectItem>
+                          <SelectItem key={c.id} value={c.id}>{c.display_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
