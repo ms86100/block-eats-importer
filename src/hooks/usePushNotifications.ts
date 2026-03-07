@@ -72,6 +72,7 @@ export function usePushNotificationsInternal() {
         p_user_id: currentUser.id,
         p_token: fcmToken,
         p_platform: platform,
+        p_apns_token: apnsToken ?? null,
       });
 
       if (error) {
