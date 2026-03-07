@@ -451,6 +451,14 @@ export default function SellerDetailPage() {
         </div>
       </div>
 
+      {/* Store Closed Banner */}
+      {isStoreClosed && (
+        <div className="mx-4 mt-3 flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3">
+          <Clock size={16} className="text-destructive shrink-0" />
+          <span className="text-sm font-medium text-destructive">{storeClosedMsg}</span>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="px-4 mt-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
