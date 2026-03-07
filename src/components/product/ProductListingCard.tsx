@@ -170,6 +170,20 @@ function ProductListingCardInner({
 
   /* ── Derived values ── */
   const isOutOfStock = !product.is_available;
+
+  /* ── Store availability ── */
+  const storeAvailability = useMemo((): StoreAvailability => {
+    return computeStoreStatus(
+      product.seller_availability_start,
+      product.seller_availability_end,
+      product.seller_operating_days,
+      product.seller_is_available ?? true
+    );
+  }, [product.seller_availability_start, product.seller_availability_end, product.seller_operating_days, product.seller_is_available]);
+
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMessage = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
+
   const isLowStock = mc.enableScarcity &&
     product.stock_quantity != null &&
     product.stock_quantity > 0 &&
@@ -234,6 +248,7 @@ function ProductListingCardInner({
         'transition-all duration-200 ease-out',
         'active:scale-[0.98] hover:scale-[1.02]',
         isOutOfStock && 'opacity-50 grayscale-[40%]',
+        isStoreClosed && !isOutOfStock && 'opacity-60 grayscale-[30%]',
         className
       )}
     >
