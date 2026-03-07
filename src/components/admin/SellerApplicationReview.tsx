@@ -1,4 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
