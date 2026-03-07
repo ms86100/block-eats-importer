@@ -110,7 +110,7 @@ export default function ProfilePage() {
     { icon: Bell, label: 'Notifications', to: '/notifications' },
     { icon: HelpCircle, label: 'Help & Guide', to: '/help' },
     ...(isAdmin ? [{ icon: Shield, label: 'Admin Panel', to: '/admin' }] : []),
-    ...(isAdmin ? [{ icon: Bug, label: 'Push Debug', to: '/push-debug' }] : []),
+    { icon: Bug, label: 'Push Debug', to: '/push-debug' },
     { icon: FileText, label: 'Privacy Policy', to: '/privacy-policy' },
     { icon: FileText, label: 'Terms & Conditions', to: '/terms' },
     { icon: FileText, label: 'Community Rules', to: '/community-rules' },
