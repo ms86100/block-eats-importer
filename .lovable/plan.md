@@ -1,50 +1,83 @@
+## Investigation Results
+
+I traced the full order placement flow for the order placed at 11:51:53 (id: `cf7ab068`). Here is what happened and why both the push notification and in-app popup failed.
+
+---
+
+### Root Cause 1: Push Notification — Nothing in the Queue
+
+When the buyer placed the order, the code at `useCartPage.ts:241` called `process-notification-queue`, but the queue was **empty**:
+
+```text
+Order placed via RPC: create_multi_vendor_orders
+  → RPC creates order in DB ✅
+  → Client calls process-notification-queue ✅
+  → Queue processor finds 0 items (nothing was ever enqueued) ❌
+  → No push notification sent ❌
+```
+
+**The** `create_multi_vendor_orders` **database function does NOT insert into the** `notification_queue` **table.** There is also no client-side call to `sendOrderStatusNotification()` after order placement — that function is only called inside `updateOrderStatus()` (seller action), not during order creation.
+
+The `process-notification-queue` edge function confirmed this — it processed 0 items.
+
+### Root Cause 2: In-App Popup (Realtime Alert)
+
+The `useNewOrderAlert` hook subscribes to realtime INSERT events on the `orders` table. This mechanism **requires the seller to have the app open in the foreground** with the seller context active. If the seller:
+
+- Had the app closed or backgrounded
+- Was not on a page where `GlobalSellerAlert` or `SellerDashboardPage` is mounted
+- Had a stale/disconnected realtime channel
+
+...the alert would not fire. The realtime subscription itself is correctly configured (the `orders` table IS in the `supabase_realtime` publication). So the popup mechanism is sound but only works when the seller is actively using the app.
+
+The polling fallback (every 3-30s) would eventually pick it up, but only if the hook is mounted and running.
+
+---
+
+### Fix Plan
+
+#### Fix 1: Enqueue seller notification on order placement (CRITICAL)
+
+**File: `src/hooks/useCartPage.ts**`
+
+After `createOrdersForAllSellers` succeeds (both COD and UPI paths), call `sendOrderStatusNotification()` for each created order with status `'placed'`. This sends an actual push notification to the seller's device even when their app is closed.
+
+```typescript
+// After order creation succeeds, notify each seller
+for (const orderId of orderIds) {
+  // Fetch order details to get seller info, then call sendOrderStatusNotification
+}
+```
+
+However, the simpler and more reliable approach: **insert into** `notification_queue` **inside the** `create_multi_vendor_orders` **database function itself** via a DB migration. This way the notification is atomically created with the order — no client-side race condition possible.
+
+#### Fix 2: Wire `sendOrderStatusNotification` for order placement (client-side fallback)
+
+**File: `src/hooks/useCartPage.ts**`
+
+After successful order creation, call `sendOrderStatusNotification` with status `'placed'` for each seller. This provides immediate push delivery as a belt-and-suspenders approach alongside the queue.
+
+#### Fix 3: Ensure `process-notification-queue` actually has items to process
+
+**DB Migration**: Add a trigger or modify the `create_multi_vendor_orders` function to INSERT a row into `notification_queue` for each order created, targeting the seller's `user_id` with title "New Order!" and type "order".
+
+---
+
+### Technical Details
 
 
-## Notification Health Check — User-Friendly UI
+| Component                         | Status                 | Issue                                        |
+| --------------------------------- | ---------------------- | -------------------------------------------- |
+| Order creation RPC                | Working                | Does not enqueue notifications               |
+| `notification_queue` table        | Empty                  | Nothing inserts into it on order placement   |
+| `process-notification-queue` edge | Working                | Correctly returns `processed: 0`             |
+| `send-push-notification` edge     | Never invoked          | No logs found — confirms it was never called |
+| Realtime subscription             | Correctly configured   | Only works when seller app is open           |
+| Seller device tokens              | Present (2 iOS tokens) | Tokens exist but were never targeted         |
 
-### What We'll Build
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+### Implementation Approach
 
-### UI Design
-
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
-
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
-
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
-
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
-
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
-
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
-
-### Implementation
-
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
-
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
-
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
-
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
-
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
-
+1. **DB migration**: Modify `create_multi_vendor_orders` to insert into `notification_queue` for each seller when orders are created
+2. **Client-side**: After order placement in `useCartPage.ts`, call `sendOrderStatusNotification` with `'placed'` status as immediate fallback
+3. **Remove duplicate**: Remove the empty `process-notification-queue` call since it currently does nothing
