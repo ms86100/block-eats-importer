@@ -356,6 +356,8 @@ export function usePushNotificationsInternal() {
 
     return () => {
       pushLog('info', 'EFFECT_CLEANUP', { instanceId });
+      listenersReadyRef.current = false;
+      listenersResolveRef.current = null;
       cleanupListeners.forEach((fn) => fn());
       appListener?.remove?.();
     };
