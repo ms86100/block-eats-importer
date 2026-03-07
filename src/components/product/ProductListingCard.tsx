@@ -15,6 +15,7 @@ import type { CategoryConfig } from '@/types/categories';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
+import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -59,6 +60,10 @@ export interface ProductWithSeller {
   completed_order_count?: number;
   fulfillment_mode?: string | null;
   delivery_note?: string | null;
+  seller_availability_start?: string | null;
+  seller_availability_end?: string | null;
+  seller_operating_days?: string[] | null;
+  seller_is_available?: boolean;
   created_at: string;
   updated_at: string;
   [key: string]: any;

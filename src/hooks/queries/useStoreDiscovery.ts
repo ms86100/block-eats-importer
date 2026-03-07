@@ -12,6 +12,10 @@ export interface LocalSeller {
   primary_group: string | null;
   categories: string[] | null;
   is_featured: boolean;
+  availability_start: string | null;
+  availability_end: string | null;
+  operating_days: string[] | null;
+  is_available: boolean;
 }
 
 export interface NearbySeller {
@@ -50,10 +54,9 @@ export function useLocalSellers() {
 
       const { data, error } = await supabase
         .from('seller_profiles')
-        .select('id, business_name, profile_image_url, rating, total_reviews, primary_group, categories, is_featured, products!inner(id)')
+        .select('id, business_name, profile_image_url, rating, total_reviews, primary_group, categories, is_featured, availability_start, availability_end, operating_days, is_available, products!inner(id)')
         .eq('society_id', effectiveSocietyId)
         .eq('verification_status', 'approved')
-        .eq('is_available', true)
         .eq('products.is_available', true)
         .eq('products.approval_status', 'approved')
         .order('is_featured', { ascending: false })
