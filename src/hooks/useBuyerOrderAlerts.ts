@@ -1,9 +1,26 @@
-import { useEffect, useContext } from 'react';
+import { useEffect, useContext, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { IdentityContext } from '@/contexts/auth/contexts';
 import { toast } from 'sonner';
-import { hapticNotification } from '@/lib/haptics';
+import { hapticNotification, hapticVibrate } from '@/lib/haptics';
 import { useQueryClient } from '@tanstack/react-query';
+
+function createBuyerAlertSound(audioContext: AudioContext) {
+  const now = audioContext.currentTime;
+  for (let i = 0; i < 2; i++) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    osc.frequency.value = i % 2 === 0 ? 700 : 500;
+    osc.type = 'sine';
+    const start = now + i * 0.25;
+    gain.gain.setValueAtTime(0.2, start);
+    gain.gain.exponentialRampToValueAtTime(0.01, start + 0.22);
+    osc.start(start);
+    osc.stop(start + 0.25);
+  }
+}
 
 /**
  * Real-time listener for buyer order status updates.
