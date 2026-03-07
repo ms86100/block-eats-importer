@@ -90,7 +90,7 @@ async function sendApnsDirect(
   const apnsPayload: Record<string, unknown> = {
     aps: {
       alert: { title, body },
-      sound: "default",
+      sound: "gate_bell.caf",
       badge: 1,
     },
     ...(data || {}),
@@ -191,10 +191,10 @@ async function sendFCM(
       token: deviceToken,
       notification: { title, body },
       data: data || {},
-      android: { priority: "high", notification: { sound: "default" } },
+      android: { priority: "high", notification: { sound: "gate_bell" } },
       apns: {
         headers: { "apns-push-type": "alert", "apns-priority": "10" },
-        payload: { aps: { alert: { title, body }, sound: "default", badge: 1 } },
+        payload: { aps: { alert: { title, body }, sound: "gate_bell.caf", badge: 1 } },
       },
     },
   };
