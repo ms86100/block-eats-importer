@@ -153,6 +153,41 @@ export function useNewOrderAlert(sellerId: string | null) {
     return () => { supabase.removeChannel(channel); };
   }, [sellerId, handleNewOrder]);
 
+  // ── Listen for foreground push notifications (persistent buzzer) ──
+  useEffect(() => {
+    if (!sellerId) return;
+
+    const onPushNewOrder = async (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail?.orderId) return;
+
+      // Fetch the order to get full data for handleNewOrder
+      try {
+        const { data } = await supabase
+          .from('orders')
+          .select('id, status, total_amount, created_at')
+          .eq('id', detail.orderId)
+          .eq('seller_id', sellerId)
+          .single();
+
+        if (data) {
+          handleNewOrder(data as NewOrder);
+        }
+      } catch {
+        // If fetch fails, still trigger with minimal data
+        handleNewOrder({
+          id: detail.orderId,
+          status: detail.status || 'placed',
+          created_at: new Date().toISOString(),
+          total_amount: 0,
+        });
+      }
+    };
+
+    window.addEventListener('push:new-order', onPushNewOrder);
+    return () => window.removeEventListener('push:new-order', onPushNewOrder);
+  }, [sellerId, handleNewOrder]);
+
   // ── Polling fallback — fetches ALL actionable orders ──
   useEffect(() => {
     if (!sellerId) return;

@@ -312,11 +312,21 @@ export function usePushNotificationsInternal() {
         pushLog('info', 'FOREGROUND_NOTIFICATION', {
           title: notification?.title,
           body: notification?.body,
+          data: notification?.data,
         });
         hapticNotification('success');
         toast(notification?.title ?? 'New Notification', {
           description: notification?.body,
         });
+
+        // Dispatch custom event so useNewOrderAlert can trigger persistent buzzer
+        const nData = notification?.data;
+        if (nData?.type === 'order' && nData?.orderId) {
+          window.dispatchEvent(new CustomEvent('push:new-order', {
+            detail: { orderId: nData.orderId, status: nData.status || 'placed' },
+          }));
+          pushLog('info', 'DISPATCHED_PUSH_NEW_ORDER_EVENT', { orderId: nData.orderId });
+        }
       });
       cleanupListeners.push(() => fgListener.remove());
 
@@ -328,6 +338,8 @@ export function usePushNotificationsInternal() {
 
         if (data?.route) {
           navigateRef.current(data.route);
+        } else if (data?.orderId) {
+          navigateRef.current(`/orders/${data.orderId}`);
         }
       });
       cleanupListeners.push(() => tapListener.remove());
