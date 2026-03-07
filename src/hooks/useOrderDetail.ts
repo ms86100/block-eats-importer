@@ -68,7 +68,15 @@ export function useOrderDetail(id: string | undefined) {
 
   // Derive timeline and next status from flow
   const timelineSteps = useMemo(() => getTimelineSteps(flow), [flow]);
-  const statusOrder = useMemo(() => flow.map(s => s.status_key as OrderStatus), [flow]);
+
+  // Use flow-based statusOrder if available, otherwise fallback to hardcoded
+  const statusOrder = useMemo(() => {
+    if (flow.length > 0) return flow.map(s => s.status_key as OrderStatus);
+    // Fallback when category_status_flows is empty
+    return isEnquiryOrder
+      ? ['enquired' as OrderStatus, 'quoted' as OrderStatus, 'accepted' as OrderStatus, 'preparing' as OrderStatus, 'ready' as OrderStatus, 'completed' as OrderStatus]
+      : ['placed' as OrderStatus, 'accepted' as OrderStatus, 'preparing' as OrderStatus, 'ready' as OrderStatus, 'picked_up' as OrderStatus, 'delivered' as OrderStatus, 'completed' as OrderStatus];
+  }, [flow, isEnquiryOrder]);
   const currentStatusIndex = order ? statusOrder.indexOf(order.status) : -1;
 
   const getNextStatus = (): OrderStatus | null => {
