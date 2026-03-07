@@ -117,22 +117,11 @@ export function EnableNotificationsBanner() {
   const handleTurnOn = async () => {
     setLoading(true);
     try {
-      // Use pre-cached instance to avoid breaking iOS gesture chain
-      const FM = getCachedFirebaseMessaging();
+      // Use pre-warmed instance (fmRef) or cached singleton — NO dynamic import in tap path
+      const FM = fmRef.current || getCachedFirebaseMessaging();
       if (!FM) {
-        // Fallback: try dynamic import (won't show prompt on iOS but handles edge case)
-        const mod = await import('@capacitor-firebase/messaging');
-        const permResult = await mod.FirebaseMessaging.requestPermissions();
-        if (permResult.receive === 'granted') {
-          sessionStorage.setItem(GRANTED_KEY, '1');
-          localStorage.removeItem(DENIED_CONFIRMED_KEY);
-          setGrantedLocally(true);
-          setConfirmedDenied(false);
-          try { await requestFullPermission(); } catch {}
-        } else {
-          localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
-          setConfirmedDenied(true);
-        }
+        console.error('[Push][Banner] FirebaseMessaging not pre-loaded — cannot show iOS prompt');
+        toast.error('Notification setup not ready. Please try again.');
         return;
       }
 
