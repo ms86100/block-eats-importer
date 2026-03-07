@@ -1,4 +1,3 @@
-// 🚨 FROZEN — DO NOT MODIFY THIS FILE 🚨 See: src/PUSH_NOTIFICATION_FREEZE.md
 import { useEffect, useContext, useRef } from 'react';
 import { usePushNotificationsInternal } from '@/hooks/usePushNotifications';
 import { PushNotificationContext } from '@/contexts/PushNotificationContext';

@@ -1,4 +1,3 @@
-// 🚨 FROZEN — DO NOT MODIFY THIS FILE 🚨 See: src/PUSH_NOTIFICATION_FREEZE.md
 import { createContext, useContext } from 'react';
 
 export interface PushNotificationContextValue {
