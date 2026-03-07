@@ -9,7 +9,7 @@ import { ProductEnquirySheet } from './ProductEnquirySheet';
 import { ReportSheet } from '@/components/report/ReportSheet';
 import { ProductAttributeBlocks } from './ProductAttributeBlocks';
 import { PriceHistoryChart } from './PriceHistoryChart';
-import { Plus, Minus, Store, MapPin, Home, Clock, Truck, Users, Zap, RotateCcw, ChevronRight, ChevronDown, Shield, Flag } from 'lucide-react';
+import { Plus, Minus, Store, MapPin, Home, Clock, Truck, Users, Zap, RotateCcw, ChevronRight, ChevronDown, Shield, Flag, X } from 'lucide-react';
 import { useProductDetail, ProductDetail } from '@/hooks/useProductDetail';
 import { hapticImpact } from '@/lib/haptics';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -66,6 +66,13 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
               ) : (
                 <div className="w-full h-full flex items-center justify-center"><DynamicIcon name={categoryIcon || '🛍️'} size={72} /></div>
               )}
+              <button
+                onClick={() => onOpenChange(false)}
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-md border border-border/30"
+                aria-label="Close"
+              >
+                <X size={18} className="text-foreground" />
+              </button>
             </div>
 
             <div className="p-4 space-y-3">
