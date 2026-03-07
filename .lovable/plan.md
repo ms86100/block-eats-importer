@@ -1,50 +1,64 @@
 
 
-## Notification Health Check — User-Friendly UI
+# Fix Plan: Seller Popup, Continuous Sound, and Buyer Push Notifications
 
-### What We'll Build
+## Summary of Root Causes
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+1. **Seller popup not appearing**: The `trg_enqueue_new_order_notification` INSERT trigger on `orders` is missing (confirmed: only 4 triggers exist, none for notifications). Realtime subscription has no error logging so silent failures go unnoticed.
 
-### UI Design
+2. **Sound rings only once**: The buzzer interval's AudioContext can get suspended by mobile OS. The interval runs but produces no sound because it doesn't call `.resume()` before playing.
 
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
+3. **Buyer not getting push on status change**: `sendOrderStatusNotification` in `useOrderDetail.ts` calls the `send-push-notification` edge function with an anon JWT, which gets 401'd. No DB trigger exists to enqueue buyer notifications on status changes.
 
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
+---
 
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
+## Changes
 
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
+### 1. DB Migration — Restore INSERT trigger + Add UPDATE trigger
 
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
+Create migration with:
 
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
+**a)** Restore the INSERT trigger:
+```sql
+CREATE TRIGGER trg_enqueue_new_order_notification
+  AFTER INSERT ON public.orders FOR EACH ROW
+  EXECUTE FUNCTION public.fn_enqueue_new_order_notification();
+```
 
-### Implementation
+**b)** New function `fn_enqueue_order_status_notification` that fires on UPDATE, skips if `OLD.status = NEW.status`, builds buyer-facing notification content per status (accepted, preparing, ready, picked_up, delivered, completed, cancelled, quoted, scheduled), and inserts into `notification_queue` with `reference_path = '/orders/' || NEW.id`, `payload` with orderId/status/type.
 
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
+**c)** Create the UPDATE trigger:
+```sql
+CREATE TRIGGER trg_enqueue_order_status_notification
+  AFTER UPDATE ON public.orders FOR EACH ROW
+  EXECUTE FUNCTION public.fn_enqueue_order_status_notification();
+```
 
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+### 2. `src/hooks/useOrderDetail.ts` — Remove broken client-side push
 
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
+Remove lines 171-182 (the `sendOrderStatusNotification` call). Keep only:
+```typescript
+supabase.functions.invoke('process-notification-queue').catch(() => {});
+```
+Also remove the `sendOrderStatusNotification` import.
 
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
+### 3. `src/hooks/useNewOrderAlert.ts` — Fix AudioContext resilience
 
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
+In the `startBuzzing` interval callback (lines 95-102), add `audioCtxRef.current.resume()` before each `createAlarmSound` call. If AudioContext is closed, recreate it. Log errors instead of swallowing them.
+
+Add `.subscribe((status, err) => { console.log(...) })` to the Realtime channel (line 151) for diagnostics.
+
+Change poll `catch {}` (line 222) to `catch (e) { console.warn(...) }`.
+
+### 4. `src/hooks/useBuyerOrderAlerts.ts` — Add Realtime diagnostics
+
+Change `.subscribe()` (line 104) to `.subscribe((status, err) => { console.log('[BuyerAlert] Realtime channel status:', status) })`.
+
+---
+
+## Files Changed
+1. **New migration SQL** — Restore INSERT trigger + create UPDATE trigger for buyer notifications
+2. **`src/hooks/useOrderDetail.ts`** — Remove `sendOrderStatusNotification` call (lines 171-182) and its import
+3. **`src/hooks/useNewOrderAlert.ts`** — AudioContext `.resume()` in interval, Realtime logging, poll error logging
+4. **`src/hooks/useBuyerOrderAlerts.ts`** — Realtime channel status logging
 
