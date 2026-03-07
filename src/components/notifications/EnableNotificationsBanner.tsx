@@ -24,6 +24,17 @@ export function EnableNotificationsBanner() {
   const [confirmedDenied, setConfirmedDenied] = useState(
     () => localStorage.getItem(DENIED_CONFIRMED_KEY) === '1'
   );
+  // Ref to hold the pre-warmed FM instance for synchronous access in tap handler
+  const fmRef = useRef<any>(null);
+
+  // Pre-warm the FirebaseMessaging module on mount so it's ready before any tap
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    // Eagerly load the module — this ensures getCachedFirebaseMessaging() won't be null
+    import('@capacitor-firebase/messaging').then(({ FirebaseMessaging }) => {
+      fmRef.current = FirebaseMessaging;
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -106,22 +117,11 @@ export function EnableNotificationsBanner() {
   const handleTurnOn = async () => {
     setLoading(true);
     try {
-      // Use pre-cached instance to avoid breaking iOS gesture chain
-      const FM = getCachedFirebaseMessaging();
+      // Use pre-warmed instance (fmRef) or cached singleton — NO dynamic import in tap path
+      const FM = fmRef.current || getCachedFirebaseMessaging();
       if (!FM) {
-        // Fallback: try dynamic import (won't show prompt on iOS but handles edge case)
-        const mod = await import('@capacitor-firebase/messaging');
-        const permResult = await mod.FirebaseMessaging.requestPermissions();
-        if (permResult.receive === 'granted') {
-          sessionStorage.setItem(GRANTED_KEY, '1');
-          localStorage.removeItem(DENIED_CONFIRMED_KEY);
-          setGrantedLocally(true);
-          setConfirmedDenied(false);
-          try { await requestFullPermission(); } catch {}
-        } else {
-          localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
-          setConfirmedDenied(true);
-        }
+        console.error('[Push][Banner] FirebaseMessaging not pre-loaded — cannot show iOS prompt');
+        toast.error('Notification setup not ready. Please try again.');
         return;
       }
 
