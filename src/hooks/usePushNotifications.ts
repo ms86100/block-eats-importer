@@ -229,11 +229,11 @@ export function usePushNotificationsInternal() {
       // Listen for notification taps
       const tapListener = await FM.addListener('notificationActionPerformed', (event) => {
         if (instanceId !== activeInstanceId) return;
-        const data = event.notification?.data;
+        const data = event.notification?.data as Record<string, string> | undefined;
         pushLog('info', 'NOTIFICATION_TAP', { data });
 
         if (data?.route) {
-          navigateRef.current(data.route as string);
+          navigateRef.current(data.route);
         }
       });
       cleanupListeners.push(() => tapListener.remove());
