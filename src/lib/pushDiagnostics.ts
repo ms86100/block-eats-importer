@@ -9,7 +9,9 @@ export interface DiagnosticResult {
 
 /**
  * Run a full diagnostic check of the push notification chain.
- * Uses @capacitor-firebase/messaging for unified FCM token access.
+ * Uses the proven dual-plugin architecture:
+ * - @capacitor/push-notifications for permissions + registration
+ * - @capacitor-community/fcm for FCM token on iOS
  */
 export async function runPushDiagnostics(userId?: string): Promise<DiagnosticResult[]> {
   const results: DiagnosticResult[] = [];
@@ -24,47 +26,62 @@ export async function runPushDiagnostics(userId?: string): Promise<DiagnosticRes
   });
   if (!isNative) return results;
 
-  // 2. FirebaseMessaging plugin
-  let FM: any = null;
+  // 2. PushNotifications plugin
+  let PN: any = null;
   try {
-    const mod = await import('@capacitor-firebase/messaging');
-    FM = mod.FirebaseMessaging;
-    results.push({ step: '2. FirebaseMessaging plugin', ok: true, detail: 'Loaded' });
+    const mod = await import('@capacitor/push-notifications');
+    PN = mod.PushNotifications;
+    results.push({ step: '2. PushNotifications plugin', ok: true, detail: 'Loaded (@capacitor/push-notifications)' });
   } catch (e) {
-    results.push({ step: '2. FirebaseMessaging plugin', ok: false, detail: String(e) });
+    results.push({ step: '2. PushNotifications plugin', ok: false, detail: String(e) });
     return results;
+  }
+
+  // 2b. FCM plugin (iOS only)
+  if (platform === 'ios') {
+    try {
+      const fcmMod = await import('@capacitor-community/fcm');
+      results.push({ step: '2b. FCM plugin', ok: true, detail: 'Loaded (@capacitor-community/fcm)' });
+    } catch (e) {
+      results.push({ step: '2b. FCM plugin', ok: false, detail: String(e) });
+    }
   }
 
   // 3. Permission status
   try {
-    const perm = await FM.checkPermissions();
+    const perm = await PN.checkPermissions();
     const granted = perm.receive === 'granted';
     let extraDetail = `receive: ${perm.receive}`;
     if (!granted) {
       const isDenied = perm.receive === 'denied';
-      extraDetail += ` | ${isDenied ? 'User previously denied — must enable in Settings' : 'OS prompt never shown or was suppressed'}`;
+      extraDetail += ` | ${isDenied ? 'User previously denied — must enable in Settings' : 'OS prompt never shown — user must tap Turn On'}`;
     }
     results.push({ step: '3. Permission', ok: granted, detail: extraDetail });
   } catch (e: any) {
     results.push({ step: '3. Permission', ok: false, detail: `checkPermissions() threw: ${e?.message ?? String(e)}` });
   }
 
-  // 4. FCM Token
+  // 4. FCM Token (via @capacitor-community/fcm on iOS, already in registration on Android)
   let runtimeFcmToken: string | null = null;
-  try {
-    const tokenResult = await FM.getToken();
-    const tok = tokenResult.token;
-    const valid = tok && tok.length > 20;
-    if (valid) runtimeFcmToken = tok;
-    results.push({
-      step: '4. getToken()',
-      ok: !!valid,
-      detail: valid
-        ? `Token: ${tok.substring(0, 20)}… (${tok.length} chars)`
-        : `Invalid or empty: ${tok?.substring(0, 20) ?? 'null'}`,
-    });
-  } catch (e) {
-    results.push({ step: '4. getToken()', ok: false, detail: String(e) });
+  if (platform === 'ios') {
+    try {
+      const { FCM } = await import('@capacitor-community/fcm');
+      const tokenResult = await FCM.getToken();
+      const tok = tokenResult.token;
+      const valid = tok && tok.length > 20;
+      if (valid) runtimeFcmToken = tok;
+      results.push({
+        step: '4. FCM Token (iOS)',
+        ok: !!valid,
+        detail: valid
+          ? `Token: ${tok.substring(0, 20)}… (${tok.length} chars)`
+          : `Invalid or empty: ${tok?.substring(0, 20) ?? 'null'}`,
+      });
+    } catch (e) {
+      results.push({ step: '4. FCM Token (iOS)', ok: false, detail: String(e) });
+    }
+  } else {
+    results.push({ step: '4. FCM Token', ok: true, detail: 'Android — token from registration event' });
   }
 
   // 5. device_tokens in DB
@@ -77,16 +94,17 @@ export async function runPushDiagnostics(userId?: string): Promise<DiagnosticRes
         .order('updated_at', { ascending: false, nullsFirst: false });
       if (error) throw error;
       const count = data?.length ?? 0;
+      const hasApns = data?.some((r) => !!r.apns_token);
       results.push({
         step: '5. device_tokens in DB',
         ok: count > 0,
-        detail: `${count} token(s) found${count > 0 ? ` — latest: ${data![0].platform}` : ''}`,
+        detail: `${count} token(s) found${count > 0 ? ` — latest: ${data![0].platform}, apns_token: ${hasApns ? 'YES' : 'NO'}` : ''}`,
       });
 
       if (runtimeFcmToken) {
         const match = data?.some((row) => row.token === runtimeFcmToken);
         results.push({
-          step: '5b. Runtime token matches DB',
+          step: '5b. Runtime FCM token matches DB',
           ok: !!match,
           detail: match ? 'Runtime FCM token is persisted' : 'Runtime FCM token NOT in DB',
         });

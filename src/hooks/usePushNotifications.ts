@@ -8,41 +8,11 @@ import { hapticNotification } from '@/lib/haptics';
 import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
 
 /**
- * BUILD FINGERPRINT — if the device logs this, the bundle is current.
+ * BUILD FINGERPRINT — bump on every push-related update.
  */
-export const PUSH_BUILD_ID = '2026-03-07-FIREBASE-MESSAGING-V2';
+export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V1';
 
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'failed';
-
-/**
- * Cached singleton for @capacitor-firebase/messaging.
- * Pre-warm on first call so subsequent calls (especially from gesture handlers) are synchronous.
- */
-let _cachedFM: Awaited<typeof import('@capacitor-firebase/messaging')>['FirebaseMessaging'] | null = null;
-let _fmLoadPromise: Promise<typeof _cachedFM> | null = null;
-
-function getFirebaseMessaging(): Promise<typeof _cachedFM> {
-  if (_cachedFM) return Promise.resolve(_cachedFM);
-  if (_fmLoadPromise) return _fmLoadPromise;
-
-  _fmLoadPromise = import('@capacitor-firebase/messaging')
-    .then(({ FirebaseMessaging }) => {
-      _cachedFM = FirebaseMessaging;
-      return FirebaseMessaging;
-    })
-    .catch((e) => {
-      console.warn('[Push] @capacitor-firebase/messaging not available:', e);
-      _fmLoadPromise = null;
-      return null;
-    });
-
-  return _fmLoadPromise;
-}
-
-/** Returns the cached instance if already loaded (sync access for gesture handlers). */
-export function getCachedFirebaseMessaging() {
-  return _cachedFM;
-}
 
 // Module-level singleton guard
 let activeInstanceId = 0;
@@ -50,8 +20,9 @@ let activeInstanceId = 0;
 /**
  * INTERNAL: Full hook with all side effects. Only called by PushNotificationProvider.
  *
- * Uses @capacitor-firebase/messaging which returns unified FCM tokens on both
- * iOS and Android — no APNs-to-FCM conversion needed.
+ * Uses the PROVEN dual-plugin architecture:
+ * - @capacitor/push-notifications → permissions, registration, raw APNs token on iOS
+ * - @capacitor-community/fcm → FCM token on iOS (Android gets FCM token from registration event)
  */
 export function usePushNotificationsInternal() {
   const [token, setToken] = useState<string | null>(null);
@@ -77,7 +48,7 @@ export function usePushNotificationsInternal() {
   }, [user?.id]);
 
   // ── Save token to DB via RPC ──
-  const saveTokenToDb = useCallback(async (fcmToken: string) => {
+  const saveTokenToDb = useCallback(async (fcmToken: string, apnsToken?: string) => {
     const currentUser = userRef.current;
     if (!currentUser?.id) {
       pushLog('warn', 'SAVE_TOKEN_NO_USER', { token: fcmToken.substring(0, 20) });
@@ -85,9 +56,15 @@ export function usePushNotificationsInternal() {
     }
 
     const platform = Capacitor.getPlatform();
-    pushLog('info', 'SAVING_TOKEN', { userId: currentUser.id, platform, token: fcmToken.substring(0, 20) });
+    pushLog('info', 'SAVING_TOKEN', {
+      userId: currentUser.id,
+      platform,
+      fcmToken: fcmToken.substring(0, 20),
+      apnsToken: apnsToken?.substring(0, 16) ?? 'none',
+    });
 
     try {
+      // First try RPC for atomic claim
       const { error } = await supabase.rpc('claim_device_token', {
         p_user_id: currentUser.id,
         p_token: fcmToken,
@@ -98,12 +75,27 @@ export function usePushNotificationsInternal() {
         pushLog('error', 'CLAIM_TOKEN_RPC_ERROR', { error: error.message });
         // Fallback: direct upsert
         await supabase.from('device_tokens').upsert(
-          { user_id: currentUser.id, token: fcmToken, platform, updated_at: new Date().toISOString() },
+          {
+            user_id: currentUser.id,
+            token: fcmToken,
+            platform,
+            apns_token: apnsToken ?? null,
+            updated_at: new Date().toISOString(),
+          },
           { onConflict: 'user_id,token' }
         );
         pushLog('info', 'FALLBACK_UPSERT_OK');
       } else {
         pushLog('info', 'CLAIM_TOKEN_OK');
+        // If we have an APNs token, update it separately (RPC may not handle apns_token)
+        if (apnsToken) {
+          await supabase
+            .from('device_tokens')
+            .update({ apns_token: apnsToken, updated_at: new Date().toISOString() })
+            .eq('user_id', currentUser.id)
+            .eq('token', fcmToken);
+          pushLog('info', 'APNS_TOKEN_UPDATED');
+        }
       }
 
       await flushPushLogs();
@@ -121,21 +113,15 @@ export function usePushNotificationsInternal() {
     pushLog('info', 'REGISTER_START');
 
     try {
-      const FM = await getFirebaseMessaging();
-      if (!FM) {
-        pushLog('error', 'PLUGIN_NOT_AVAILABLE');
-        regStateRef.current = 'failed';
-        return;
-      }
+      const { PushNotifications } = await import('@capacitor/push-notifications');
 
-      // Check current permission
+      // Check current permission — NEVER request here (only from user tap)
       let perm: 'granted' | 'denied' | 'prompt' = 'prompt';
       try {
-        const permResult = await FM.checkPermissions();
+        const permResult = await PushNotifications.checkPermissions();
         perm = permResult.receive as 'granted' | 'denied' | 'prompt';
       } catch (e) {
         pushLog('warn', 'CHECK_PERMISSIONS_ERROR', { error: String(e) });
-        // Don't update permissionStatus on error — keep as 'prompt'
         regStateRef.current = 'idle';
         return;
       }
@@ -144,51 +130,48 @@ export function usePushNotificationsInternal() {
       pushLog('info', 'PERMISSION_CHECK', { status: perm });
 
       if (perm !== 'granted') {
-        pushLog('info', 'PERMISSION_NOT_GRANTED_SKIP_TOKEN', { status: perm });
+        pushLog('info', 'PERMISSION_NOT_GRANTED_SKIP', { status: perm });
         regStateRef.current = 'idle';
         return;
       }
 
-      // Get FCM token (unified on both platforms)
-      const tokenResult = await FM.getToken();
-      const fcmToken = tokenResult.token;
-      pushLog('info', 'GOT_TOKEN', { token: fcmToken?.substring(0, 20), length: fcmToken?.length });
+      // Permission granted → register to get the APNs/FCM token
+      await PushNotifications.register();
+      pushLog('info', 'PN_REGISTER_CALLED');
 
-      if (fcmToken && fcmToken.length > 20) {
-        setToken(fcmToken);
-        tokenRef.current = fcmToken;
-        regStateRef.current = 'registered';
-        await saveTokenToDb(fcmToken);
-      } else {
-        pushLog('error', 'INVALID_TOKEN', { token: fcmToken });
-        regStateRef.current = 'failed';
-      }
+      // The 'registration' listener (set up in the main effect) will handle token capture
+      // Set a timeout to mark as failed if no token received
+      setTimeout(() => {
+        if (regStateRef.current === 'registering') {
+          pushLog('warn', 'REGISTER_TIMEOUT', { state: regStateRef.current });
+          regStateRef.current = 'idle';
+        }
+      }, 10000);
     } catch (e) {
       pushLog('error', 'REGISTER_EXCEPTION', { error: String(e) });
       regStateRef.current = 'failed';
     }
-  }, [saveTokenToDb]);
+  }, []);
 
-  // ── Request full permission (called from banner / settings) ──
+  // ── Request full permission (called from banner / settings — user tap only!) ──
   const requestFullPermission = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
 
     pushLog('info', 'REQUEST_FULL_PERMISSION');
 
-    const FM = await getFirebaseMessaging();
-    if (!FM) {
-      pushLog('error', 'PLUGIN_NOT_AVAILABLE_FOR_PERMISSION');
-      return;
-    }
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const result = await PushNotifications.requestPermissions();
+      const perm = result.receive as 'granted' | 'denied' | 'prompt';
+      setPermissionStatus(perm);
+      pushLog('info', 'PERMISSION_RESULT', { status: perm });
 
-    const result = await FM.requestPermissions();
-    const perm = result.receive as 'granted' | 'denied' | 'prompt';
-    setPermissionStatus(perm);
-    pushLog('info', 'PERMISSION_RESULT', { status: perm });
-
-    if (perm === 'granted') {
-      regStateRef.current = 'idle'; // Allow re-registration
-      await registerPush();
+      if (perm === 'granted') {
+        regStateRef.current = 'idle'; // Allow re-registration
+        await registerPush();
+      }
+    } catch (e) {
+      pushLog('error', 'REQUEST_PERMISSION_ERROR', { error: String(e) });
     }
   }, [registerPush]);
 
@@ -219,28 +202,90 @@ export function usePushNotificationsInternal() {
     let cleanupListeners: (() => void)[] = [];
 
     const setup = async () => {
-      const FM = await getFirebaseMessaging();
-      if (!FM || instanceId !== activeInstanceId) return;
+      let PushNotifications: any;
+      try {
+        const pnMod = await import('@capacitor/push-notifications');
+        PushNotifications = pnMod.PushNotifications;
+      } catch (e) {
+        pushLog('error', 'PUSH_NOTIFICATIONS_PLUGIN_LOAD_FAILED', { error: String(e) });
+        return;
+      }
 
-      // Listen for token refreshes
-      const tokenListener = await FM.addListener('tokenReceived', async (event) => {
+      if (instanceId !== activeInstanceId) return;
+
+      const platform = Capacitor.getPlatform();
+
+      // Listen for registration success — gives raw APNs token on iOS, FCM token on Android
+      const regListener = await PushNotifications.addListener('registration', async (regToken: { value: string }) => {
         if (instanceId !== activeInstanceId) return;
-        const newToken = event.token;
-        pushLog('info', 'TOKEN_REFRESHED', { token: newToken?.substring(0, 20) });
 
-        if (newToken && newToken.length > 20) {
-          setToken(newToken);
-          tokenRef.current = newToken;
-          regStateRef.current = 'registered';
-          await saveTokenToDb(newToken);
+        const rawToken = regToken.value;
+        pushLog('info', 'REGISTRATION_EVENT', {
+          platform,
+          tokenPrefix: rawToken?.substring(0, 20),
+          tokenLength: rawToken?.length,
+        });
+
+        if (platform === 'ios') {
+          // On iOS: registration event gives raw APNs token (64-char hex)
+          // We need to also get the FCM token via @capacitor-community/fcm
+          const apnsToken = rawToken;
+          pushLog('info', 'IOS_APNS_TOKEN', { apnsToken: apnsToken?.substring(0, 16) });
+
+          try {
+            const { FCM } = await import('@capacitor-community/fcm');
+            const fcmResult = await FCM.getToken();
+            const fcmToken = fcmResult.token;
+            pushLog('info', 'IOS_FCM_TOKEN', { fcmToken: fcmToken?.substring(0, 20), length: fcmToken?.length });
+
+            if (fcmToken && fcmToken.length > 20) {
+              setToken(fcmToken);
+              tokenRef.current = fcmToken;
+              regStateRef.current = 'registered';
+              await saveTokenToDb(fcmToken, apnsToken);
+            } else {
+              pushLog('error', 'IOS_FCM_TOKEN_INVALID', { fcmToken });
+              regStateRef.current = 'failed';
+            }
+          } catch (e) {
+            pushLog('error', 'IOS_FCM_GET_TOKEN_ERROR', { error: String(e) });
+            // Still save with just the APNs token if FCM fails
+            if (apnsToken && apnsToken.length > 20) {
+              setToken(apnsToken);
+              tokenRef.current = apnsToken;
+              regStateRef.current = 'registered';
+              await saveTokenToDb(apnsToken, apnsToken);
+            } else {
+              regStateRef.current = 'failed';
+            }
+          }
+        } else {
+          // On Android: registration event gives FCM token directly
+          const fcmToken = rawToken;
+          if (fcmToken && fcmToken.length > 20) {
+            setToken(fcmToken);
+            tokenRef.current = fcmToken;
+            regStateRef.current = 'registered';
+            await saveTokenToDb(fcmToken);
+          } else {
+            pushLog('error', 'ANDROID_TOKEN_INVALID', { token: fcmToken });
+            regStateRef.current = 'failed';
+          }
         }
       });
-      cleanupListeners.push(() => tokenListener.remove());
+      cleanupListeners.push(() => regListener.remove());
+
+      // Listen for registration errors
+      const errListener = await PushNotifications.addListener('registrationError', (error: any) => {
+        if (instanceId !== activeInstanceId) return;
+        pushLog('error', 'REGISTRATION_ERROR', { error: JSON.stringify(error) });
+        regStateRef.current = 'failed';
+      });
+      cleanupListeners.push(() => errListener.remove());
 
       // Listen for foreground notifications
-      const fgListener = await FM.addListener('notificationReceived', (event) => {
+      const fgListener = await PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
         if (instanceId !== activeInstanceId) return;
-        const notification = event.notification;
         pushLog('info', 'FOREGROUND_NOTIFICATION', {
           title: notification?.title,
           body: notification?.body,
@@ -253,7 +298,7 @@ export function usePushNotificationsInternal() {
       cleanupListeners.push(() => fgListener.remove());
 
       // Listen for notification taps
-      const tapListener = await FM.addListener('notificationActionPerformed', (event) => {
+      const tapListener = await PushNotifications.addListener('pushNotificationActionPerformed', (event: any) => {
         if (instanceId !== activeInstanceId) return;
         const data = event.notification?.data as Record<string, string> | undefined;
         pushLog('info', 'NOTIFICATION_TAP', { data });
