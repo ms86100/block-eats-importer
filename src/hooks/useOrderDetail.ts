@@ -6,6 +6,7 @@ import { useUrgentOrderSound } from '@/hooks/useUrgentOrderSound';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCategoryStatusFlow, getNextStatusForActor, getTimelineSteps } from '@/hooks/useCategoryStatusFlow';
 import { logAudit } from '@/lib/audit';
+import { sendOrderStatusNotification } from '@/lib/notifications';
 import { Order, OrderStatus } from '@/types/database';
 import { toast } from 'sonner';
 
