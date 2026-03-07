@@ -305,23 +305,65 @@ export function useAuthPage() {
           setAuthMode('login'); setSignupStep('credentials'); return;
         }
 
-        // Step 2: Fire-and-forget society validation — never block signup
         const userId = data.user.id;
+
+        // Step 2: Create profile + buyer role explicitly
+        // (DB trigger on auth.users is not available on Lovable Cloud)
+        let finalSocietyId = initialSocietyId;
+
         if (isPendingSociety) {
-          supabase.functions.invoke('validate-society', {
-            body: { new_society: pendingNewSociety },
-          }).then(({ data: validateData }) => {
+          try {
+            const { data: validateData } = await supabase.functions.invoke('validate-society', {
+              body: { new_society: pendingNewSociety },
+            });
             if (validateData?.society?.id) {
-              supabase.from('profiles').update({ society_id: validateData.society.id }).eq('id', userId);
+              finalSocietyId = validateData.society.id;
             }
-          }).catch(err => console.warn('Society creation failed, user can update later:', err));
+          } catch (err) {
+            console.warn('Society creation failed, user can update later:', err);
+          }
         } else {
           supabase.functions.invoke('validate-society', {
             body: { society_id: selectedSociety.id },
           }).catch(err => console.warn('Society validation failed:', err));
         }
 
-        // Profile + role are created by the DB trigger — navigate to home
+        // Insert profile
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: userId,
+          email,
+          name: profileData.name,
+          phone: `${settings.defaultCountryCode}${profileData.phone}`,
+          flat_number: profileData.flat_number,
+          block: profileData.block,
+          phase: profileData.phase || null,
+          society_id: finalSocietyId,
+          verification_status: 'pending',
+        }, { onConflict: 'id' });
+
+        if (profileError) {
+          console.error('[Signup] Profile insert failed:', profileError);
+          if (profileError.message?.includes('idx_profiles_email_unique')) {
+            toast.error('This email is already registered. Please login instead.', { duration: 8000 });
+            await supabase.auth.signOut();
+            setAuthMode('login'); setSignupStep('credentials'); return;
+          }
+          if (profileError.message?.includes('idx_profiles_phone_unique')) {
+            toast.error('This phone number is already registered with another account.', { duration: 8000 });
+            await supabase.auth.signOut();
+            return;
+          }
+          toast.error('Failed to set up your profile. Please try again.', { duration: 8000 });
+          await supabase.auth.signOut();
+          return;
+        }
+
+        // Insert buyer role
+        await supabase.from('user_roles').upsert({
+          user_id: userId,
+          role: 'buyer',
+        }, { onConflict: 'user_id,role' });
+
         toast.success('Account created successfully! Welcome!');
         navigate('/');
       }
