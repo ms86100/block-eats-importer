@@ -101,7 +101,9 @@ export function useBuyerOrderAlerts() {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[BuyerAlert] Realtime channel status:', status, err || '');
+      });
 
     return () => {
       supabase.removeChannel(channel);

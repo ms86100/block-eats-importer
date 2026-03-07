@@ -95,10 +95,16 @@ export function useNewOrderAlert(sellerId: string | null) {
     intervalRef.current = setInterval(() => {
       hapticVibrate(500);
       try {
-        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-          createAlarmSound(audioCtxRef.current);
+        if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
-      } catch {}
+        if (audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume();
+        }
+        createAlarmSound(audioCtxRef.current);
+      } catch (e) {
+        console.warn('[OrderAlert] Buzzer interval sound failed:', e);
+      }
     }, 3000);
   }, []);
 
@@ -148,7 +154,12 @@ export function useNewOrderAlert(sellerId: string | null) {
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[OrderAlert] Realtime channel status:', status, err || '');
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[OrderAlert] Realtime channel error, will retry:', err);
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [sellerId, handleNewOrder]);
@@ -219,8 +230,8 @@ export function useNewOrderAlert(sellerId: string | null) {
         } else {
           pollDelayRef.current = Math.min(pollDelayRef.current * BACKOFF_FACTOR, MAX_POLL_MS);
         }
-      } catch {
-        // Silently ignore poll errors
+      } catch (e) {
+        console.warn('[OrderAlert] Poll error:', e);
       }
 
       if (!cancelled) {

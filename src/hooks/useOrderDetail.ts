@@ -6,7 +6,6 @@ import { useUrgentOrderSound } from '@/hooks/useUrgentOrderSound';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCategoryStatusFlow, getNextStatusForActor, getTimelineSteps } from '@/hooks/useCategoryStatusFlow';
 import { logAudit } from '@/lib/audit';
-import { sendOrderStatusNotification } from '@/lib/notifications';
 import { Order, OrderStatus } from '@/types/database';
 import { toast } from 'sonner';
 
@@ -167,19 +166,6 @@ export function useOrderDetail(id: string | undefined) {
       setOrder({ ...order, ...updateData });
       toast.success(`Order ${getOrderStatus(newStatus).label.toLowerCase()}`);
       supabase.functions.invoke('process-notification-queue').catch(() => {});
-
-      // Send dynamic push notification to buyer/seller
-      const sellerObj = (order as any)?.seller;
-      const buyerObj = (order as any)?.buyer;
-      sendOrderStatusNotification(
-        order.id,
-        newStatus,
-        order.buyer_id,
-        order.seller_id,
-        sellerObj?.user_id || '',
-        sellerObj?.business_name || 'Seller',
-        buyerObj?.name || 'Customer'
-      ).catch(err => console.warn('Push notification failed:', err));
 
       if (order.society_id) {
         logAudit(`order_${newStatus}`, 'order', order.id, order.society_id, { old_status: order.status, new_status: newStatus, rejection_reason: rejectionReason });
