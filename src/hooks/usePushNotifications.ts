@@ -212,6 +212,11 @@ export function usePushNotificationsInternal() {
     const instanceId = ++activeInstanceId;
     pushLog('info', 'EFFECT_INIT', { instanceId, userId: user?.id ?? null });
 
+    listenersReadyRef.current = false;
+    listenersReadyPromiseRef.current = new Promise<void>((resolve) => {
+      listenersResolveRef.current = resolve;
+    });
+
     let cleanupListeners: (() => void)[] = [];
 
     const setup = async () => {
