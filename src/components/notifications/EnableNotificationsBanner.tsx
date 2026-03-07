@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, X, ExternalLink } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -29,7 +28,8 @@ export function EnableNotificationsBanner() {
 
     (async () => {
       try {
-        const result = await PushNotifications.checkPermissions();
+        const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+        const result = await FirebaseMessaging.checkPermissions();
         if (result.receive === 'granted') {
           sessionStorage.setItem(GRANTED_KEY, '1');
           setGrantedLocally(true);
@@ -92,7 +92,8 @@ export function EnableNotificationsBanner() {
   const handleTurnOn = async () => {
     setLoading(true);
     try {
-      const permResult = await PushNotifications.requestPermissions();
+      const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+      const permResult = await FirebaseMessaging.requestPermissions();
 
       if (permResult.receive !== 'granted') {
         sessionStorage.removeItem(GRANTED_KEY);
@@ -100,31 +101,15 @@ export function EnableNotificationsBanner() {
         return;
       }
 
-      // Immediately hide banner on all pages in this session
+      // Immediately hide banner
       sessionStorage.setItem(GRANTED_KEY, '1');
       setGrantedLocally(true);
 
-      // CRITICAL FIX: Call register() immediately after permission grant
-      // so the 'registration' event listener (which captures APNs token
-      // and converts to FCM token) fires as early as possible.
-      // This gives the listener maximum time to capture tokens before
-      // requestFullPermission's reconciliation runs.
-      try {
-        console.log('[Push][Banner] Permission granted — calling PN.register() immediately');
-        await PushNotifications.register();
-        console.log('[Push][Banner] PN.register() returned');
-      } catch (regErr) {
-        console.warn('[Push][Banner] Early register() failed (non-fatal):', regErr);
-      }
-
-      // requestFullPermission handles reconciliation + DB persistence.
-      // Await it (banner is already hidden) so errors aren't swallowed.
+      // Let the provider handle full registration
       try {
         await requestFullPermission();
-        console.log('[Push][Banner] requestFullPermission completed successfully');
       } catch (e) {
         console.error('[Push][Banner] requestFullPermission failed:', e);
-        // Not user-facing — registration listener may still succeed independently
       }
     } catch {
       sessionStorage.removeItem(GRANTED_KEY);

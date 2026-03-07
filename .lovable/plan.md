@@ -1,92 +1,50 @@
 
 
-## Research Findings: Why Push Notifications Fail on iOS
+## Notification Health Check — User-Friendly UI
 
-### What the community and official docs say (2026)
+### What We'll Build
 
-The **definitive recommendation** from the Capacitor ecosystem (dev.to, npm, GitHub issues) is:
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-> **`@capacitor-firebase/messaging`** is the production-ready solution for iOS FCM tokens. It handles native APNs-to-FCM swizzling internally and returns a **unified FCM token** on both platforms. The older combo of `@capacitor/push-notifications` + `@capacitor-community/fcm` is known to cause token conversion failures on iOS.
+### UI Design
 
-Key references:
-- [GitHub Issue #2178](https://github.com/ionic-team/capacitor-plugins/issues/2178): `@capacitor/push-notifications` returns raw APNs tokens on iOS that are **invalid FCM tokens** (400 INVALID_ARGUMENT)
-- [GitHub Issue #738](https://github.com/capawesome-team/capacitor-firebase/issues/738): `FCM.getToken()` hangs on iOS when Firebase is not initialized via `AppDelegate`
-- [Dev.to Complete Guide](https://dev.to/saltorgil/the-complete-guide-to-capacitor-push-notifications-ios-android-firebase-bh4): Explicitly recommends migrating away from `@capacitor-community/fcm`
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-### What the device logs prove
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-The `push_logs` table shows a consistent failure pattern on iOS:
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-1. `RECONCILE_GET_FCM_PLUGIN_CALLING` fires — but `RECONCILE_GET_FCM_PLUGIN_RESULT` **never appears**
-2. The `import('@capacitor-community/fcm')` dynamic import **hangs indefinitely** on the native bridge
-3. After 5s timeout, the reconcile fails → `attemptRegistration` fires
-4. `attemptRegistration` also hangs at `getPushNotificationsPlugin()` — **no `AR_PLUGIN_LOADED` log ever appears**
-5. Result: `regState` stays stuck at `registering`, `hasToken: false` forever
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-**Root cause**: Sequential dynamic imports of Capacitor native plugins cause a **bridge deadlock** on iOS. The `@capacitor-community/fcm` plugin's `getToken()` call never resolves because Firebase SDK initialization is incomplete or swizzling conflicts with `@capacitor/push-notifications`.
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-### The Fix: Migrate to `@capacitor-firebase/messaging`
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-Replace the dual-plugin approach with the single unified plugin that the community recommends.
+### Implementation
 
-#### Step 1 — Swap the dependency
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
 
-Remove: `@capacitor/push-notifications`, `@capacitor-community/fcm`
-Add: `@capacitor-firebase/messaging` (^8.x for Capacitor 8)
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
 
-#### Step 2 — Rewrite `usePushNotifications.ts`
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
 
-The 1,395-line hook with retry loops, timeouts, bridge deadlock workarounds, and dual-plugin coordination gets replaced with a ~200-line hook:
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
 
-```text
-Flow (both platforms):
-  FirebaseMessaging.requestPermissions()
-  → FirebaseMessaging.getToken()     // returns FCM token on BOTH iOS and Android
-  → save to device_tokens via claim_device_token RPC
-  → listen for 'tokenReceived' event for refreshes
-  → listen for 'notificationReceived' for foreground
-  → listen for 'notificationActionPerformed' for taps
-```
-
-No APNs-to-FCM conversion needed. No bridge deadlock. No retry loops for token retrieval.
-
-#### Step 3 — Update the banner and debug page
-
-- `EnableNotificationsBanner.tsx`: Replace `PushNotifications.requestPermissions()` with `FirebaseMessaging.requestPermissions()`
-- `PushDebugPage.tsx`: Update token extraction to use `FirebaseMessaging.getToken()`
-
-#### Step 4 — Update `capacitor.config.ts`
-
-Replace the `PushNotifications` plugin config with `FirebaseMessaging`:
-
-```typescript
-plugins: {
-  FirebaseMessaging: {
-    presentationOptions: ['badge', 'sound', 'alert'],
-  },
-}
-```
-
-#### Step 5 — Native side (user action required after deploy)
-
-After pulling the code changes, the user must:
-1. `npm install` (picks up new dependency)
-2. `npx cap sync ios` (installs the Firebase Messaging pod)
-3. Ensure `GoogleService-Info.plist` is in the Xcode project
-4. Ensure `AppDelegate.swift` calls `FirebaseApp.configure()` and has push capability + background modes enabled
-5. Build and deploy to device
-
-### What stays the same
-
-- `claim_device_token` RPC — no changes needed
-- `device_tokens` table schema — compatible
-- `process-notification-queue` edge function — already fixed in previous migration
-- `push_logs` table and RLS — already fixed
-- APNs direct delivery path — still works (apns_token captured separately)
-
-### Risk mitigation
-
-- Android continues to work identically (the new plugin returns FCM tokens on Android too)
-- The `@capacitor-firebase/messaging` plugin is actively maintained (v8.0.1, published 2 months ago)
-- Fallback: keep the debug page's "Save FCM Token Manually" button for emergency manual token injection
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 

@@ -56,7 +56,7 @@ const config: CapacitorConfig = {
       style: 'light',
       backgroundColor: '#F97316',
     },
-    PushNotifications: {
+    FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     Keyboard: {

@@ -7,7 +7,7 @@ import { PUSH_BUILD_ID } from '@/hooks/usePushNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, CheckCircle2, XCircle, Trash2, Bell, Save, Settings, Zap } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle2, XCircle, Trash2, Bell, Save, Settings } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { flushPushLogs } from '@/lib/pushLogger';
@@ -30,10 +30,6 @@ export default function PushDebugPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingToken, setSavingToken] = useState(false);
-  const [apnsToken, setApnsToken] = useState<string | null>(null);
-  const [apnsResult, setApnsResult] = useState<Record<string, unknown> | null>(null);
-  const [apnsTesting, setApnsTesting] = useState(false);
-  const [useSandbox, setUseSandbox] = useState(false);
 
   const handleRequestPermission = async () => {
     try {
@@ -48,17 +44,13 @@ export default function PushDebugPage() {
     const platform = Capacitor.getPlatform();
     try {
       if (platform === 'ios') {
-        // 'app-settings:' is Apple's documented URL scheme to open the app's own Settings page.
-        // We use the Capacitor bridge to ensure it opens outside the WebView.
         const { Browser } = await import('@capacitor/browser');
         await Browser.open({ url: 'app-settings:' });
         return;
       }
-      // Android: native-settings plugin (needs cap sync)
       const { NativeSettings, AndroidSettings, IOSSettings } = await import('capacitor-native-settings');
       await NativeSettings.open({ optionIOS: IOSSettings.App, optionAndroid: AndroidSettings.AppNotification });
-    } catch (e) {
-      // Fallback: instruct user manually
+    } catch {
       toast.error('Go to Settings → Sociva → Notifications to enable.');
     }
   };
@@ -72,73 +64,13 @@ export default function PushDebugPage() {
     }
   };
 
-  const handleExtractApnsToken = async () => {
-    try {
-      const platform = Capacitor.getPlatform();
-      if (platform !== 'ios') {
-        toast.error('APNs tokens are iOS-only');
-        return;
-      }
-      const { PushNotifications } = await import('@capacitor/push-notifications');
-      // The registration event on iOS returns the raw APNs token (64-char hex)
-      await PushNotifications.addListener('registration', (regToken) => {
-        const raw = regToken.value;
-        setApnsToken(raw);
-        toast.success(`APNs token captured: ${raw.substring(0, 16)}…`);
-      });
-      await PushNotifications.register();
-    } catch (e) {
-      toast.error('Failed to extract APNs token: ' + String(e));
-    }
-  };
-
-  const handleDirectApnsTest = async () => {
-    if (!apnsToken) {
-      toast.error('Extract the APNs token first');
-      return;
-    }
-    setApnsTesting(true);
-    setApnsResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('test-apns-direct', {
-        body: {
-          apns_token: apnsToken,
-          title: 'Direct APNs Test',
-          body: 'Bypassing Firebase — testing APNs directly 🚀',
-          use_sandbox: useSandbox,
-        },
-      });
-      if (error) throw error;
-      setApnsResult(data);
-      toast.success(`APNs response: ${data?.status}`);
-    } catch (e) {
-      toast.error('APNs test failed: ' + String(e));
-      setApnsResult({ error: String(e) });
-    } finally {
-      setApnsTesting(false);
-    }
-  };
-
   const handleSaveTokenManually = async () => {
     if (!user) return toast.error('Not logged in');
     setSavingToken(true);
     try {
-      // Try to get FCM token directly
-      let fcmToken: string | null = null;
-      const platform = Capacitor.getPlatform();
-      
-      if (platform === 'ios') {
-        const { FCM } = await import('@capacitor-community/fcm');
-        const result = await FCM.getToken();
-        fcmToken = result.token;
-      } else if (platform === 'android') {
-        const { PushNotifications } = await import('@capacitor/push-notifications');
-        // On Android, register triggers the token event — but let's try to get existing
-        await PushNotifications.register();
-        toast.info('Android register triggered — token will be saved by the hook');
-        setSavingToken(false);
-        return;
-      }
+      const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+      const result = await FirebaseMessaging.getToken();
+      const fcmToken = result.token;
 
       if (!fcmToken) {
         toast.error('Could not retrieve FCM token');
@@ -146,6 +78,7 @@ export default function PushDebugPage() {
         return;
       }
 
+      const platform = Capacitor.getPlatform();
       await supabase
         .from('device_tokens')
         .delete()
@@ -181,7 +114,6 @@ export default function PushDebugPage() {
   const handleLoadLogs = async () => {
     if (!user) return;
     setLoadingLogs(true);
-    // Flush any buffered logs first
     await flushPushLogs();
     try {
       const { data, error } = await supabase
@@ -229,10 +161,6 @@ export default function PushDebugPage() {
         User: {user?.id?.substring(0, 8) ?? 'not logged in'}…
         <br />
         Hook token: {token ? `${token.substring(0, 20)}…` : 'null'} | Permission: {permissionStatus}
-        <br />
-        href: {window.location.href}
-        <br />
-        lastModified: {document.lastModified}
       </p>
 
       {/* Quick Actions */}
@@ -245,7 +173,7 @@ export default function PushDebugPage() {
             <Bell className="mr-2" size={16} /> Request Permission
           </Button>
           <Button onClick={handleOpenSettings} variant="outline" className="w-full">
-            <Settings className="mr-2" size={16} /> Open App Settings (enable notifications)
+            <Settings className="mr-2" size={16} /> Open App Settings
           </Button>
           <Button onClick={handleRegister} variant="outline" className="w-full">
             <RefreshCw className="mr-2" size={16} /> Trigger Registration
@@ -254,80 +182,6 @@ export default function PushDebugPage() {
             {savingToken ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
             Save FCM Token to DB Manually
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Direct APNs Test */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">🍎 Direct APNs Test (Bypass Firebase)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            This sends a push notification directly to Apple's APNs servers using your .p8 key — Firebase is completely bypassed.
-          </p>
-
-          <Button onClick={handleExtractApnsToken} variant="outline" className="w-full">
-            <Zap className="mr-2" size={16} /> Extract Raw APNs Token
-          </Button>
-
-          {apnsToken && (
-            <div className="bg-muted p-2 rounded text-xs font-mono break-all">
-              <strong>APNs Token:</strong> {apnsToken}
-            </div>
-          )}
-
-          {!apnsToken && (
-            <div className="text-xs text-muted-foreground">
-              <p>You can also paste a token manually:</p>
-              <input
-                type="text"
-                placeholder="64-char hex APNs device token"
-                className="w-full mt-1 p-2 border rounded text-xs font-mono bg-background"
-                onChange={(e) => setApnsToken(e.target.value || null)}
-              />
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <label className="text-xs flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={useSandbox}
-                onChange={(e) => setUseSandbox(e.target.checked)}
-              />
-              Use Sandbox (for Xcode debug builds)
-            </label>
-          </div>
-
-          <Button
-            onClick={handleDirectApnsTest}
-            disabled={apnsTesting || !apnsToken}
-            className="w-full"
-            variant="default"
-          >
-            {apnsTesting ? <Loader2 className="animate-spin mr-2" size={16} /> : <Zap className="mr-2" size={16} />}
-            Send Direct APNs Push
-          </Button>
-
-          {apnsResult && (
-            <div className="bg-muted p-3 rounded space-y-2">
-              <div className="flex items-center gap-2">
-                {(apnsResult as any).status === 200 ? (
-                  <CheckCircle2 size={16} className="text-emerald-500" />
-                ) : (
-                  <XCircle size={16} className="text-red-500" />
-                )}
-                <span className="font-bold text-sm">Status: {(apnsResult as any).status ?? 'error'}</span>
-              </div>
-              {(apnsResult as any).interpretation && (
-                <p className="text-xs">{(apnsResult as any).interpretation}</p>
-              )}
-              <pre className="text-[10px] text-muted-foreground overflow-x-auto">
-                {JSON.stringify(apnsResult, null, 2)}
-              </pre>
-            </div>
-          )}
         </CardContent>
       </Card>
 
