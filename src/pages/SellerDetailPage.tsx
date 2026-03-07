@@ -216,6 +216,15 @@ export default function SellerDetailPage() {
   const profile = (seller as any).profile;
   const operatingDays = seller.operating_days || DAYS_OF_WEEK;
 
+  const storeAvailability = computeStoreStatus(
+    seller.availability_start,
+    seller.availability_end,
+    seller.operating_days,
+    seller.is_available
+  );
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMsg = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
+
   return (
     <AppLayout showHeader={false} showNav={true} showCart={true}>
       {/* Cover Image */}
