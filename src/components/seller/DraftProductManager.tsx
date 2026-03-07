@@ -330,7 +330,7 @@ export function DraftProductManager({
                     const catConfig = configs.find(cfg => cfg.category === c);
                     return (
                       <option key={c} value={c}>
-                        {catConfig ? `${catConfig.icon} ${catConfig.displayName}` : c.replace(/_/g, ' ')}
+                        {catConfig ? catConfig.displayName : c.replace(/_/g, ' ')}
                       </option>
                     );
                   })}

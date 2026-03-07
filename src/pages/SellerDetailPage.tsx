@@ -433,7 +433,7 @@ export default function SellerDetailPage() {
                     key={cat}
                     className="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium"
                   >
-                    {categoryInfo?.icon} {categoryInfo?.displayName || cat}
+                    {categoryInfo?.displayName || cat}
                   </span>
                 );
               })}
