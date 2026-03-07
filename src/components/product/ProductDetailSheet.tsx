@@ -210,7 +210,12 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
 
           {/* Sticky CTA */}
           <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-4">
-            {d.isCartAction ? (
+            {isStoreClosed ? (
+              <div className="w-full h-12 flex items-center justify-center bg-muted rounded-xl">
+                <Clock size={16} className="text-muted-foreground mr-2" />
+                <span className="text-sm font-medium text-muted-foreground">{storeClosedMsg}</span>
+              </div>
+            ) : d.isCartAction ? (
               d.quantity === 0 ? (
                 <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => { hapticImpact('medium'); d.handleAdd(); }}>Add to cart · {d.formatPrice(product.price)}</Button>
               ) : (
