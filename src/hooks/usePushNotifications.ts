@@ -40,6 +40,9 @@ export function usePushNotificationsInternal() {
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const regStateRef = useRef<RegistrationState>('idle');
+  const listenersReadyRef = useRef(false);
+  const listenersReadyPromiseRef = useRef<Promise<void> | null>(null);
+  const listenersResolveRef = useRef<(() => void) | null>(null);
 
   // ── Set log user ──
   useEffect(() => {
