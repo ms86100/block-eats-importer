@@ -44,6 +44,23 @@ export function useBuyerOrderAlerts() {
   const identity = useContext(IdentityContext);
   const user = identity?.user ?? null;
   const queryClient = useQueryClient();
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playBuzzer = useCallback(() => {
+    hapticNotification('success');
+    hapticVibrate(400);
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      createBuyerAlertSound(audioCtxRef.current);
+    } catch (e) {
+      console.warn('[BuyerAlert] Sound failed:', e);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -62,13 +79,12 @@ export function useBuyerOrderAlerts() {
           const newStatus = (payload.new as any)?.status;
           const oldStatus = (payload.old as any)?.status;
 
-          // C4: If old status is undefined (REPLICA IDENTITY not FULL), skip to avoid spam toasts
           if (!newStatus || oldStatus === undefined || newStatus === oldStatus) return;
 
           const msg = STATUS_MESSAGES[newStatus];
           if (!msg) return;
 
-          hapticNotification(msg.haptic);
+          playBuzzer();
 
           toast(msg.title, {
             description: msg.description,
@@ -90,5 +106,15 @@ export function useBuyerOrderAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [user?.id, queryClient, playBuzzer]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          audioCtxRef.current.close();
+        }
+      } catch {}
+    };
+  }, []);
 }
