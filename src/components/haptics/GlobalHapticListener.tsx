@@ -19,6 +19,7 @@ export function GlobalHapticListener() {
     const handleClick = (e: Event) => {
       const target = e.target as HTMLElement;
       if (!target) return;
+      if (target.closest('[data-haptic-none]')) return;
       if (target.closest(INTERACTIVE)) {
         hapticSelection();
       }

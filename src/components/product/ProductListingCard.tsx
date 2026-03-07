@@ -145,14 +145,14 @@ function ProductListingCardInner({
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    selectionChanged();
+    impact('medium');
     updateQuantity(product.id, quantity + 1);
   };
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    selectionChanged();
+    impact('medium');
     updateQuantity(product.id, quantity - 1);
   };
 
