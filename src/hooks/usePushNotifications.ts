@@ -10,7 +10,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
 /**
  * BUILD FINGERPRINT — if the device logs this, the bundle is current.
  */
-export const PUSH_BUILD_ID = '2026-03-07-FIREBASE-MESSAGING';
+export const PUSH_BUILD_ID = '2026-03-07-FIREBASE-MESSAGING-V2';
 
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'failed';
 
@@ -112,13 +112,22 @@ export function usePushNotificationsInternal() {
       }
 
       // Check current permission
-      const permResult = await FM.checkPermissions();
-      const perm = permResult.receive as 'granted' | 'denied' | 'prompt';
+      let perm: 'granted' | 'denied' | 'prompt' = 'prompt';
+      try {
+        const permResult = await FM.checkPermissions();
+        perm = permResult.receive as 'granted' | 'denied' | 'prompt';
+      } catch (e) {
+        pushLog('warn', 'CHECK_PERMISSIONS_ERROR', { error: String(e) });
+        // Don't update permissionStatus on error — keep as 'prompt'
+        regStateRef.current = 'idle';
+        return;
+      }
+
       setPermissionStatus(perm);
       pushLog('info', 'PERMISSION_CHECK', { status: perm });
 
       if (perm !== 'granted') {
-        pushLog('info', 'PERMISSION_NOT_GRANTED_SKIP_TOKEN');
+        pushLog('info', 'PERMISSION_NOT_GRANTED_SKIP_TOKEN', { status: perm });
         regStateRef.current = 'idle';
         return;
       }

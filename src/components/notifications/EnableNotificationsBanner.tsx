@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 
 const DISMISSED_KEY = 'notif_banner_dismissed';
 const GRANTED_KEY = 'notif_permission_granted';
+// Tracks if user has explicitly denied after we prompted them
+const DENIED_CONFIRMED_KEY = 'notif_permission_denied_confirmed';
 
 export function EnableNotificationsBanner() {
   const { token, permissionStatus, requestFullPermission } = usePushNotifications();
@@ -14,38 +16,51 @@ export function EnableNotificationsBanner() {
     () => sessionStorage.getItem(DISMISSED_KEY) === '1'
   );
   const [loading, setLoading] = useState(false);
-  const [failedSilently, setFailedSilently] = useState(false);
-  const [grantedLocally, setGrantedLocally] = useState(() => sessionStorage.getItem(GRANTED_KEY) === '1');
+  const [grantedLocally, setGrantedLocally] = useState(
+    () => sessionStorage.getItem(GRANTED_KEY) === '1'
+  );
+  // Only show "Blocked" if user has explicitly denied in this session or a prior one
+  const [confirmedDenied, setConfirmedDenied] = useState(
+    () => localStorage.getItem(DENIED_CONFIRMED_KEY) === '1'
+  );
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     if (permissionStatus === 'granted' || !!token) {
       sessionStorage.setItem(GRANTED_KEY, '1');
+      localStorage.removeItem(DENIED_CONFIRMED_KEY);
       setGrantedLocally(true);
+      setConfirmedDenied(false);
       return;
     }
 
+    // Double-check via plugin if status is ambiguous
     (async () => {
       try {
         const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
         const result = await FirebaseMessaging.checkPermissions();
         if (result.receive === 'granted') {
           sessionStorage.setItem(GRANTED_KEY, '1');
+          localStorage.removeItem(DENIED_CONFIRMED_KEY);
           setGrantedLocally(true);
+          setConfirmedDenied(false);
         }
       } catch {
-        // no-op
+        // Plugin unavailable — don't show blocked banner
       }
     })();
   }, [permissionStatus, token]);
 
+  // Not native → no banner
   if (!Capacitor.isNativePlatform()) return null;
+  // Already granted → no banner
   if (permissionStatus === 'granted' || !!token || grantedLocally) return null;
-  if (dismissed && permissionStatus === 'prompt' && !failedSilently) return null;
+  // Dismissed and not confirmed-denied → no banner
+  if (dismissed && !confirmedDenied) return null;
 
-  // If denied, show "Open Settings" variant
-  if (permissionStatus === 'denied' || failedSilently) {
+  // ── "Notifications Blocked" variant — only when user explicitly denied ──
+  if (confirmedDenied) {
     const openSettings = async () => {
       try {
         const platform = Capacitor.getPlatform();
@@ -89,31 +104,34 @@ export function EnableNotificationsBanner() {
     );
   }
 
+  // ── "Turn On" prompt variant ──
   const handleTurnOn = async () => {
     setLoading(true);
     try {
       const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
       const permResult = await FirebaseMessaging.requestPermissions();
 
-      if (permResult.receive !== 'granted') {
-        sessionStorage.removeItem(GRANTED_KEY);
-        setFailedSilently(true);
-        return;
-      }
+      if (permResult.receive === 'granted') {
+        sessionStorage.setItem(GRANTED_KEY, '1');
+        localStorage.removeItem(DENIED_CONFIRMED_KEY);
+        setGrantedLocally(true);
+        setConfirmedDenied(false);
 
-      // Immediately hide banner
-      sessionStorage.setItem(GRANTED_KEY, '1');
-      setGrantedLocally(true);
-
-      // Let the provider handle full registration
-      try {
-        await requestFullPermission();
-      } catch (e) {
-        console.error('[Push][Banner] requestFullPermission failed:', e);
+        // Let the provider handle full registration
+        try {
+          await requestFullPermission();
+        } catch (e) {
+          console.error('[Push][Banner] requestFullPermission failed:', e);
+        }
+      } else {
+        // User explicitly denied — NOW we can show "Blocked"
+        localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
+        setConfirmedDenied(true);
       }
     } catch {
-      sessionStorage.removeItem(GRANTED_KEY);
-      setFailedSilently(true);
+      // Plugin error — don't mark as denied, just dismiss
+      sessionStorage.setItem(DISMISSED_KEY, '1');
+      setDismissed(true);
     } finally {
       setLoading(false);
     }
