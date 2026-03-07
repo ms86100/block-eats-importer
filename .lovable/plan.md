@@ -1,25 +1,50 @@
 
 
-## Problem
+## Notification Health Check — User-Friendly UI
 
-The `ParentGroupTabs` component renders `{tab.icon}` as plain text, displaying raw Lucide icon names like "UtensilsCrossed" and "ChefHat" instead of actual icons. The same issue exists in `CategoryImageGrid` where `cat.icon` (also a Lucide icon name) is used as a fallback emoji text.
+### What We'll Build
 
-The project already has a `DynamicIcon` component (`src/components/ui/DynamicIcon.tsx`) that resolves Lucide icon name strings to rendered components — it's used correctly in admin pages, `CategoryBrowseGrid`, and `CategoryGroupPage`, but was missed in these two home page components.
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-## Fix
+### UI Design
 
-### 1. `ParentGroupTabs.tsx` — Replace plain text icon with `DynamicIcon`
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-Line 54: Change `<span className="text-sm leading-none">{tab.icon}</span>` to use `<DynamicIcon name={tab.icon} size={14} />`.
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-### 2. `CategoryImageGrid.tsx` — Replace plain text fallback icon with `DynamicIcon`
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-Line 66 (inside `ImageCollage` fallback): Change `<span className="text-3xl">{fallbackIcon}</span>` to use `<DynamicIcon name={fallbackIcon} size={32} />`.
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-Line 304 (inside `ProductListings` category header): Change `<span className="text-base">{cat.icon}</span>` in `MarketplaceSection.tsx` to use `<DynamicIcon name={cat.icon} size={16} />`.
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-### Files Changed
-- `src/components/home/ParentGroupTabs.tsx` — import and use `DynamicIcon`
-- `src/components/home/CategoryImageGrid.tsx` — import and use `DynamicIcon` for fallback
-- `src/components/home/MarketplaceSection.tsx` — import and use `DynamicIcon` in category headers
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
+
+### Implementation
+
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
+
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
+
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
+
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 
