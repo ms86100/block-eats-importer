@@ -1,0 +1,1 @@
+UPDATE admin_settings SET value = 'support@sociva.in', updated_at = now() WHERE key = 'support_email' AND value = 'support@sociva.com';
