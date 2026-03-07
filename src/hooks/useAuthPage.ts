@@ -120,6 +120,17 @@ export function useAuthPage() {
     );
 
     if (match) {
+      // Backfill coordinates if the DB record is missing them
+      if ((!match.latitude || !match.longitude) && details.latitude && details.longitude) {
+        supabase.functions.invoke('validate-society', {
+          body: { society_id: match.id, latitude: details.latitude, longitude: details.longitude },
+        }).then(() => {
+          console.log('[Signup] Backfilled coordinates for society', match.id);
+        }).catch(err => console.warn('[Signup] Coordinate backfill failed:', err));
+        // Update local object so GPS verify works in this session
+        match.latitude = details.latitude;
+        match.longitude = details.longitude;
+      }
       setSelectedSociety(match);
       toast.info('Found matching society in our system!');
     } else {
@@ -250,17 +261,38 @@ export function useAuthPage() {
     }
   };
 
-  const handleRequestNewSociety = () => {
+  const handleRequestNewSociety = async () => {
     if (!newSocietyData.name || !newSocietyData.city || !newSocietyData.pincode || !newSocietyData.contact) {
       toast.error('Please fill in all required fields'); return;
     }
     const slug = newSocietyData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    // Geocode the address using Google Maps if available
+    let lat = 0;
+    let lng = 0;
+    if (mapsLoaded && (window as any).google?.maps) {
+      try {
+        const geocoder = new google.maps.Geocoder();
+        const addressStr = [newSocietyData.name, newSocietyData.address, newSocietyData.landmark, newSocietyData.city, newSocietyData.pincode].filter(Boolean).join(', ');
+        const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+          geocoder.geocode({ address: addressStr, region: 'in' }, (results, status) => {
+            if (status === 'OK' && results?.length) resolve(results);
+            else reject(new Error(status));
+          });
+        });
+        lat = result[0].geometry.location.lat();
+        lng = result[0].geometry.location.lng();
+      } catch (err) {
+        console.warn('[Signup] Geocoding failed for manual society, using 0,0:', err);
+      }
+    }
+
     const pending = {
       name: newSocietyData.name,
       slug: slug + '-' + Date.now(),
       address: [newSocietyData.address, newSocietyData.landmark].filter(Boolean).join(', ') || '',
       city: newSocietyData.city, state: '', pincode: newSocietyData.pincode,
-      latitude: 0, longitude: 0,
+      latitude: lat, longitude: lng,
     };
     setPendingNewSociety(pending);
     setSelectedSociety({ id: 'pending', name: newSocietyData.name, slug: pending.slug, is_active: false, is_verified: false, created_at: '', updated_at: '' } as Society);

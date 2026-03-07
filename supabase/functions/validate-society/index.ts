@@ -124,9 +124,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Backfill coordinates if provided and society currently has none
+    const { latitude, longitude } = body;
+    if (typeof latitude === "number" && typeof longitude === "number" &&
+        latitude !== 0 && longitude !== 0 &&
+        Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+      await adminClient
+        .from("societies")
+        .update({ latitude, longitude })
+        .eq("id", society_id)
+        .is("latitude", null);
+    }
+
     const { data: society, error: societyError } = await adminClient
       .from("societies")
-      .select("id, name, is_active, is_verified")
+      .select("id, name, is_active, is_verified, latitude, longitude")
       .eq("id", society_id)
       .single();
 
