@@ -129,7 +129,7 @@ async function sendApnsDirectNotification(
     const apnsPayload: Record<string, unknown> = {
       aps: {
         alert: { title, body },
-        sound: "default",
+        sound: "gate_bell.caf",
         badge: 1,
       },
       ...(data || {}),
@@ -256,7 +256,7 @@ async function sendFCMNotification(
       data: data || {},
       android: {
         priority: "high",
-        notification: { sound: "default" },
+        notification: { sound: "gate_bell.caf" },
       },
       apns: {
         headers: {
@@ -266,7 +266,7 @@ async function sendFCMNotification(
         payload: {
           aps: {
             alert: { title, body },
-            sound: "default",
+            sound: "gate_bell.caf",
             badge: 1,
           },
         },
