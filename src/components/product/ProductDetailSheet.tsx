@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { VegBadge } from '@/components/ui/veg-badge';
 import { Badge } from '@/components/ui/badge';
 import { ContactSellerModal } from './ContactSellerModal';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { ProductEnquirySheet } from './ProductEnquirySheet';
 import { ReportSheet } from '@/components/report/ReportSheet';
 import { ProductAttributeBlocks } from './ProductAttributeBlocks';
@@ -62,7 +63,7 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
             {product.image_url ? (
               <img src={product.image_url} alt={product.product_name} className="w-full h-full object-contain" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center"><span className="text-6xl">{categoryIcon || '🛍️'}</span></div>
+              <div className="w-full h-full flex items-center justify-center"><DynamicIcon name={categoryIcon || '🛍️'} size={72} /></div>
             )}
             {/* Pagination dots removed — single image only (#5) */}
           </div>
@@ -81,7 +82,7 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
               {product.is_veg !== null && <VegBadge isVeg={product.is_veg} size="sm" className="mt-1" />}
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-lg leading-tight text-foreground">{product.product_name}</h2>
-                {categoryName && <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">{categoryIcon && <span>{categoryIcon}</span>}{categoryName}</span>}
+                {categoryName && <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">{categoryIcon && <DynamicIcon name={categoryIcon} size={14} />}{categoryName}</span>}
               </div>
             </div>
 
