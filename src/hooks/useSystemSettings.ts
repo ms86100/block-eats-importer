@@ -38,7 +38,7 @@ const DEFAULTS: SystemSettings = {
   baseDeliveryFee: 20,
   freeDeliveryThreshold: 500,
   platformFeePercent: 0,
-  supportEmail: 'support@sociva.com',
+  supportEmail: 'support@sociva.in',
   grievanceEmail: 'grievance@sociva.in',
   dpoEmail: 'dpo@sociva.com',
   grievanceOfficerName: 'Sociva Grievance Cell',
