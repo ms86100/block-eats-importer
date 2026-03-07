@@ -2893,6 +2893,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          next_retry_at: string | null
           payload: Json | null
           processed_at: string | null
           reference_path: string | null
@@ -2905,6 +2906,7 @@ export type Database = {
           body: string
           created_at?: string
           id?: string
+          next_retry_at?: string | null
           payload?: Json | null
           processed_at?: string | null
           reference_path?: string | null
@@ -2917,6 +2919,7 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
+          next_retry_at?: string | null
           payload?: Json | null
           processed_at?: string | null
           reference_path?: string | null
@@ -7001,6 +7004,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          next_retry_at: string | null
           payload: Json | null
           processed_at: string | null
           reference_path: string | null

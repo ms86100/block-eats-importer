@@ -1,0 +1,1 @@
+ALTER TABLE public.notification_queue ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
