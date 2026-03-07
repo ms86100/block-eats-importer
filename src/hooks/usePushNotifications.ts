@@ -111,6 +111,15 @@ export function usePushNotificationsInternal() {
   // ── Core registration logic ──
   const registerPush = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
+
+    if (!listenersReadyRef.current && listenersReadyPromiseRef.current) {
+      pushLog('warn', 'WAITING_FOR_LISTENERS');
+      await Promise.race([
+        listenersReadyPromiseRef.current,
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    }
+
     if (regStateRef.current === 'registering') return;
     regStateRef.current = 'registering';
 
