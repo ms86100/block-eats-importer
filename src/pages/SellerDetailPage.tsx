@@ -35,7 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
-
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 export default function SellerDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -215,6 +215,15 @@ export default function SellerDetailPage() {
 
   const profile = (seller as any).profile;
   const operatingDays = seller.operating_days || DAYS_OF_WEEK;
+
+  const storeAvailability = computeStoreStatus(
+    seller.availability_start,
+    seller.availability_end,
+    seller.operating_days,
+    seller.is_available
+  );
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMsg = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
 
   return (
     <AppLayout showHeader={false} showNav={true} showCart={true}>
@@ -441,6 +450,14 @@ export default function SellerDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Store Closed Banner */}
+      {isStoreClosed && (
+        <div className="mx-4 mt-3 flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-xl px-4 py-3">
+          <Clock size={16} className="text-destructive shrink-0" />
+          <span className="text-sm font-medium text-destructive">{storeClosedMsg}</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="px-4 mt-4">

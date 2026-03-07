@@ -14,6 +14,7 @@ import { useProductDetail, ProductDetail } from '@/hooks/useProductDetail';
 import { hapticImpact } from '@/lib/haptics';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
+import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
 
 function formatSellerLastActive(lastActiveAt: string, ml: ReturnType<typeof useMarketplaceLabels>): string {
   try {
@@ -43,6 +44,18 @@ export { type ProductDetail };
 export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduct, categoryIcon, categoryName }: ProductDetailSheetProps) {
   const d = useProductDetail(product, open, onOpenChange);
   const ml = useMarketplaceLabels();
+
+  // Compute store availability from product's seller data
+  const storeAvailability: StoreAvailability = product
+    ? computeStoreStatus(
+        (product as any).seller_availability_start,
+        (product as any).seller_availability_end,
+        (product as any).seller_operating_days,
+        (product as any).seller_is_available ?? true
+      )
+    : { status: 'open', nextOpenAt: null, minutesUntilOpen: 0 };
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMsg = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
 
   if (!product) return null;
 
@@ -197,7 +210,12 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
 
           {/* Sticky CTA */}
           <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-4">
-            {d.isCartAction ? (
+            {isStoreClosed ? (
+              <div className="w-full h-12 flex items-center justify-center bg-muted rounded-xl">
+                <Clock size={16} className="text-muted-foreground mr-2" />
+                <span className="text-sm font-medium text-muted-foreground">{storeClosedMsg}</span>
+              </div>
+            ) : d.isCartAction ? (
               d.quantity === 0 ? (
                 <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => { hapticImpact('medium'); d.handleAdd(); }}>Add to cart · {d.formatPrice(product.price)}</Button>
               ) : (

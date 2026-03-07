@@ -15,6 +15,7 @@ import type { CategoryConfig } from '@/types/categories';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
+import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -59,6 +60,10 @@ export interface ProductWithSeller {
   completed_order_count?: number;
   fulfillment_mode?: string | null;
   delivery_note?: string | null;
+  seller_availability_start?: string | null;
+  seller_availability_end?: string | null;
+  seller_operating_days?: string[] | null;
+  seller_is_available?: boolean;
   created_at: string;
   updated_at: string;
   [key: string]: any;
@@ -165,6 +170,20 @@ function ProductListingCardInner({
 
   /* ── Derived values ── */
   const isOutOfStock = !product.is_available;
+
+  /* ── Store availability ── */
+  const storeAvailability = useMemo((): StoreAvailability => {
+    return computeStoreStatus(
+      product.seller_availability_start,
+      product.seller_availability_end,
+      product.seller_operating_days,
+      product.seller_is_available ?? true
+    );
+  }, [product.seller_availability_start, product.seller_availability_end, product.seller_operating_days, product.seller_is_available]);
+
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMessage = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
+
   const isLowStock = mc.enableScarcity &&
     product.stock_quantity != null &&
     product.stock_quantity > 0 &&
@@ -229,6 +248,7 @@ function ProductListingCardInner({
         'transition-all duration-200 ease-out',
         'active:scale-[0.98] hover:scale-[1.02]',
         isOutOfStock && 'opacity-50 grayscale-[40%]',
+        isStoreClosed && !isOutOfStock && 'opacity-60 grayscale-[30%]',
         className
       )}
     >
@@ -251,6 +271,16 @@ function ProductListingCardInner({
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
               <span className="text-[8px] font-bold text-muted-foreground bg-muted/90 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                 {mc.labels.outOfStock}
+              </span>
+            </div>
+          )}
+
+          {/* Store closed overlay */}
+          {isStoreClosed && !isOutOfStock && (
+            <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-muted-foreground bg-muted/90 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Clock size={8} />
+                {storeClosedMessage}
               </span>
             </div>
           )}
@@ -305,7 +335,7 @@ function ProductListingCardInner({
         </div>
 
         {/* ━━━ ADD button overlapping image bottom edge ━━━ */}
-        {!viewOnly && !isOutOfStock && (
+        {!viewOnly && !isOutOfStock && !isStoreClosed && (
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10">
             {isCartAction && quantity > 0 ? (
               <div className="flex items-center bg-primary rounded-lg overflow-hidden shadow-cta animate-stepper-pop">
@@ -450,6 +480,9 @@ export const ProductListingCard = memo(ProductListingCardInner, (prev, next) => 
     prev.product.is_available === next.product.is_available &&
     prev.product.price === next.product.price &&
     prev.product.stock_quantity === next.product.stock_quantity &&
+    prev.product.seller_is_available === next.product.seller_is_available &&
+    prev.product.seller_availability_start === next.product.seller_availability_start &&
+    prev.product.seller_availability_end === next.product.seller_availability_end &&
     prev.layout === next.layout &&
     prev.viewOnly === next.viewOnly &&
     prev.className === next.className &&
