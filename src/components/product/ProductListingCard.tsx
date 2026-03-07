@@ -480,6 +480,9 @@ export const ProductListingCard = memo(ProductListingCardInner, (prev, next) => 
     prev.product.is_available === next.product.is_available &&
     prev.product.price === next.product.price &&
     prev.product.stock_quantity === next.product.stock_quantity &&
+    prev.product.seller_is_available === next.product.seller_is_available &&
+    prev.product.seller_availability_start === next.product.seller_availability_start &&
+    prev.product.seller_availability_end === next.product.seller_availability_end &&
     prev.layout === next.layout &&
     prev.viewOnly === next.viewOnly &&
     prev.className === next.className &&
