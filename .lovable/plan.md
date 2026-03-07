@@ -1,50 +1,76 @@
 
 
-## Notification Health Check — User-Friendly UI
+## Push Notification Fix Plan
 
-### What We'll Build
+### Root Cause Summary
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+Three blocking issues prevent the end-to-end push pipeline from working:
 
-### UI Design
+1. **Missing DB columns**: `notification_queue` lacks `retry_count` and `last_error`; `user_notifications` lacks `queue_item_id`. The edge function references all three, causing every queue item to fail and get stuck in `processing` status forever.
 
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
+2. **push_logs RLS blocks non-admin users**: Only admins can write/read `push_logs`. Your buyer and seller accounts cannot persist diagnostic logs, making it impossible to debug token registration from the device.
 
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
+3. **3 stuck queue rows**: Currently 3 items are stuck in `processing` and will never be retried.
 
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
+### Implementation Steps
 
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
+#### Phase 1 — Database schema fixes (migration)
 
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
+Add the missing columns and fix stuck rows:
 
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
+```sql
+-- Add missing columns to notification_queue
+ALTER TABLE public.notification_queue
+  ADD COLUMN IF NOT EXISTS retry_count integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_error text;
 
-### Implementation
+-- Add missing column to user_notifications  
+ALTER TABLE public.user_notifications
+  ADD COLUMN IF NOT EXISTS queue_item_id uuid;
 
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
+-- Add unique partial index for deduplication
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_notifications_queue_item
+  ON public.user_notifications (queue_item_id)
+  WHERE queue_item_id IS NOT NULL;
 
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+-- Add retry index for queue processor
+CREATE INDEX IF NOT EXISTS idx_notification_queue_retry
+  ON public.notification_queue (status, next_retry_at);
 
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
+-- Unstick the 3 stuck rows
+UPDATE public.notification_queue
+  SET status = 'pending', processed_at = NULL, retry_count = 0
+  WHERE status = 'processing';
+```
 
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
+#### Phase 2 — Fix push_logs RLS for all authenticated users
 
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
+Add policies so any logged-in user can insert and read their own logs:
+
+```sql
+-- Users can insert their own push logs
+CREATE POLICY "Users can insert own push logs"
+  ON public.push_logs FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+-- Users can read their own push logs
+CREATE POLICY "Users can read own push logs"
+  ON public.push_logs FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+```
+
+#### Phase 3 — Redeploy `process-notification-queue`
+
+No code changes needed — the current function code already references `retry_count`, `last_error`, and `queue_item_id`. Once the columns exist, it will work correctly.
+
+#### Phase 4 — Validation on device
+
+After deploying, both buyer and seller accounts should:
+1. Open Push Debug page
+2. Tap "Request Permission" → grant on iOS
+3. Confirm FCM token + APNs token appear
+4. Check `device_tokens` table has a row per user
+5. Tap "Run Diagnostics" to verify end-to-end
+6. Trigger a test notification and confirm the queue row transitions to `processed`
+7. Verify the push arrives on the device in foreground and background
 
