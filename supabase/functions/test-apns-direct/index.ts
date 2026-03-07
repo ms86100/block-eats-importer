@@ -103,7 +103,7 @@ serve(async (req) => {
           title: title || "Direct APNs Test",
           body: body || "If you see this, APNs is working! 🎉",
         },
-        sound: "gate_bell.caf",
+        sound: "gate_bell.mp3",
         badge: 1,
       },
     };
