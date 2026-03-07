@@ -15,6 +15,7 @@ import { DAYS_OF_WEEK } from '@/types/database';
 import { Slider } from '@/components/ui/slider';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ArrowLeft, Loader2, PauseCircle, PlayCircle, Clock, Smartphone, Banknote, AlertTriangle, Building2, Globe, Truck, Eye } from 'lucide-react';
+import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { cn } from '@/lib/utils';
 import { LicenseUpload } from '@/components/seller/LicenseUpload';
 import { useSellerSettings } from '@/hooks/useSellerSettings';
@@ -116,7 +117,7 @@ export default function SellerSettingsPage() {
           {primaryGroup && (
             <div className="bg-muted/50 rounded-xl p-4">
               <div className="flex items-center gap-3">
-                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center text-2xl', getGroupBySlug(primaryGroup)?.color)}>{getGroupBySlug(primaryGroup)?.icon}</div>
+                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', resolveColorProps(getGroupBySlug(primaryGroup)?.color)?.className)} style={resolveColorProps(getGroupBySlug(primaryGroup)?.color)?.style}><DynamicIcon name={getGroupBySlug(primaryGroup)?.icon || ''} size={24} /></div>
                 <div>
                   <p className="text-xs text-muted-foreground">Your seller category</p>
                   <p className="font-semibold">{getGroupBySlug(primaryGroup)?.label}</p>
@@ -133,7 +134,7 @@ export default function SellerSettingsPage() {
               {(primaryGroup ? groupedConfigs[primaryGroup] || [] : []).map((config) => (
                 <label key={config.category} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${formData.categories.includes(config.category as any) ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'}`}>
                   <Checkbox checked={formData.categories.includes(config.category as any)} onCheckedChange={(checked) => handleCategoryChange(config.category as any, checked as boolean)} />
-                  <span className="text-lg">{config.icon}</span>
+                  <DynamicIcon name={config.icon} size={18} />
                   <span className="text-sm font-medium">{config.displayName}</span>
                 </label>
               ))}
