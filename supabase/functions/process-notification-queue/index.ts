@@ -29,10 +29,9 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const isAllowed = !authHeader || token === supabaseServiceKey || token === anonKey;
     if (authHeader && !isAllowed) {
-      const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2.93.3");
-      const authClient = cc(supabaseUrl, anonKey!, { global: { headers: { Authorization: authHeader } } });
-      const { error: authErr } = await authClient.auth.getUser();
-      if (authErr) {
+      const authClient = createClient(supabaseUrl, anonKey!, { global: { headers: { Authorization: authHeader } } });
+      const { data, error: authErr } = await authClient.auth.getClaims(token);
+      if (authErr || !data?.claims) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
