@@ -1,57 +1,50 @@
 
 
-## Problem: Society Coordinates Not Being Captured
+## Notification Health Check — User-Friendly UI
 
-### Root Cause
+### What We'll Build
 
-There are **two broken paths** where society coordinates are lost:
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-**Path 1 — Existing DB society has no coordinates:**
-When a user selects a pre-existing society from the database (e.g., "Shriram Greenfield"), the record already has `latitude: null, longitude: null`. The signup flow simply uses that society as-is and never updates it.
+### UI Design
 
-Current data confirms: Shriram Greenfield has `null` coordinates in the DB.
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-**Path 2 — Google Place matches existing society:**
-When a user types in Google Places, finds their society, and it fuzzy-matches an existing DB record, `handleSelectGooglePlace` calls `setSelectedSociety(match)` — discarding the Google coordinates. The match object from DB has null lat/lng.
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-**Path 3 — Manual new society form:**
-`handleRequestNewSociety` hardcodes `latitude: 0, longitude: 0` since there's no map/geocoding in that flow.
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-Only **Path 4** (new society via Google Places → `validate-society`) correctly captures coordinates.
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-### Fix
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-#### 1. Backfill coordinates when Google Places matches an existing society (`useAuthPage.ts`)
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-In `handleSelectGooglePlace`, when a fuzzy match is found against an existing DB society that has `null` coordinates, update the society record with the Google coordinates via the `validate-society` edge function (or a direct update if user has permission).
+### Implementation
 
-```text
-handleSelectGooglePlace:
-  if (match found && match has no coordinates) {
-    → call validate-society with society_id + lat/lng to backfill
-    → update local match object with coordinates
-  }
-```
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
 
-#### 2. Add geocoding to manual society request form (`useAuthPage.ts`)
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
 
-In `handleRequestNewSociety`, use the society name + city + pincode to geocode via Google Places (already loaded) instead of hardcoding `latitude: 0, longitude: 0`. Or, show the `GoogleMapConfirm` component to let the user pin their location.
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
 
-Since the Google Maps SDK is already loaded for the search flow, we can call `geocode()` with the address string to get coordinates.
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
 
-#### 3. Update `validate-society` edge function to accept coordinate backfill
-
-Modify the edge function to accept an optional `coordinates` payload alongside `society_id`, so it can update an existing society's null coordinates:
-
-```text
-// In validate-society/index.ts
-if (society_id && latitude && longitude) {
-  UPDATE societies SET latitude, longitude 
-  WHERE id = society_id AND latitude IS NULL
-}
-```
-
-### Files Changed
-- `src/hooks/useAuthPage.ts` — backfill coordinates on Google match; geocode on manual form
-- `supabase/functions/validate-society/index.ts` — accept coordinate backfill for existing societies
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 
