@@ -41,8 +41,39 @@ export function useAuthState() {
           setTimeout(() => fetchProfile(userId, retryCount + 1), delay);
           return;
         }
-        // Final fallback: profile still missing after retries
-        console.error('[Auth] Profile missing after retries — trigger may have failed');
+        // Final fallback: attempt to create profile from user_metadata
+        console.warn('[Auth] Profile missing after retries — attempting auto-recovery');
+        try {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          const meta = currentSession?.user?.user_metadata;
+          if (meta && currentSession?.user) {
+            const rawSociety = meta.society_id;
+            const societyId = rawSociety && rawSociety !== 'pending' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(rawSociety) ? rawSociety : null;
+
+            await supabase.from('profiles').upsert({
+              id: currentSession.user.id,
+              email: currentSession.user.email || '',
+              name: meta.name || meta.full_name || 'User',
+              phone: meta.phone || null,
+              flat_number: meta.flat_number || '',
+              block: meta.block || '',
+              phase: meta.phase || null,
+              society_id: societyId,
+              verification_status: 'pending',
+            }, { onConflict: 'id' });
+
+            await supabase.from('user_roles').upsert({
+              user_id: currentSession.user.id,
+              role: 'buyer',
+            }, { onConflict: 'user_id,role' });
+
+            console.log('[Auth] Auto-recovery: profile + role created, re-fetching');
+            setTimeout(() => fetchProfile(userId, 0), 500);
+            return;
+          }
+        } catch (recoveryErr) {
+          console.error('[Auth] Auto-recovery failed:', recoveryErr);
+        }
         toast.error('Account setup incomplete. Please contact support.');
         return;
       }
