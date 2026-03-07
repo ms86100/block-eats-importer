@@ -11,6 +11,7 @@ import { hapticImpact, hapticNotification, hapticSelection } from '@/lib/haptics
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
+import { sendOrderStatusNotification } from '@/lib/notifications';
 
 export function useCartPage() {
   const navigate = useNavigate();
@@ -237,8 +238,23 @@ export function useCartPage() {
       hapticNotification('success');
       // Trigger full push permission on first order (Zomato-style deferred prompt)
       requestFullPermission().catch(() => {});
-      // Trigger immediate push notification to seller (fire-and-forget)
+      // Trigger push notification to seller(s) via queue processor (fire-and-forget)
       supabase.functions.invoke('process-notification-queue').catch(() => {});
+      // Client-side fallback: also send direct push to each seller
+      for (const group of sellerGroups) {
+        const sellerUserId = (group.items[0]?.product?.seller as any)?.user_id;
+        if (sellerUserId) {
+          sendOrderStatusNotification(
+            orderIds[sellerGroups.indexOf(group)] || orderIds[0],
+            'placed',
+            user.id,
+            group.sellerId,
+            sellerUserId,
+            group.sellerName,
+            profile.name || 'Buyer'
+          ).catch(() => {});
+        }
+      }
       if (orderIds.length === 1) {
         toast.success('Order placed successfully!');
         navigate(`/orders/${orderIds[0]}`);
@@ -270,7 +286,7 @@ export function useCartPage() {
       if (!confirmed) toast.info('Payment is being verified. Your order will update shortly.');
       else toast.success('Payment successful! Order placed.');
     }
-    // Trigger immediate push notification to seller (fire-and-forget) — matches COD path
+    // Trigger push notification to seller(s) via queue processor (fire-and-forget)
     supabase.functions.invoke('process-notification-queue').catch(() => {});
     // RPC already clears cart atomically — only refresh client state
     await refresh();
