@@ -10,7 +10,7 @@ import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
 /**
  * BUILD FINGERPRINT — bump on every push-related update.
  */
-export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V1';
+export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V2-LISTENER-GATE';
 
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'failed';
 
