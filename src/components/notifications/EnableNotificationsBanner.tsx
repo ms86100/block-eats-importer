@@ -24,6 +24,17 @@ export function EnableNotificationsBanner() {
   const [confirmedDenied, setConfirmedDenied] = useState(
     () => localStorage.getItem(DENIED_CONFIRMED_KEY) === '1'
   );
+  // Ref to hold the pre-warmed FM instance for synchronous access in tap handler
+  const fmRef = useRef<any>(null);
+
+  // Pre-warm the FirebaseMessaging module on mount so it's ready before any tap
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    // Eagerly load the module — this ensures getCachedFirebaseMessaging() won't be null
+    import('@capacitor-firebase/messaging').then(({ FirebaseMessaging }) => {
+      fmRef.current = FirebaseMessaging;
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
