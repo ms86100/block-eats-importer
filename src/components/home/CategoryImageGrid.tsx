@@ -5,6 +5,7 @@ import { useProductsByCategory } from '@/hooks/queries/useProductsByCategory';
 import { useCurrency } from '@/hooks/useCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { Users, Tag, Star, ChevronRight } from 'lucide-react';
 
 interface CategoryImageGridProps {
@@ -63,7 +64,7 @@ function ImageCollage({ images, fallbackIcon, fallbackUrl, alt }: {
   if (images.length === 0) {
     return (
       <div className="absolute inset-0 bg-muted flex items-center justify-center">
-        <span className="text-3xl">{fallbackIcon}</span>
+        <DynamicIcon name={fallbackIcon} size={32} className="text-muted-foreground" />
       </div>
     );
   }

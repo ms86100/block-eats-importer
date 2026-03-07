@@ -15,6 +15,7 @@ import { ChevronRight, ShoppingBag, Sparkles, Clock, TrendingUp, Flame } from 'l
 import { motion } from 'framer-motion';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useMarketplaceConfig } from '@/hooks/useMarketplaceConfig';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { useBadgeConfig } from '@/hooks/useBadgeConfig';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 
@@ -301,7 +302,7 @@ function ProductListings({
         <div key={cat.category}>
           <div className="flex items-center justify-between px-4 mb-3">
             <h3 className="font-extrabold text-[15px] text-foreground tracking-tight flex items-center gap-1.5">
-              <span className="text-base">{cat.icon}</span>
+              <DynamicIcon name={cat.icon} size={16} />
               {cat.displayName}
             </h3>
             <Link
