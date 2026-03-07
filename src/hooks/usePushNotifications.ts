@@ -15,16 +15,33 @@ export const PUSH_BUILD_ID = '2026-03-07-FIREBASE-MESSAGING-V2';
 type RegistrationState = 'idle' | 'registering' | 'registered' | 'failed';
 
 /**
- * Lazily import @capacitor-firebase/messaging — avoids top-level import on web.
+ * Cached singleton for @capacitor-firebase/messaging.
+ * Pre-warm on first call so subsequent calls (especially from gesture handlers) are synchronous.
  */
-async function getFirebaseMessaging() {
-  try {
-    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-    return FirebaseMessaging;
-  } catch (e) {
-    console.warn('[Push] @capacitor-firebase/messaging not available:', e);
-    return null;
-  }
+let _cachedFM: Awaited<typeof import('@capacitor-firebase/messaging')>['FirebaseMessaging'] | null = null;
+let _fmLoadPromise: Promise<typeof _cachedFM> | null = null;
+
+function getFirebaseMessaging(): Promise<typeof _cachedFM> {
+  if (_cachedFM) return Promise.resolve(_cachedFM);
+  if (_fmLoadPromise) return _fmLoadPromise;
+
+  _fmLoadPromise = import('@capacitor-firebase/messaging')
+    .then(({ FirebaseMessaging }) => {
+      _cachedFM = FirebaseMessaging;
+      return FirebaseMessaging;
+    })
+    .catch((e) => {
+      console.warn('[Push] @capacitor-firebase/messaging not available:', e);
+      _fmLoadPromise = null;
+      return null;
+    });
+
+  return _fmLoadPromise;
+}
+
+/** Returns the cached instance if already loaded (sync access for gesture handlers). */
+export function getCachedFirebaseMessaging() {
+  return _cachedFM;
 }
 
 // Module-level singleton guard

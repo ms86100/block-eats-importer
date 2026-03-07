@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Bell, X, ExternalLink } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
+import { getCachedFirebaseMessaging } from '@/hooks/usePushNotifications';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -35,21 +36,18 @@ export function EnableNotificationsBanner() {
       return;
     }
 
-    // Double-check via plugin if status is ambiguous
-    (async () => {
-      try {
-        const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-        const result = await FirebaseMessaging.checkPermissions();
+    // Double-check via cached plugin if status is ambiguous
+    const FM = getCachedFirebaseMessaging();
+    if (FM) {
+      FM.checkPermissions().then((result) => {
         if (result.receive === 'granted') {
           sessionStorage.setItem(GRANTED_KEY, '1');
           localStorage.removeItem(DENIED_CONFIRMED_KEY);
           setGrantedLocally(true);
           setConfirmedDenied(false);
         }
-      } catch {
-        // Plugin unavailable — don't show blocked banner
-      }
-    })();
+      }).catch(() => {});
+    }
   }, [permissionStatus, token]);
 
   // Not native → no banner
@@ -108,8 +106,26 @@ export function EnableNotificationsBanner() {
   const handleTurnOn = async () => {
     setLoading(true);
     try {
-      const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-      const permResult = await FirebaseMessaging.requestPermissions();
+      // Use pre-cached instance to avoid breaking iOS gesture chain
+      const FM = getCachedFirebaseMessaging();
+      if (!FM) {
+        // Fallback: try dynamic import (won't show prompt on iOS but handles edge case)
+        const mod = await import('@capacitor-firebase/messaging');
+        const permResult = await mod.FirebaseMessaging.requestPermissions();
+        if (permResult.receive === 'granted') {
+          sessionStorage.setItem(GRANTED_KEY, '1');
+          localStorage.removeItem(DENIED_CONFIRMED_KEY);
+          setGrantedLocally(true);
+          setConfirmedDenied(false);
+          try { await requestFullPermission(); } catch {}
+        } else {
+          localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
+          setConfirmedDenied(true);
+        }
+        return;
+      }
+
+      const permResult = await FM.requestPermissions();
 
       if (permResult.receive === 'granted') {
         sessionStorage.setItem(GRANTED_KEY, '1');
@@ -117,19 +133,16 @@ export function EnableNotificationsBanner() {
         setGrantedLocally(true);
         setConfirmedDenied(false);
 
-        // Let the provider handle full registration
         try {
           await requestFullPermission();
         } catch (e) {
           console.error('[Push][Banner] requestFullPermission failed:', e);
         }
       } else {
-        // User explicitly denied — NOW we can show "Blocked"
         localStorage.setItem(DENIED_CONFIRMED_KEY, '1');
         setConfirmedDenied(true);
       }
     } catch {
-      // Plugin error — don't mark as denied, just dismiss
       sessionStorage.setItem(DISMISSED_KEY, '1');
       setDismissed(true);
     } finally {

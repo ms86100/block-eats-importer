@@ -1,37 +1,50 @@
 
 
-## Fix: iOS Permission Prompt Not Appearing on "Turn On" Tap
+## Notification Health Check — User-Friendly UI
 
-### Root Cause
+### What We'll Build
 
-On **line 111** of `EnableNotificationsBanner.tsx`, the `handleTurnOn` handler does:
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-```typescript
-const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-const permResult = await FirebaseMessaging.requestPermissions();
-```
+### UI Design
 
-The **dynamic `await import()`** breaks the iOS gesture chain. iOS requires `requestPermissions()` to be called **directly and synchronously** within the user tap event — any intermediate `await` (like a dynamic import) causes iOS to silently discard the permission request. The native OS prompt never appears.
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-The same pattern exists in `requestFullPermission` in `usePushNotifications.ts` (line 161) — it also dynamically imports before requesting.
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-### Fix
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-**Pre-import `FirebaseMessaging` at module level** so no `await` sits between the tap and the permission request.
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-#### `EnableNotificationsBanner.tsx`
-- Add a **module-level variable** that caches the `FirebaseMessaging` reference
-- **Eagerly import** it in a `useEffect` on mount (so it's ready before any tap)
-- In `handleTurnOn`, call `FirebaseMessaging.requestPermissions()` **directly** — no `await import()` in the click path
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-#### `usePushNotifications.ts`
-- Change `getFirebaseMessaging()` from a lazy dynamic import to a **cached singleton** — import once on first call, reuse thereafter
-- In `requestFullPermission`, ensure the module is already loaded before the user gesture triggers it (pre-warm on mount)
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-### Changes
+### Implementation
 
-| File | Change |
-|------|--------|
-| `EnableNotificationsBanner.tsx` | Pre-import FirebaseMessaging on mount via useEffect; remove dynamic import from click handler |
-| `usePushNotifications.ts` | Cache the FirebaseMessaging module after first import; pre-warm in the main effect so it's ready for `requestFullPermission` |
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
+
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
+
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
+
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 
