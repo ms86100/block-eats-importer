@@ -8,6 +8,11 @@ import { hapticNotification } from '@/lib/haptics';
 import { pushLog, setLogUser, flushPushLogs } from '@/lib/pushLogger';
 
 /**
+ * 🚨 FROZEN — DO NOT MODIFY THIS FILE 🚨
+ * Push notifications are WORKING. Verified on physical iOS device 2026-03-07.
+ * Backup: usePushNotifications.FROZEN_BACKUP.ts
+ * See: src/PUSH_NOTIFICATION_FREEZE.md
+ *
  * BUILD FINGERPRINT — bump on every push-related update.
  */
 export const PUSH_BUILD_ID = '2026-03-07-DUAL-PLUGIN-V2-LISTENER-GATE';

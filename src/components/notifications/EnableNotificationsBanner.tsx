@@ -1,3 +1,4 @@
+// 🚨 FROZEN — DO NOT MODIFY THIS FILE 🚨 See: src/PUSH_NOTIFICATION_FREEZE.md
 import { useEffect, useState } from 'react';
 import { Bell, X, ExternalLink } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
