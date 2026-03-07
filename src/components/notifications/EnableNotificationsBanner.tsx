@@ -36,21 +36,18 @@ export function EnableNotificationsBanner() {
       return;
     }
 
-    // Double-check via plugin if status is ambiguous
-    (async () => {
-      try {
-        const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
-        const result = await FirebaseMessaging.checkPermissions();
+    // Double-check via cached plugin if status is ambiguous
+    const FM = getCachedFirebaseMessaging();
+    if (FM) {
+      FM.checkPermissions().then((result) => {
         if (result.receive === 'granted') {
           sessionStorage.setItem(GRANTED_KEY, '1');
           localStorage.removeItem(DENIED_CONFIRMED_KEY);
           setGrantedLocally(true);
           setConfirmedDenied(false);
         }
-      } catch {
-        // Plugin unavailable — don't show blocked banner
-      }
-    })();
+      }).catch(() => {});
+    }
   }, [permissionStatus, token]);
 
   // Not native → no banner
