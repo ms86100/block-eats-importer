@@ -105,16 +105,12 @@ export function useBuyerOrderAlerts() {
 
     return () => {
       supabase.removeChannel(channel);
-    };
-  }, [user?.id, queryClient, playBuzzer]);
-
-  useEffect(() => {
-    return () => {
       try {
         if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
           audioCtxRef.current.close();
+          audioCtxRef.current = null;
         }
       } catch {}
     };
-  }, []);
+  }, [user?.id, queryClient, playBuzzer]);
 }
