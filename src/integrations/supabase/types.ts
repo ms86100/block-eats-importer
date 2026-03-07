@@ -2893,10 +2893,12 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          last_error: string | null
           next_retry_at: string | null
           payload: Json | null
           processed_at: string | null
           reference_path: string | null
+          retry_count: number | null
           status: string
           title: string
           type: string
@@ -2906,10 +2908,12 @@ export type Database = {
           body: string
           created_at?: string
           id?: string
+          last_error?: string | null
           next_retry_at?: string | null
           payload?: Json | null
           processed_at?: string | null
           reference_path?: string | null
+          retry_count?: number | null
           status?: string
           title: string
           type?: string
@@ -2919,10 +2923,12 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
+          last_error?: string | null
           next_retry_at?: string | null
           payload?: Json | null
           processed_at?: string | null
           reference_path?: string | null
+          retry_count?: number | null
           status?: string
           title?: string
           type?: string
@@ -6215,6 +6221,7 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          queue_item_id: string | null
           reference_id: string | null
           reference_path: string | null
           society_id: string | null
@@ -6227,6 +6234,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          queue_item_id?: string | null
           reference_id?: string | null
           reference_path?: string | null
           society_id?: string | null
@@ -6239,6 +6247,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          queue_item_id?: string | null
           reference_id?: string | null
           reference_path?: string | null
           society_id?: string | null
@@ -7004,10 +7013,12 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          last_error: string | null
           next_retry_at: string | null
           payload: Json | null
           processed_at: string | null
           reference_path: string | null
+          retry_count: number | null
           status: string
           title: string
           type: string
