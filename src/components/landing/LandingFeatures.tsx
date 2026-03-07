@@ -5,12 +5,12 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 
 const BENEFITS = [
-  { icon: ShoppingBag, title: 'Discover What Your Neighbors Create', desc: 'From handmade crafts to daily essentials — browse a marketplace curated by people you already know.' },
+  { icon: ShoppingBag, title: 'Discover What Your Neighbors Create', desc: 'From handmade crafts to daily essentials - browse a marketplace curated by people you already know.' },
   { icon: Utensils, title: 'Home-Cooked Meals at Your Door', desc: 'Skip the restaurant markup. Order fresh tiffins, snacks, and meals made by neighbors who love cooking.' },
-  { icon: Wrench, title: 'Book Trusted Local Services', desc: 'Plumbers, tutors, fitness trainers — all verified residents. No more gambling on strangers from the internet.' },
-  { icon: MessageSquare, title: 'Chat Before You Buy', desc: 'Message sellers directly. Ask about ingredients, timing, or customizations — it's like talking to a neighbor (because it is).' },
+  { icon: Wrench, title: 'Book Trusted Local Services', desc: 'Plumbers, tutors, fitness trainers - all verified residents. No more gambling on strangers from the internet.' },
+  { icon: MessageSquare, title: 'Chat Before You Buy', desc: "Message sellers directly. Ask about ingredients, timing, or customizations - it's like talking to a neighbor (because it is)." },
   { icon: CreditCard, title: 'Pay Your Way', desc: 'UPI, Google Pay, PhonePe, or good old cash on delivery. No credit card, no subscriptions required.' },
-  { icon: Star, title: 'Real Reviews From Real Neighbors', desc: 'Every review comes from a verified resident. No fake ratings, no paid reviews — just honest feedback.' },
+  { icon: Star, title: 'Real Reviews From Real Neighbors', desc: 'Every review comes from a verified resident. No fake ratings, no paid reviews - just honest feedback.' },
 ];
 
 export function LandingFeatures() {
