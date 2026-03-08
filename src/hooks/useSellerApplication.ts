@@ -84,6 +84,19 @@ export function useSellerApplication() {
   const [acceptedDeclaration, setAcceptedDeclaration] = useState(false);
   const [licenseStatus, setLicenseStatus] = useState<string | null>(null);
 
+  // In-progress product form state (persists across step navigation)
+  const getInitialProductForm = useCallback((): DraftProductFormState => ({
+    isAdding: false,
+    product: {
+      name: '', price: 0, mrp: null, discount_percentage: null,
+      description: '', category: formData.categories[0] || '', is_veg: true,
+      image_url: '', prep_time_minutes: null,
+    },
+    attributeBlocks: [],
+    serviceFields: INITIAL_SERVICE_FIELDS,
+  }), []);
+  const [draftProductForm, setDraftProductForm] = useState<DraftProductFormState>(getInitialProductForm);
+
   // Reload products from DB
   const reloadProducts = useCallback(async (sellerId: string) => {
     try {
