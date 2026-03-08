@@ -17,6 +17,7 @@ import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+import { type DraftProductFormState, type DraftProductInProgress } from '@/hooks/useSellerApplication';
 
 interface DraftProduct {
   id?: string;
@@ -36,6 +37,8 @@ interface DraftProductManagerProps {
   categories: string[];
   products: DraftProduct[];
   onProductsChange: (products: DraftProduct[]) => void;
+  formState: DraftProductFormState;
+  onFormStateChange: (state: DraftProductFormState) => void;
 }
 
 export function DraftProductManager({
@@ -43,25 +46,24 @@ export function DraftProductManager({
   categories,
   products,
   onProductsChange,
+  formState,
+  onFormStateChange,
 }: DraftProductManagerProps) {
   const { user } = useAuth();
-  const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [attributeBlocks, setAttributeBlocks] = useState<BlockData[]>([]);
-  const [serviceFields, setServiceFields] = useState<ServiceFieldsData>(INITIAL_SERVICE_FIELDS);
   const { configs } = useCategoryConfigs();
   const { formatPrice, currencySymbol } = useCurrency();
-  const [newProduct, setNewProduct] = useState<DraftProduct>({
-    name: '',
-    price: 0,
-    mrp: null,
-    discount_percentage: null,
-    description: '',
-    category: categories[0] || '',
-    is_veg: true,
-    image_url: '',
-    prep_time_minutes: null,
-  });
+
+  // Derive form state from lifted props
+  const isAdding = formState.isAdding;
+  const newProduct = formState.product;
+  const attributeBlocks = formState.attributeBlocks;
+  const serviceFields = formState.serviceFields;
+
+  const setIsAdding = (v: boolean) => onFormStateChange({ ...formState, isAdding: v });
+  const setNewProduct = (p: DraftProductInProgress) => onFormStateChange({ ...formState, product: p });
+  const setAttributeBlocks = (b: BlockData[]) => onFormStateChange({ ...formState, attributeBlocks: b });
+  const setServiceFields = (s: ServiceFieldsData) => onFormStateChange({ ...formState, serviceFields: s });
 
   // Get form hints for the selected category
   const activeConfig = useMemo(() => {
@@ -143,20 +145,16 @@ export function DraftProductManager({
       }
 
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
-      setNewProduct({
-        name: '',
-        price: 0,
-        mrp: null,
-        discount_percentage: null,
-        description: '',
-        category: categories[0] || '',
-        is_veg: true,
-        image_url: '',
-        prep_time_minutes: null,
+      onFormStateChange({
+        isAdding: false,
+        product: {
+          name: '', price: 0, mrp: null, discount_percentage: null,
+          description: '', category: categories[0] || '', is_veg: true,
+          image_url: '', prep_time_minutes: null,
+        },
+        attributeBlocks: [],
+        serviceFields: INITIAL_SERVICE_FIELDS,
       });
-      setIsAdding(false);
-      setAttributeBlocks([]);
-      setServiceFields(INITIAL_SERVICE_FIELDS);
       toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);

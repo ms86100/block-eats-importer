@@ -8,6 +8,27 @@ import { ServiceCategory } from '@/types/categories';
 import { DAYS_OF_WEEK } from '@/types/database';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
+import { type BlockData } from '@/hooks/useAttributeBlocks';
+import { type ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+
+export interface DraftProductInProgress {
+  name: string;
+  price: number;
+  mrp?: number | null;
+  discount_percentage?: number | null;
+  description: string;
+  category: string;
+  is_veg: boolean;
+  image_url: string;
+  prep_time_minutes?: number | null;
+}
+
+export interface DraftProductFormState {
+  isAdding: boolean;
+  product: DraftProductInProgress;
+  attributeBlocks: BlockData[];
+  serviceFields: ServiceFieldsData;
+}
 
 export interface SellerFormData {
   business_name: string;
@@ -62,6 +83,19 @@ export function useSellerApplication() {
   const [draftProducts, setDraftProducts] = useState<any[]>([]);
   const [acceptedDeclaration, setAcceptedDeclaration] = useState(false);
   const [licenseStatus, setLicenseStatus] = useState<string | null>(null);
+
+  // In-progress product form state (persists across step navigation)
+  const getInitialProductForm = useCallback((): DraftProductFormState => ({
+    isAdding: false,
+    product: {
+      name: '', price: 0, mrp: null, discount_percentage: null,
+      description: '', category: formData.categories[0] || '', is_veg: true,
+      image_url: '', prep_time_minutes: null,
+    },
+    attributeBlocks: [],
+    serviceFields: INITIAL_SERVICE_FIELDS,
+  }), []);
+  const [draftProductForm, setDraftProductForm] = useState<DraftProductFormState>(getInitialProductForm);
 
   // Reload products from DB
   const reloadProducts = useCallback(async (sellerId: string) => {
@@ -295,6 +329,6 @@ export function useSellerApplication() {
     selectedGroupInfo, selectedGroupRow, handleCategoryChange, toggleOperatingDay,
     saveDraft, handleProceedToSettings, handleProceedToProducts, handleSaveDraftAndExit,
     handleSubmit, setExistingSeller, setDraftSellerId, handleStepBack, handleGroupSelect,
-    reloadProducts, submissionComplete,
+    reloadProducts, submissionComplete, draftProductForm, setDraftProductForm,
   };
 }
