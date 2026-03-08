@@ -3969,6 +3969,7 @@ export type Database = {
           tags: string[] | null
           unit_type: string | null
           updated_at: string | null
+          updated_while_pending: boolean
           visit_charge: number | null
           warranty_period: string | null
         }
@@ -4026,6 +4027,7 @@ export type Database = {
           tags?: string[] | null
           unit_type?: string | null
           updated_at?: string | null
+          updated_while_pending?: boolean
           visit_charge?: number | null
           warranty_period?: string | null
         }
@@ -4083,6 +4085,7 @@ export type Database = {
           tags?: string[] | null
           unit_type?: string | null
           updated_at?: string | null
+          updated_while_pending?: boolean
           visit_charge?: number | null
           warranty_period?: string | null
         }
