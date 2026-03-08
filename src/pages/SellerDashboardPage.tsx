@@ -85,6 +85,7 @@ export default function SellerDashboardPage() {
 
   // Use React Query for stats and orders
   const { data: stats } = useSellerOrderStats(activeSellerId);
+  const { data: analytics } = useSellerAnalytics(activeSellerId);
   const { data: filterCounts } = useSellerOrderFilterCounts(activeSellerId);
   const {
     data: ordersPages,
