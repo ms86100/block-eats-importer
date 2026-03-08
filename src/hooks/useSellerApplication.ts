@@ -329,6 +329,6 @@ export function useSellerApplication() {
     selectedGroupInfo, selectedGroupRow, handleCategoryChange, toggleOperatingDay,
     saveDraft, handleProceedToSettings, handleProceedToProducts, handleSaveDraftAndExit,
     handleSubmit, setExistingSeller, setDraftSellerId, handleStepBack, handleGroupSelect,
-    reloadProducts, submissionComplete,
+    reloadProducts, submissionComplete, draftProductForm, setDraftProductForm,
   };
 }
