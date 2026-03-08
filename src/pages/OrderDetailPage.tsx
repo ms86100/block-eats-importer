@@ -196,7 +196,10 @@ export default function OrderDetailPage() {
                     bookingId={serviceBooking.id}
                     bookingDate={serviceBooking.booking_date}
                     startTime={serviceBooking.start_time}
-                    onUpdated={() => window.location.reload()}
+                    onUpdated={() => {
+                      o.refetchOrder?.();
+                      window.dispatchEvent(new Event('booking-changed'));
+                    }}
                   />
                   <BuyerCancelBooking
                     bookingId={serviceBooking.id}

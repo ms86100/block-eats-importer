@@ -184,7 +184,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       actionLoadingRef.current = null;
       setActionLoading(null);
     }
-  }, [bookings, sellerId, actionLoading, refetch, queryClient]);
+  }, [bookings, sellerId, refetch, queryClient]);
 
   const weekDates = useMemo(() => {
     const dates = [];
