@@ -176,6 +176,19 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
               )}
+              {/* Reschedule / Cancel actions for buyer */}
+              {o.isBuyerView && !['completed', 'cancelled', 'no_show'].includes(order.status) && serviceBooking.booking_date && serviceBooking.start_time && (
+                <div className="pt-2 border-t border-border mt-2">
+                  <ServiceBookingActions
+                    orderId={order.id}
+                    productId={serviceBooking.product_id}
+                    bookingId={serviceBooking.id}
+                    bookingDate={serviceBooking.booking_date}
+                    startTime={serviceBooking.start_time}
+                    onUpdated={() => window.location.reload()}
+                  />
+                </div>
+              )}
             </div>
           )}
 
