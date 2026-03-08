@@ -5597,6 +5597,41 @@ export type Database = {
           },
         ]
       }
+      session_feedback: {
+        Row: {
+          booking_id: string
+          buyer_id: string
+          comment: string | null
+          created_at: string | null
+          id: string
+          rating: number
+        }
+        Insert: {
+          booking_id: string
+          buyer_id: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating: number
+        }
+        Update: {
+          booking_id?: string
+          buyer_id?: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_feedback_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_endorsements: {
         Row: {
           comment: string | null

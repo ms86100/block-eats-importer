@@ -103,6 +103,57 @@ export function useBookingAddons(bookingId: string | undefined) {
   });
 }
 
+export interface BuyerBooking extends ServiceBooking {
+  product_name?: string;
+  seller_name?: string;
+  seller_cover_image?: string;
+}
+
+export function useBuyerServiceBookings(buyerId: string | undefined) {
+  return useQuery({
+    queryKey: ['buyer-service-bookings', buyerId],
+    queryFn: async (): Promise<BuyerBooking[]> => {
+      if (!buyerId) return [];
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('service_bookings')
+        .select('*, product:products!service_bookings_product_id_fkey(name), seller:seller_profiles!service_bookings_seller_id_fkey(business_name, cover_image_url), staff:service_staff(name)')
+        .eq('buyer_id', buyerId)
+        .not('status', 'in', '(cancelled,no_show)')
+        .gte('booking_date', today)
+        .order('booking_date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        ...row,
+        product_name: row.product?.name || null,
+        seller_name: row.seller?.business_name || null,
+        seller_cover_image: row.seller?.cover_image_url || null,
+        staff_name: row.staff?.name || null,
+      })) as BuyerBooking[];
+    },
+    enabled: !!buyerId,
+  });
+}
+
+export function useSessionFeedback(bookingId: string | undefined) {
+  return useQuery({
+    queryKey: ['session-feedback', bookingId],
+    queryFn: async () => {
+      if (!bookingId) return null;
+      const { data, error } = await supabase
+        .from('session_feedback')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!bookingId,
+  });
+}
+
 export function useBuyerRecurringConfigs(buyerId: string | undefined) {
   return useQuery({
     queryKey: ['buyer-recurring-configs', buyerId],

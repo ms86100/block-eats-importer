@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReorderButton } from '@/components/order/ReorderButton';
 import { SellerSwitcher } from '@/components/seller/SellerSwitcher';
 import { RecurringBookingsList } from '@/components/booking/RecurringBookingsList';
+import { BuyerBookingsCalendar } from '@/components/booking/BuyerBookingsCalendar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order } from '@/types/database';
 import { useStatusLabels } from '@/hooks/useStatusLabels';
@@ -212,6 +213,7 @@ export default function OrdersPage() {
                 <TabsTrigger value="selling" className="flex-1 text-xs">Received</TabsTrigger>
               </TabsList>
               <TabsContent value="buying">
+                <BuyerBookingsCalendar />
                 <RecurringBookingsList />
                 <OrderList type="buyer" userId={user.id} />
               </TabsContent>
@@ -224,6 +226,7 @@ export default function OrdersPage() {
             </Tabs>
           ) : (
             <>
+              <BuyerBookingsCalendar />
               <RecurringBookingsList />
               <OrderList type="buyer" userId={user.id} />
             </>
