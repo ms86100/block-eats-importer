@@ -11,6 +11,7 @@ import { hapticImpact, hapticNotification, hapticSelection } from '@/lib/haptics
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { usePushNotifications } from '@/contexts/PushNotificationContext';
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 
 
 export function useCartPage() {
