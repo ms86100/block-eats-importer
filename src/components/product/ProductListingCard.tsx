@@ -425,10 +425,8 @@ function ProductListingCardInner({
           </span>
         )}
 
-        {/* First order protection — shown when no social proof (likely first-time) */}
-        {(socialProofCount == null || socialProofCount === 0) && (
-          <FirstOrderBadge className="mb-0.5" />
-        )}
+        {/* First order protection removed — now only shown correctly on checkout page 
+             where useFirstOrderCheck verifies buyer-seller order history */}
 
         {deliveryText && (
           <div className="flex items-center gap-0.5 mb-0.5">
