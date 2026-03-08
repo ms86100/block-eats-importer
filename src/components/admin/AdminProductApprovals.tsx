@@ -22,6 +22,7 @@ interface PendingProduct {
   is_veg: boolean;
   specifications: Record<string, any> | null;
   approval_status: string;
+  rejection_note: string | null;
   seller: {
     business_name: string;
     society_id: string;
