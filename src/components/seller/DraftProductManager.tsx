@@ -17,6 +17,7 @@ import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+import { ServiceAddonsManager } from '@/components/seller/ServiceAddonsManager';
 import { type DraftProductFormState, type DraftProductInProgress } from '@/hooks/useSellerApplication';
 
 interface DraftProduct {
