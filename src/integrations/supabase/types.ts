@@ -5314,6 +5314,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "service_bookings_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "service_bookings_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -5339,6 +5346,13 @@ export type Database = {
             columns: ["rescheduled_from"]
             isOneToOne: false
             referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
             referencedColumns: ["id"]
           },
           {

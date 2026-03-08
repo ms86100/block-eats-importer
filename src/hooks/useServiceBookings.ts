@@ -39,7 +39,7 @@ export function useSellerServiceBookings(sellerId: string | null) {
         .from('service_bookings')
         .select('*, buyer:profiles!service_bookings_buyer_id_fkey(name), product:products!service_bookings_product_id_fkey(name), staff:service_staff(name)')
         .eq('seller_id', sellerId)
-        .not('status', 'in', '("cancelled","no_show")')
+        .not('status', 'in', '(cancelled,no_show)')
         .gte('booking_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true })

@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
           .eq("buyer_id", config.buyer_id)
           .eq("product_id", config.product_id)
           .eq("booking_date", nextDateStr)
-          .not("status", "in", '("cancelled","no_show")')
+          .not("status", "in", "(cancelled,no_show)")
           .limit(1)
           .maybeSingle();
 
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
           .select("location_type")
           .eq("buyer_id", config.buyer_id)
           .eq("product_id", config.product_id)
-          .not("status", "in", '("cancelled","no_show")')
+          .not("status", "in", "(cancelled,no_show)")
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();

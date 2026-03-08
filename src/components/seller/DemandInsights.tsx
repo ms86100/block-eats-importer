@@ -21,7 +21,7 @@ export function DemandInsights({ societyId }: DemandInsightsProps) {
         _society_id: societyId,
       });
       if (error) throw error;
-      return (data || []) as { search_term: string; search_count: number; last_searched: string }[];
+      return (data || []) as { search_term: string; search_count: number; last_searched: string | null }[];
     },
     enabled: !!societyId,
     staleTime: 10 * 60 * 1000,
@@ -50,9 +50,11 @@ export function DemandInsights({ societyId }: DemandInsightsProps) {
               </span>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs font-semibold text-primary">{item.search_count} searches</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(item.last_searched), { addSuffix: true })}
-                </span>
+                {item.last_searched && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNowStrict(new Date(item.last_searched), { addSuffix: true })}
+                  </span>
+                )}
               </div>
             </div>
           ))}
