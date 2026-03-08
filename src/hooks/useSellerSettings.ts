@@ -31,6 +31,7 @@ export interface SellerSettingsFormData {
   fulfillment_mode: string;
   delivery_note: string;
   minimum_order_amount: string;
+  daily_order_limit: string;
 }
 
 const DEFAULT_FORM: SellerSettingsFormData = {
