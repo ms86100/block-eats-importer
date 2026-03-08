@@ -106,7 +106,7 @@ export default function SellerProductsPage() {
 
         <h1 className="text-xl font-bold mb-4">Your Products ({sp.products.length})</h1>
 
-        {sp.products.some(p => (p as any).approval_status === 'draft') && (sp.sellerProfile as any)?.verification_status !== 'approved' && (
+        {sp.products.some(p => (p as any).approval_status === 'draft') && (
           <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
             <div><p className="text-sm font-medium">{sp.products.filter(p => (p as any).approval_status === 'draft').length} draft product(s) ready</p><p className="text-xs text-muted-foreground">Submit for admin review to make them visible to buyers</p></div>
             <Button size="sm" onClick={async () => { const draftIds = sp.products.filter(p => (p as any).approval_status === 'draft').map(p => p.id); const { error } = await supabase.from('products').update({ approval_status: 'pending' } as any).in('id', draftIds); if (error) { toast.error('Failed to submit'); return; } toast.success(`${draftIds.length} product(s) submitted for approval`); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Submit All for Approval</Button>
