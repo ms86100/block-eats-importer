@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store } from 'lucide-react';
+import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store, Users, Verified } from 'lucide-react';
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { TypewriterPlaceholder } from '@/components/search/TypewriterPlaceholder';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   showCart?: boolean;
