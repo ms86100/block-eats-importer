@@ -12,6 +12,7 @@ import { useSubcategories } from '@/hooks/useSubcategories';
 import { CategoryManager } from '@/components/admin/CategoryManager';
 import { SubcategoryManager } from '@/components/admin/SubcategoryManager';
 import { AdminAttributeBlockManager } from '@/components/admin/AdminAttributeBlockManager';
+import { LicenseConfigSection } from '@/components/admin/LicenseConfigSection';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight, Layers3, Grid3X3, Blocks, TreePine, Search, X } from 'lucide-react';
