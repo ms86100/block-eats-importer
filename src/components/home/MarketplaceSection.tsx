@@ -13,6 +13,7 @@ import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronRight, ShoppingBag, Sparkles, Clock, TrendingUp, Flame } from 'lucide-react';
 import { TrendingInSociety } from '@/components/home/TrendingInSociety';
+import { SocietyLeaderboard } from '@/components/home/SocietyLeaderboard';
 import { motion } from 'framer-motion';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useMarketplaceConfig } from '@/hooks/useMarketplaceConfig';
