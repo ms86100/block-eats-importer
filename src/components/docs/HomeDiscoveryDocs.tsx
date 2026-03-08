@@ -149,7 +149,7 @@ export function HomeDiscoveryDocs() {
         <p>• <strong>Price Range</strong> — Dual-handle slider from ₹0 to the maximum configured price, with ₹50 steps.</p>
         <p>A "Reset all" button clears everything, and "Apply Filters" confirms the selection.</p>
         
-        <p><strong>Filter Presets:</strong> Quick-apply preset pills: "Veg Only", "Under ₹{threshold}" (configurable), "Top Rated", and "Featured".</p>
+        <p><strong>Filter Presets:</strong> Quick-apply preset pills: "Veg Only", "Under budget" (configurable threshold), "Top Rated", and "Featured".</p>
         
         <p><strong>Browse Beyond Society:</strong> A toggle that expands search to include products from nearby societies. When enabled, a radius slider appears (1–10 km) to control how far to search.</p>
         
