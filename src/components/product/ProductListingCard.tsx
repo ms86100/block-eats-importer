@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from 'react';
-import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell, AlertTriangle } from 'lucide-react';
+import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell, AlertTriangle, Users } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Badge } from '@/components/ui/badge';
@@ -414,9 +414,10 @@ function ProductListingCardInner({
           </span>
         )}
 
-        {/* Social proof badge */}
+        {/* Social proof badge — community trust signal */}
         {socialProofCount != null && socialProofCount > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-primary-foreground bg-primary/80 rounded-full px-1.5 py-0.5 w-fit mb-0.5">
+          <span className="inline-flex items-center gap-1 text-[8px] font-bold text-accent-foreground bg-accent/90 rounded-full px-1.5 py-0.5 w-fit mb-0.5">
+            <Users size={8} className="shrink-0" />
             {ml.label('label_social_proof_format')
               .replace('{count}', String(socialProofCount))
               .replace('{unit}', socialProofCount === 1 ? ml.label('label_social_proof_singular') : ml.label('label_social_proof_plural'))}

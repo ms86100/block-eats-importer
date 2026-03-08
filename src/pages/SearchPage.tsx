@@ -16,6 +16,7 @@ import { TypewriterPlaceholder } from '@/components/search/TypewriterPlaceholder
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSearchPage, ProductSearchResult } from '@/hooks/useSearchPage';
 import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
+import { CommunitySuggestions } from '@/components/search/CommunitySuggestions';
 import { type ProductDetail } from '@/hooks/useProductDetail';
 
 function toProductWithSeller(p: ProductSearchResult): ProductWithSeller {
@@ -115,6 +116,11 @@ export default function SearchPage() {
               <Slider value={[s.searchRadius]} onValueChange={([v]) => s.setSearchRadiusLocal(v)} onValueCommit={([v]) => s.setSearchRadius(v)} min={1} max={10} step={1} className="flex-1" />
               <span className="text-xs font-semibold text-primary w-10 text-right">{s.searchRadius} km</span>
             </div>
+          )}
+
+          {/* Community search suggestions */}
+          {!s.isSearchActive && (
+            <CommunitySuggestions onSuggestionTap={(term) => s.setQuery(term)} />
           )}
 
           {/* Category Bubbles */}

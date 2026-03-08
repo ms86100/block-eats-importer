@@ -12,6 +12,7 @@ import { ProductListingCard, ProductWithSeller } from '@/components/product/Prod
 import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronRight, ShoppingBag, Sparkles, Clock, TrendingUp, Flame } from 'lucide-react';
+import { TrendingInSociety } from '@/components/home/TrendingInSociety';
 import { motion } from 'framer-motion';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { useMarketplaceConfig } from '@/hooks/useMarketplaceConfig';
@@ -113,6 +114,18 @@ export function MarketplaceSection() {
       ))}
 
       <FeaturedBanners />
+
+      {/* Trending in your society — order velocity based */}
+      {!activeGroup && (
+        <TrendingInSociety
+          onProductTap={handleProductTap}
+          onNavigate={navigate}
+          categoryConfigs={categoryConfigs}
+          marketplaceConfig={mc}
+          badgeConfigs={badgeConfigs}
+          socialProofMap={socialProofMap}
+        />
+      )}
 
       {!activeGroup && popularNearYou.length > (discoveryMinProducts || 3) && (
         <DiscoveryRow
