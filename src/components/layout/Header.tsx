@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ArrowLeft, Bell, Building, Building2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store } from 'lucide-react';
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ function HeaderInner({
       navigate('/society');
     }
   }, [navigate]);
-  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, setViewAsSociety, isAdmin, isBuilderMember } = useAuth();
+  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, setViewAsSociety, isAdmin, isBuilderMember, isSeller } = useAuth();
   const { itemCount } = useCart();
   const { selectionChanged } = useHaptics();
   const unreadCount = useUnreadNotificationCount();
@@ -90,6 +90,17 @@ function HeaderInner({
                     className="h-9 w-9 rounded-full bg-secondary text-foreground border border-border hover:bg-muted"
                   >
                     <Building2 size={16} />
+                  </Button>
+                </Link>
+              )}
+              {isSeller && (
+                <Link to="/seller/dashboard">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-9 w-9 rounded-full bg-secondary text-foreground border border-border hover:bg-muted"
+                  >
+                    <Store size={16} />
                   </Button>
                 </Link>
               )}
