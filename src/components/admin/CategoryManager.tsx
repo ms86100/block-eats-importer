@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { TransactionTypeConfirmSave } from './TransactionTypeConfirmSave';
 import { supabase } from '@/integrations/supabase/client';
 import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
