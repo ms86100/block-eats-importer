@@ -52,7 +52,7 @@ export function AdminProductApprovals() {
     if (showRejected) statuses = ['rejected'];
     const { data } = await supabase
       .from('products')
-      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, rejection_note, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
+      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, rejection_note, updated_while_pending, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
       .in('approval_status', statuses)
       .order('created_at', { ascending: showRejected ? false : true });
     setProducts((data as any) || []);
