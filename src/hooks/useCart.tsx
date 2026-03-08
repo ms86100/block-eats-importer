@@ -137,20 +137,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Check store availability before allowing add-to-cart
-    const seller = (product as any)?.seller;
-    if (seller) {
-      const availability = computeStoreStatus(
-        seller.availability_start,
-        seller.availability_end,
-        seller.operating_days,
-        seller.is_available ?? true
-      );
-      if (availability.status !== 'open') {
-        const msg = formatStoreClosedMessage(availability);
-        toast.error(msg || 'This store is currently closed. Please try again later.');
+    const inlineAvailability = getInlineSellerAvailability(product);
+    let availability = computeStoreStatus(
+      inlineAvailability.availabilityStart,
+      inlineAvailability.availabilityEnd,
+      inlineAvailability.operatingDays,
+      inlineAvailability.isAvailable
+    );
+
+    // Fallback fetch when product payload does not include seller availability metadata
+    if (!inlineAvailability.hasInlineAvailability) {
+      if (!product.seller_id) {
+        toast.error('Unable to verify store availability right now. Please try again.');
         return;
       }
+
+      const { data: sellerSnapshot, error: sellerError } = await supabase
+        .from('seller_profiles')
+        .select('availability_start, availability_end, operating_days, is_available')
+        .eq('id', product.seller_id)
+        .maybeSingle();
+
+      if (sellerError || !sellerSnapshot) {
+        toast.error('Unable to verify store availability right now. Please try again.');
+        return;
+      }
+
+      availability = computeStoreStatus(
+        sellerSnapshot.availability_start,
+        sellerSnapshot.availability_end,
+        sellerSnapshot.operating_days,
+        sellerSnapshot.is_available ?? true
+      );
+    }
+
+    if (availability.status !== 'open') {
+      const msg = formatStoreClosedMessage(availability);
+      toast.error(msg || 'This store is currently closed. Please try again later.');
+      return;
     }
 
     // Optimistic update
