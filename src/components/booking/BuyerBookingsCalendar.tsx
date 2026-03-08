@@ -58,11 +58,12 @@ export function BuyerBookingsCalendar() {
     return bookings.filter((b) => b.booking_date === dateStr);
   }, [bookings, selectedDate]);
 
-  // Auto-select first booking date if current selection has no bookings
-  const hasSelectedDateBookings = bookingDates.some((d) => isSameDay(d, selectedDate));
-  if (bookingDates.length > 0 && !hasSelectedDateBookings && isSameDay(selectedDate, startOfToday())) {
-    // Will be handled in effect below
-  }
+  // Auto-select first booking date if today has no bookings
+  useEffect(() => {
+    if (bookingDates.length > 0 && !bookingDates.some((d) => isSameDay(d, selectedDate))) {
+      setSelectedDate(bookingDates[0]);
+    }
+  }, [bookingDates]);
 
   // Next upcoming booking (soonest confirmed/scheduled)
   const nextBooking = useMemo(() => {
