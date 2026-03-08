@@ -32,7 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 type BookingAction = { id: string; action: string } | null;
 
-export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarProps) {
+export function ServiceBookingsCalendar({ sellerId, supportsStaffAssignment = false }: ServiceBookingsCalendarProps) {
   const { data: bookings = [], isLoading, refetch } = useSellerServiceBookings(sellerId);
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(startOfToday());
