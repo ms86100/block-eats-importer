@@ -87,14 +87,15 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
         return;
       }
 
-      // Update booking
+      // Update booking — BUG FIX: Add seller_id filter to prevent unauthorized updates
       const { error: bookingErr } = await supabase
         .from('service_bookings')
         .update({
           status: newStatus,
           ...(newStatus === 'cancelled' ? { cancelled_at: new Date().toISOString(), cancellation_reason: 'Rejected by seller' } : {}),
         })
-        .eq('id', bookingId);
+        .eq('id', bookingId)
+        .eq('seller_id', sellerId);
 
       if (bookingErr) throw bookingErr;
 
