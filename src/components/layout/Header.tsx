@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ArrowLeft, Bell, Building, Building2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store } from 'lucide-react';
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
