@@ -48,6 +48,8 @@ export default function SellerSettingsPage() {
     handleCategoryChange, handleDayChange, togglePauseShop, handleSave,
   } = useSellerSettings();
 
+  const sellerFlags = useSellerCategoryFlags(formData.categories as string[]);
+
   if (isLoading) {
     return (
       <AppLayout showHeader={false}>
