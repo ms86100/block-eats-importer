@@ -226,9 +226,9 @@ export function CategoryManager({ searchQuery = '' }: { searchQuery?: string }) 
           <ScrollArea className="h-[500px]">
             <div className="space-y-5 pr-4">
               <DndContext sensors={cm.sensors} collisionDetection={closestCenter} onDragEnd={cm.handleGroupDragEnd}>
-                <SortableContext items={cm.filteredGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-                  {cm.filteredGroups.map((group, idx) => {
-                    const groupCats = (cm.groupedCategories[group.slug] || []).sort((a, b) => a.display_order - b.display_order);
+                <SortableContext items={filteredGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+                  {filteredGroups.map((group, idx) => {
+                    const groupCats = (filteredGroupedCategories[group.slug] || []).sort((a, b) => a.display_order - b.display_order);
                     return (
                       <motion.div key={group.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
                         <SortableSectionItem group={group} groupCats={groupCats} onToggle={cm.toggleGroup} onEdit={cm.openGroupDialog} onDelete={cm.setDeleteGroup} onAddCategory={cm.openAddDialog}>
