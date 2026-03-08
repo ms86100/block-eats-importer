@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom';
-import { TrendingUp, ChevronRight } from 'lucide-react';
+import { TrendingUp, ChevronRight, Users, Repeat } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
 
 interface EarningsSummaryProps {
   todayEarnings: number;
   weekEarnings: number;
   totalEarnings: number;
+  repeatBuyerPct?: number;
+  uniqueCustomers?: number;
 }
 
-export function EarningsSummary({ todayEarnings, weekEarnings, totalEarnings }: EarningsSummaryProps) {
+export function EarningsSummary({ todayEarnings, weekEarnings, totalEarnings, repeatBuyerPct, uniqueCustomers }: EarningsSummaryProps) {
   const { formatPrice } = useCurrency();
   return (
     <Link to="/seller/earnings">
@@ -34,6 +36,25 @@ export function EarningsSummary({ todayEarnings, weekEarnings, totalEarnings }: 
             <p className="text-lg font-bold text-success tabular-nums">{formatPrice(totalEarnings)}</p>
           </div>
         </div>
+        {/* Trust metrics row */}
+        {(repeatBuyerPct != null || uniqueCustomers != null) && (
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-success/10">
+            {uniqueCustomers != null && (
+              <div className="flex items-center gap-1.5">
+                <Users size={13} className="text-primary" />
+                <span className="text-xs font-semibold text-foreground">{uniqueCustomers}</span>
+                <span className="text-[10px] text-muted-foreground">customers</span>
+              </div>
+            )}
+            {repeatBuyerPct != null && repeatBuyerPct > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Repeat size={13} className="text-accent" />
+                <span className="text-xs font-semibold text-foreground">{repeatBuyerPct}%</span>
+                <span className="text-[10px] text-muted-foreground">repeat</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

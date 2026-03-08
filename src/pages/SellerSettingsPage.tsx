@@ -203,6 +203,24 @@ export default function SellerSettingsPage() {
             </div>
           </div>
 
+          {/* Daily Order Capacity */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2"><Clock size={16} className="text-muted-foreground" /><Label>Daily Order Capacity</Label></div>
+            <div className="p-4 bg-muted rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <div><p className="font-medium text-sm">Limit daily orders</p><p className="text-xs text-muted-foreground">Auto-pause store when limit is reached</p></div>
+                <Switch checked={formData.daily_order_limit !== ''} onCheckedChange={(checked) => setFormData({ ...formData, daily_order_limit: checked ? '20' : '' })} />
+              </div>
+              {formData.daily_order_limit !== '' && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label htmlFor="daily_limit" className="text-xs">Max Orders Per Day</Label>
+                  <Input id="daily_limit" type="number" min="1" max="500" placeholder="e.g. 20" value={formData.daily_order_limit} onChange={(e) => setFormData({ ...formData, daily_order_limit: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground">Your store will automatically pause when you reach this limit each day</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Fulfillment */}
           <div className="space-y-3">
             <div className="flex items-center gap-2"><Truck size={16} className="text-muted-foreground" /><Label>Fulfillment Mode</Label></div>

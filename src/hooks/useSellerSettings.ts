@@ -31,6 +31,7 @@ export interface SellerSettingsFormData {
   fulfillment_mode: string;
   delivery_note: string;
   minimum_order_amount: string;
+  daily_order_limit: string;
 }
 
 const DEFAULT_FORM: SellerSettingsFormData = {
@@ -54,6 +55,7 @@ const DEFAULT_FORM: SellerSettingsFormData = {
   fulfillment_mode: 'self_pickup' as string,
   delivery_note: '',
   minimum_order_amount: '',
+  daily_order_limit: '',
 };
 
 export function useSellerSettings() {
@@ -106,6 +108,7 @@ export function useSellerSettings() {
           fulfillment_mode: profile.fulfillment_mode || 'self_pickup',
           delivery_note: profile.delivery_note || '',
           minimum_order_amount: profile.minimum_order_amount?.toString() || '',
+          daily_order_limit: profile.daily_order_limit?.toString() || '',
         });
       }
     } catch (error) {
@@ -160,6 +163,7 @@ export function useSellerSettings() {
     setIsSaving(true);
     try {
       const minOrder = formData.minimum_order_amount ? parseFloat(formData.minimum_order_amount) : null;
+      const dailyLimit = formData.daily_order_limit ? parseInt(formData.daily_order_limit) : null;
       const { error } = await supabase.from('seller_profiles').update({
         business_name: formData.business_name.trim(),
         description: formData.description.trim() || null,
@@ -181,6 +185,7 @@ export function useSellerSettings() {
         fulfillment_mode: formData.fulfillment_mode,
         delivery_note: formData.delivery_note.trim() || null,
         minimum_order_amount: (minOrder !== null && !isNaN(minOrder) && minOrder > 0) ? minOrder : null,
+        daily_order_limit: (dailyLimit !== null && !isNaN(dailyLimit) && dailyLimit > 0) ? dailyLimit : null,
       } as any).eq('id', sellerProfile.id);
 
       if (error) throw error;

@@ -4737,6 +4737,7 @@ export type Database = {
           completed_order_count: number | null
           cover_image_url: string | null
           created_at: string | null
+          daily_order_limit: number | null
           delivery_handled_by: string | null
           delivery_note: string | null
           delivery_radius_km: number
@@ -4751,6 +4752,7 @@ export type Database = {
           is_available: boolean | null
           is_featured: boolean | null
           last_active_at: string | null
+          low_stock_alert_threshold: number | null
           minimum_order_amount: number | null
           on_time_delivery_pct: number | null
           operating_days: string[] | null
@@ -4784,6 +4786,7 @@ export type Database = {
           completed_order_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
+          daily_order_limit?: number | null
           delivery_handled_by?: string | null
           delivery_note?: string | null
           delivery_radius_km?: number
@@ -4798,6 +4801,7 @@ export type Database = {
           is_available?: boolean | null
           is_featured?: boolean | null
           last_active_at?: string | null
+          low_stock_alert_threshold?: number | null
           minimum_order_amount?: number | null
           on_time_delivery_pct?: number | null
           operating_days?: string[] | null
@@ -4831,6 +4835,7 @@ export type Database = {
           completed_order_count?: number | null
           cover_image_url?: string | null
           created_at?: string | null
+          daily_order_limit?: number | null
           delivery_handled_by?: string | null
           delivery_note?: string | null
           delivery_radius_km?: number
@@ -4845,6 +4850,7 @@ export type Database = {
           is_available?: boolean | null
           is_featured?: boolean | null
           last_active_at?: string | null
+          low_stock_alert_threshold?: number | null
           minimum_order_amount?: number | null
           on_time_delivery_pct?: number | null
           operating_days?: string[] | null

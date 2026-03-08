@@ -27,6 +27,7 @@ import { SellerAnalytics } from '@/components/seller/SellerAnalytics';
 import { DemandInsights } from '@/components/seller/DemandInsights';
 import { NewOrderAlertOverlay } from '@/components/seller/NewOrderAlertOverlay';
 import { useSellerOrderStats, useSellerOrdersInfinite, useSellerOrderFilterCounts } from '@/hooks/queries/useSellerOrders';
+import { useSellerAnalytics } from '@/hooks/queries/useSellerAnalytics';
 import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
 import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
@@ -84,6 +85,7 @@ export default function SellerDashboardPage() {
 
   // Use React Query for stats and orders
   const { data: stats } = useSellerOrderStats(activeSellerId);
+  const { data: analytics } = useSellerAnalytics(activeSellerId);
   const { data: filterCounts } = useSellerOrderFilterCounts(activeSellerId);
   const {
     data: ordersPages,
@@ -245,6 +247,8 @@ export default function SellerDashboardPage() {
             todayEarnings={stats?.todayEarnings || 0}
             weekEarnings={stats?.weekEarnings || 0}
             totalEarnings={stats?.totalEarnings || 0}
+            repeatBuyerPct={analytics?.totalCustomers ? Math.round((analytics.repeatCustomers / analytics.totalCustomers) * 100) : undefined}
+            uniqueCustomers={analytics?.totalCustomers}
           />
 
           <DashboardStats
