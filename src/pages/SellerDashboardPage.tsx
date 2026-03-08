@@ -28,6 +28,9 @@ import { DemandInsights } from '@/components/seller/DemandInsights';
 import { NewOrderAlertOverlay } from '@/components/seller/NewOrderAlertOverlay';
 import { useSellerOrderStats, useSellerOrdersInfinite, useSellerOrderFilterCounts } from '@/hooks/queries/useSellerOrders';
 import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
+import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
+
+const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
 
 export default function SellerDashboardPage() {
   const { user, sellerProfiles = [], currentSellerId } = useAuth();
@@ -249,6 +252,14 @@ export default function SellerDashboardPage() {
             completedOrders={stats?.completedOrders || 0}
           />
         </div>
+
+        {/* ── Service Bookings Calendar ── */}
+        {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
+            <ServiceBookingsCalendar sellerId={sellerProfile.id} />
+          </div>
+        )}
 
         {/* ── Tools & Promotions ── */}
         <div className="space-y-3">
