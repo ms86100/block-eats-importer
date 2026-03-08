@@ -882,8 +882,11 @@ export type Database = {
           review_dimensions: string[] | null
           show_duration_field: boolean
           show_veg_toggle: boolean
+          supports_addons: boolean
           supports_brand_display: boolean
           supports_cart: boolean | null
+          supports_recurring: boolean
+          supports_staff_assignment: boolean
           supports_warranty_display: boolean
           transaction_type: string
           updated_at: string | null
@@ -927,8 +930,11 @@ export type Database = {
           review_dimensions?: string[] | null
           show_duration_field?: boolean
           show_veg_toggle?: boolean
+          supports_addons?: boolean
           supports_brand_display?: boolean
           supports_cart?: boolean | null
+          supports_recurring?: boolean
+          supports_staff_assignment?: boolean
           supports_warranty_display?: boolean
           transaction_type?: string
           updated_at?: string | null
@@ -972,8 +978,11 @@ export type Database = {
           review_dimensions?: string[] | null
           show_duration_field?: boolean
           show_veg_toggle?: boolean
+          supports_addons?: boolean
           supports_brand_display?: boolean
           supports_cart?: boolean | null
+          supports_recurring?: boolean
+          supports_staff_assignment?: boolean
           supports_warranty_display?: boolean
           transaction_type?: string
           updated_at?: string | null
@@ -4989,6 +4998,47 @@ export type Database = {
           },
         ]
       }
+      service_addons: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_addons_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_availability_schedules: {
         Row: {
           created_at: string
@@ -5037,6 +5087,48 @@ export type Database = {
           },
         ]
       }
+      service_booking_addons: {
+        Row: {
+          addon_id: string
+          addon_name: string
+          addon_price: number
+          booking_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          addon_id: string
+          addon_name: string
+          addon_price?: number
+          booking_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          addon_id?: string
+          addon_name?: string
+          addon_price?: number
+          booking_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_booking_addons_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "service_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_booking_addons_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_bookings: {
         Row: {
           booking_date: string
@@ -5050,9 +5142,12 @@ export type Database = {
           location_type: string
           order_id: string
           product_id: string
+          reminder_1h_sent_at: string | null
+          reminder_24h_sent_at: string | null
           rescheduled_from: string | null
           seller_id: string
           slot_id: string
+          staff_id: string | null
           start_time: string
           status: string
           updated_at: string
@@ -5069,9 +5164,12 @@ export type Database = {
           location_type?: string
           order_id: string
           product_id: string
+          reminder_1h_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
           rescheduled_from?: string | null
           seller_id: string
           slot_id: string
+          staff_id?: string | null
           start_time: string
           status?: string
           updated_at?: string
@@ -5088,9 +5186,12 @@ export type Database = {
           location_type?: string
           order_id?: string
           product_id?: string
+          reminder_1h_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
           rescheduled_from?: string | null
           seller_id?: string
           slot_id?: string
+          staff_id?: string | null
           start_time?: string
           status?: string
           updated_at?: string
@@ -5129,6 +5230,13 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "service_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "service_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -5189,6 +5297,72 @@ export type Database = {
           },
         ]
       }
+      service_recurring_configs: {
+        Row: {
+          booking_id: string
+          buyer_id: string
+          created_at: string
+          day_of_week: number
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          last_generated_date: string | null
+          preferred_time: string
+          product_id: string
+          seller_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id: string
+          buyer_id: string
+          created_at?: string
+          day_of_week: number
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          preferred_time: string
+          product_id: string
+          seller_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string
+          buyer_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          preferred_time?: string
+          product_id?: string
+          seller_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_recurring_configs_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_recurring_configs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_slots: {
         Row: {
           booked_count: number
@@ -5236,6 +5410,50 @@ export type Database = {
           },
           {
             foreignKeyName: "service_slots_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_staff: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          photo_url: string | null
+          seller_id: string
+          specializations: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          photo_url?: string | null
+          seller_id: string
+          specializations?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          photo_url?: string | null
+          seller_id?: string
+          specializations?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_staff_seller_id_fkey"
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "seller_profiles"

@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { DateRangePicker } from './DateRangePicker';
+import { ServiceAddonPicker, SelectedAddon } from './ServiceAddonPicker';
+import { RecurringBookingSelector, RecurringConfig } from './RecurringBookingSelector';
 import { Listing } from '@/components/listing/ListingCard';
 import { useCategoryBehavior } from '@/hooks/useCategoryBehavior';
 import { RentalPeriodType } from '@/types/categories';
@@ -43,6 +45,8 @@ export interface BookingDetails {
   slotId?: string;
   locationType?: string;
   buyerAddress?: string;
+  selectedAddons?: SelectedAddon[];
+  recurringConfig?: RecurringConfig;
 }
 
 export function BookingSheet({
@@ -71,17 +75,25 @@ export function BookingSheet({
   const [rentalEndDate, setRentalEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
   const [buyerAddress, setBuyerAddress] = useState('');
+  const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
+  const [recurringConfig, setRecurringConfig] = useState<RecurringConfig>({ enabled: false, frequency: 'weekly' });
 
+  // Check if category supports addons/recurring
+  const supportsAddons = (config as any)?.supports_addons ?? false;
+  const supportsRecurring = (config as any)?.supports_recurring ?? false;
   // Determine location type from service listing (if available)
   const locationType = (listing as any).location_type || 'at_seller';
   const needsAddress = isServiceLayout && locationType === 'home_visit';
 
   const handleConfirm = () => {
+    const addonTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
     const details: BookingDetails = {
       listingId: listing.id,
       type: enquiryOnly ? 'enquiry' : hasDateRange ? 'rental' : 'booking',
-      totalAmount: listing.price,
+      totalAmount: listing.price + addonTotal,
       notes: notes || undefined,
+      selectedAddons: selectedAddons.length > 0 ? selectedAddons : undefined,
+      recurringConfig: recurringConfig.enabled ? recurringConfig : undefined,
     };
 
     if (requiresTimeSlot || hasDuration || isServiceLayout) {
@@ -208,6 +220,23 @@ export function BookingSheet({
                 onChange={(e) => setBuyerAddress(e.target.value)}
               />
             </div>
+          )}
+
+          {/* Service Add-ons */}
+          {isServiceLayout && supportsAddons && (
+            <ServiceAddonPicker
+              productId={listing.id}
+              selectedAddons={selectedAddons}
+              onAddonsChange={setSelectedAddons}
+            />
+          )}
+
+          {/* Recurring Booking */}
+          {isServiceLayout && supportsRecurring && selectedDate && selectedTime && (
+            <RecurringBookingSelector
+              config={recurringConfig}
+              onChange={setRecurringConfig}
+            />
           )}
 
           {/* Notes/Message */}

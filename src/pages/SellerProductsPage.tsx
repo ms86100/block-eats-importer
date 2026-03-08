@@ -22,6 +22,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
 import { useSellerProducts } from '@/hooks/useSellerProducts';
 import { ServiceFieldsSection } from '@/components/seller/ServiceFieldsSection';
+import { ServiceAddonsManager } from '@/components/seller/ServiceAddonsManager';
 
 export default function SellerProductsPage() {
   const sp = useSellerProducts();
@@ -68,6 +69,9 @@ export default function SellerProductsPage() {
                   <AttributeBlockBuilder category={sp.formData.category || null} value={sp.attributeBlocks} onChange={sp.setAttributeBlocks} />
                   {sp.isCurrentCategoryService && (
                     <ServiceFieldsSection data={sp.serviceFields} onChange={sp.setServiceFields} />
+                  )}
+                  {sp.editingProduct && sp.isCurrentCategoryService && (
+                    <ServiceAddonsManager productId={sp.editingProduct.id} />
                   )}
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg"><span className="text-sm font-medium">Available for order</span><Switch checked={sp.formData.is_available} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, is_available: checked })} /></div>
                   <Button className="w-full" onClick={sp.handleSave} disabled={sp.isSaving}>{sp.isSaving && <Loader2 className="animate-spin mr-2" size={18} />}{sp.editingProduct ? 'Save Changes' : 'Add Product'}</Button>
