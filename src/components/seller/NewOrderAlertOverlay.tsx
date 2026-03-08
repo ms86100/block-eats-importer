@@ -19,6 +19,7 @@ function statusLabel(status: string): string {
     case 'enquired': return '📋 New Enquiry';
     case 'placed': return '🛒 New Order';
     case 'quoted': return '💬 Quote Request';
+    case 'requested': return '📅 New Booking Request';
     default: return '🔔 New Order';
   }
 }
