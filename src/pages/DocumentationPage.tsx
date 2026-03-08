@@ -339,10 +339,17 @@ export default function DocumentationPage() {
               </SubSection>
               <SubSection title="Configuring Categories (Dynamic UI Control)">
                 <p>The most powerful admin capability is <strong>category-level configuration</strong>. Every service feature visible to sellers is controlled via flags in the Catalog Manager:</p>
-                <p>1. Navigate to <strong>Admin Panel → Catalog</strong>.</p>
-                <p>2. Select a category to edit.</p>
-                <p>3. Toggle the feature flags (see <strong>Category Configuration</strong> section below for details).</p>
-                <p>4. Save — changes take effect <strong>immediately</strong> for all sellers in that category.</p>
+                <p>1. Navigate to <strong>Admin Panel → Catalog</strong> tab, then select the <strong>Categories</strong> sub-tab.</p>
+                <p>2. Find the category you want to configure and click the <strong>Edit (pencil icon)</strong> button on that row.</p>
+                <p>3. In the <strong>Edit Category</strong> dialog that opens:</p>
+                <p className="pl-4">a. Set the <strong>Listing Type</strong> dropdown — choose a service type (<code className="text-[10px] bg-muted px-1 rounded">book_slot</code>, <code className="text-[10px] bg-muted px-1 rounded">request_service</code>, or <code className="text-[10px] bg-muted px-1 rounded">schedule_visit</code>) to unlock the service feature toggles.</p>
+                <p className="pl-4">b. Once a service listing type is selected, the <strong>Service Features</strong> section appears with toggles for: <strong>Add-ons</strong>, <strong>Recurring Bookings</strong>, and <strong>Staff Assignment</strong>.</p>
+                <p className="pl-4">c. The <strong>Show Veg/Non-Veg Toggle</strong> and <strong>Show Duration Field</strong> toggles are always visible regardless of listing type.</p>
+                <p className="pl-4">d. You can also customize <strong>Seller Form Hints</strong> — name/description placeholders, price label, duration label, price prefix, and the primary button label.</p>
+                <p>4. Click <strong>Save</strong> — changes take effect <strong>immediately</strong> for all sellers in that category.</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                  ⚠️ Service feature toggles (Add-ons, Recurring, Staff) are <strong>only visible</strong> when the Listing Type is set to a service type. If you don't see them, change the Listing Type first.
+                </p>
                 <p className="text-xs text-primary flex items-center gap-1">
                   <Sparkles size={12} />
                   No code changes or deployments needed. The seller UI adapts in real-time.
