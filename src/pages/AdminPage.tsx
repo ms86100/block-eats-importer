@@ -425,6 +425,7 @@ export default function AdminPage() {
           )}
 
           {admin.activeTab === 'features' && <FeatureManagement />}
+          {admin.activeTab === 'services' && <AdminServiceBookingsTab />}
           {admin.activeTab === 'catalog' && <AdminCatalogManager />}
 
           {admin.activeTab === 'settings' && (

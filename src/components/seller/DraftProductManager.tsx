@@ -408,7 +408,7 @@ export function DraftProductManager({
               onChange={setAttributeBlocks}
             />
 
-            {showDurationField && (
+            {showDurationField && !isServiceCategory && (
               <div className="space-y-2">
                 <Label htmlFor="prod-prep" className="text-xs">{activeConfig?.formHints.durationLabel || 'Prep Time (min)'}</Label>
                 <Input
@@ -421,6 +421,19 @@ export function DraftProductManager({
                     setNewProduct({ ...newProduct, prep_time_minutes: e.target.value ? Number(e.target.value) : null })
                   }
                 />
+              </div>
+            )}
+
+            {/* Service Configuration Section */}
+            {isServiceCategory && (
+              <div className="space-y-2">
+                <ServiceFieldsSection data={serviceFields} onChange={setServiceFields} />
+                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
+                  <Info size={14} className="text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    After your service is approved, set your <span className="font-semibold text-foreground">availability schedule</span> in Seller Settings to start receiving bookings.
+                  </p>
+                </div>
               </div>
             )}
 

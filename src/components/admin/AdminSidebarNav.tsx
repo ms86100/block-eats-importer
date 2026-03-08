@@ -16,6 +16,7 @@ const NAV_GROUPS = [
     items: [
       { value: 'sellers', label: 'Sellers & Products', icon: Store },
       { value: 'payments', label: 'Payments', icon: CreditCard },
+      { value: 'services', label: 'Services', icon: CalendarCheck },
       { value: 'catalog', label: 'Catalog', icon: LayoutGrid },
       { value: 'featured', label: 'Featured', icon: Megaphone },
     ],
