@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from 'react';
-import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell } from 'lucide-react';
+import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
+import { SellerTrustBadge, getSellerTrustTier } from '@/components/trust/SellerTrustBadge';
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
