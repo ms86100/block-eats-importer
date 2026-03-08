@@ -10,6 +10,8 @@ import { FavoriteButton } from '@/components/favorite/FavoriteButton';
 import { SellerReputationTab } from '@/components/seller/SellerReputationTab';
 import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
 import { SellerStatsCard } from '@/components/trust/SellerStatsCard';
+import { DeliveryReliabilityScore } from '@/components/trust/DeliveryReliabilityScore';
+import { SellerGrowthTier } from '@/components/trust/SellerGrowthTier';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -422,6 +424,13 @@ export default function SellerDetailPage() {
               )}
             </div>
           )}
+
+          {/* Row 4b: Delivery reliability & Growth tier */}
+          <DeliveryReliabilityScore sellerId={seller.id} />
+          <SellerGrowthTier
+            completedOrders={(seller as any).completed_order_count || 0}
+            rating={seller.rating}
+          />
 
           {/* Row 5: Operating days */}
           <div className="flex items-center gap-2">

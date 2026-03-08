@@ -11,6 +11,8 @@ import { ReportSheet } from '@/components/report/ReportSheet';
 import { ServiceBookingFlow } from '@/components/booking/ServiceBookingFlow';
 import { ProductAttributeBlocks } from './ProductAttributeBlocks';
 import { PriceHistoryChart } from './PriceHistoryChart';
+import { PriceStabilityBadge } from '@/components/trust/PriceStabilityBadge';
+import { RefundTierBadge } from '@/components/trust/RefundTierBadge';
 import { Plus, Minus, Store, MapPin, Home, Clock, Truck, Users, Zap, RotateCcw, ChevronRight, ChevronDown, Shield, Flag, X } from 'lucide-react';
 import { useProductDetail, ProductDetail } from '@/hooks/useProductDetail';
 import { hapticImpact } from '@/lib/haptics';
@@ -119,6 +121,8 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
                   <span className="text-xl font-bold text-foreground">{d.formatPrice(product.price)}</span>
                 )}
               </div>
+              <PriceStabilityBadge productId={product.product_id} />
+              <RefundTierBadge amount={product.price} />
 
               <button onClick={() => d.setShowDetails(!d.showDetails)} className="flex items-center gap-1 text-xs font-medium text-primary">
                 {d.showDetails ? 'Hide product details' : 'View product details'}
