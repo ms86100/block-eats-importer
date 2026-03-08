@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { CategoryConfig } from '@/types/categories';
+import { deriveActionType } from '@/lib/marketplace-constants';
 import { friendlyError } from '@/lib/utils';
 
 export interface BulkRow {
@@ -128,6 +129,7 @@ export function useBulkUpload(sellerId: string, allowedCategories: CategoryConfi
           is_veg: config?.formHints.showVegToggle ? row.is_veg : true,
           prep_time_minutes: config?.formHints.showDurationField && row.prep_time_minutes ? parseInt(row.prep_time_minutes) : null,
           is_available: true, approval_status: 'draft',
+          action_type: deriveActionType(null, config?.transactionType),
         };
       });
 

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCart } from '@/hooks/useCart';
 import { useSellerTrustSnapshot } from '@/hooks/queries/useProductTrustMetrics';
 import { ProductActionType } from '@/types/database';
-import { ACTION_CONFIG } from '@/lib/marketplace-constants';
+import { ACTION_CONFIG, deriveActionType } from '@/lib/marketplace-constants';
 import { useCurrency } from '@/hooks/useCurrency';
 import { hapticImpact } from '@/lib/haptics';
 
@@ -66,8 +66,8 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
     fetchData();
   }, [product?.product_id, open]);
 
-  const actionType: ProductActionType = (product?.action_type as ProductActionType) || 'add_to_cart';
-  const config = ACTION_CONFIG[actionType] || ACTION_CONFIG.add_to_cart;
+  const actionType: ProductActionType = deriveActionType(product?.action_type as string, null);
+  const config = ACTION_CONFIG[actionType];
   const isCartAction = config.isCart;
 
   const cartItem = items.find((item) => item.product_id === product?.product_id);

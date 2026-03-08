@@ -74,6 +74,8 @@ export interface CategoryConfig {
   supportsAddons: boolean;
   supportsRecurring: boolean;
   supportsStaffAssignment: boolean;
+  /** Raw transaction_type from category_config — used by deriveActionType */
+  transactionType?: string;
 }
 
 export const DEFAULT_FALLBACK_BEHAVIOR: CategoryBehavior = {

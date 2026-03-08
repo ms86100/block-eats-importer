@@ -7,7 +7,7 @@ import { VegBadge } from '@/components/ui/veg-badge';
 import { useCart } from '@/hooks/useCart';
 import { ProductActionType } from '@/types/database';
 import { NotifyMeButton } from './NotifyMeButton';
-import { ACTION_CONFIG } from '@/lib/marketplace-constants';
+import { ACTION_CONFIG, deriveActionType } from '@/lib/marketplace-constants';
 import { useCardAnalytics } from '@/hooks/useCardAnalytics';
 import { MARKETPLACE_FALLBACKS, type MarketplaceConfig } from '@/hooks/useMarketplaceConfig';
 import type { BadgeConfigRow } from '@/hooks/useBadgeConfig';
@@ -107,8 +107,11 @@ function ProductListingCardInner({
 
   const mc = marketplaceConfig || MARKETPLACE_FALLBACKS;
 
-  const actionType: ProductActionType = (product.action_type as ProductActionType) || 'add_to_cart';
-  const actionConfig = ACTION_CONFIG[actionType] || ACTION_CONFIG.add_to_cart;
+  const actionType: ProductActionType = useMemo(() => {
+    const catTxType = categoryConfigs.find(c => c.category === product.category)?.transactionType;
+    return deriveActionType(product.action_type as string, catTxType);
+  }, [product.action_type, product.category, categoryConfigs]);
+  const actionConfig = ACTION_CONFIG[actionType];
   const isCartAction = actionConfig.isCart;
 
   const cartItem = isCartAction ? items.find((item) => item.product_id === product.id) : null;
