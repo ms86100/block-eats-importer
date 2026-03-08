@@ -65,6 +65,7 @@ const DEFAULTS: SystemSettings = {
   supportedCountryCodes: ['+91', '+1', '+44', '+971', '+65', '+61'],
   refundPromiseText: 'If anything goes wrong, refund within 24 hours',
   refundSlaHours: 24,
+  sellerResponseTimeoutMinutes: 3,
 };
 
 export function useSystemSettings(): SystemSettings {
