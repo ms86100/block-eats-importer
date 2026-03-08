@@ -70,6 +70,11 @@ export function TransactionTypeConfirmSave({ editingCategory, newTransactionType
                     {affectedCount} existing product{affectedCount !== 1 ? 's' : ''} will be updated to show the new button type.
                   </p>
                 )}
+                {affectedCount === 0 && (
+                  <p className="font-medium text-destructive">
+                    No products currently use this category, so buyer buttons will not visibly change yet.
+                  </p>
+                )}
                 <p className="text-muted-foreground text-xs">
                   Existing orders and bookings will not be affected.
                 </p>
