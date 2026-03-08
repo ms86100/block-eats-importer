@@ -68,8 +68,7 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {/* ═══ SOCIETY TRUST STRIP ═══ */}
-        <SocietyTrustStrip />
+        {/* Society stats now shown inline in header */}
 
         {/* ═══ DISCOVER ═══ */}
         <section className="space-y-1">
