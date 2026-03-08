@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { friendlyError } from '@/lib/utils';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
+import { deriveActionType } from '@/lib/marketplace-constants';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
