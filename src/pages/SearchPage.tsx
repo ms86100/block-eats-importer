@@ -191,7 +191,7 @@ function CategoryBubbleRow({ categories, selectedCategory, onCategoryTap, isLoad
       <div className="flex gap-2 pb-2">
         {categories.map((cat) => (
           <button key={cat.category} onClick={() => onCategoryTap(cat.category)} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl min-w-[68px] transition-all shrink-0 ${selectedCategory === cat.category ? 'bg-primary text-primary-foreground shadow-md scale-[1.03]' : 'bg-muted/60 hover:bg-muted'}`}>
-            <span className="text-xl leading-none">{cat.icon}</span>
+            <span className="text-xl leading-none"><DynamicIcon name={cat.icon} size={20} /></span>
             <span className={`text-[10px] font-medium leading-tight text-center line-clamp-1 ${selectedCategory === cat.category ? 'text-primary-foreground' : 'text-foreground'}`}>{cat.displayName}</span>
           </button>
         ))}
