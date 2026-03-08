@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +33,7 @@ type BookingAction = { id: string; action: string } | null;
 
 export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarProps) {
   const { data: bookings = [], isLoading, refetch } = useSellerServiceBookings(sellerId);
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
   const [actionLoading, setActionLoading] = useState<BookingAction>(null);
@@ -90,6 +92,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       }
 
       refetch();
+      queryClient.invalidateQueries({ queryKey: ['service-slots'] });
       toast.success(`Booking ${newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'rejected' : newStatus === 'no_show' ? 'marked no-show' : 'updated'}`);
     } catch (err: any) {
       toast.error('Failed to update booking');
