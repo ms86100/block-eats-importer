@@ -441,14 +441,26 @@ export default function AdminPage() {
           {admin.activeTab === 'catalog' && <AdminCatalogManager />}
 
           {admin.activeTab === 'settings' && (
-            <div className="space-y-5">
-              <NotificationDiagnostics />
-              <PlatformSettingsManager />
-              <OtpSettings />
-              <ApiKeySettings />
-              <PurgeDataButton />
-              <ResetAndSeedButton />
-            </div>
+            <Tabs defaultValue="platform" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 rounded-xl h-9 mb-4">
+                <TabsTrigger value="platform" className="text-xs rounded-lg font-semibold">Platform</TabsTrigger>
+                <TabsTrigger value="notifications" className="text-xs rounded-lg font-semibold">Notifications</TabsTrigger>
+                <TabsTrigger value="system" className="text-xs rounded-lg font-semibold">System</TabsTrigger>
+              </TabsList>
+              <TabsContent value="platform" className="space-y-5">
+                <PlatformSettingsManager />
+                <LicenseConfigSection />
+              </TabsContent>
+              <TabsContent value="notifications" className="space-y-5">
+                <NotificationDiagnostics />
+                <OtpSettings />
+              </TabsContent>
+              <TabsContent value="system" className="space-y-5">
+                <ApiKeySettings />
+                <PurgeDataButton />
+                <ResetAndSeedButton />
+              </TabsContent>
+            </Tabs>
           )}
 
           {admin.activeTab === 'campaigns' && <CampaignSender />}
