@@ -94,7 +94,6 @@ async function bootstrap() {
 
   // Successful boot — reset crash counter
   sessionStorage.removeItem('boot-fails');
-  sessionStorage.removeItem('chunk-reload');
 
   // Safety net: if the app hasn't signalled it mounted within 10s, show fallback
   window.setTimeout(() => {
