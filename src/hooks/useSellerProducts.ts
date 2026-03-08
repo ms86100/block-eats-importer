@@ -204,7 +204,19 @@ export function useSellerProducts() {
                 if (contentChanged && ['approved', 'rejected'].includes(ep.approval_status)) return 'pending';
                 return ep.approval_status;
               })(),
-              rejection_note: null, // Clear rejection note on edit
+              // PA-07 fix: Only clear rejection_note when status is being reset to pending
+              ...((() => {
+                const ep = editingProduct as any;
+                const contentChanged =
+                  formData.name.trim() !== ep.name ||
+                  (formData.description.trim() || null) !== (ep.description || null) ||
+                  parseFloat(formData.price) !== ep.price ||
+                  formData.category !== ep.category ||
+                  formData.image_url !== ep.image_url;
+                return contentChanged && ['approved', 'rejected'].includes(ep.approval_status)
+                  ? { rejection_note: null }
+                  : {};
+              })()),
             }
           : {
               approval_status: 'pending' as const,
