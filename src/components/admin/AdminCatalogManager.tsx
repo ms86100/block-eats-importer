@@ -134,9 +134,9 @@ export function AdminCatalogManager() {
   }, [isSearching, subTab, filteredCategories, filteredBlocksForSearch]);
 
   const TAB_ITEMS = [
-    { value: 'overview', label: 'Overview', icon: Layers3 },
     { value: 'categories', label: 'Categories', icon: Grid3X3 },
     { value: 'attributes', label: 'Attributes', icon: Blocks },
+    { value: 'licenses', label: 'Licenses', icon: Layers3 },
   ];
 
   return (
