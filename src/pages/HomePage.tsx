@@ -71,29 +71,21 @@ export default function HomePage() {
         {/* Society stats now shown inline in header */}
 
         {/* ═══ DISCOVER ═══ */}
-        <section className="space-y-1">
-          <HomeSearchSuggestions />
-          <div className="px-4 mt-3">
-            <UpcomingAppointmentBanner />
-          </div>
-        </section>
+        <HomeSearchSuggestions />
+        <div className="px-4 mt-3">
+          <UpcomingAppointmentBanner />
+        </div>
 
         {/* ═══ YOUR ORDERS ═══ */}
-        <section className="mt-5 border-t border-border/30 pt-4">
-          <ReorderLastOrder />
-          <BuyAgainRow />
-        </section>
+        <ReorderLastOrder />
+        <BuyAgainRow />
 
         {/* ═══ COMMUNITY ═══ */}
-        <section className="mt-3 border-t border-border/30 pt-4">
-          <SocietyQuickLinks />
-        </section>
+        <SocietyQuickLinks />
 
         {/* ═══ MARKETPLACE & COMMUNITY ═══ */}
-        <section className="mt-3 border-t border-border/30 pt-4">
-          <MarketplaceSection />
-          <CommunityTeaser />
-        </section>
+        <MarketplaceSection />
+        <CommunityTeaser />
       </div>
     </AppLayout>
   );
