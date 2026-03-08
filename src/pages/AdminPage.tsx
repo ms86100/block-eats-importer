@@ -449,7 +449,6 @@ export default function AdminPage() {
               </TabsList>
               <TabsContent value="platform" className="space-y-5">
                 <PlatformSettingsManager />
-                <LicenseConfigSection />
               </TabsContent>
               <TabsContent value="notifications" className="space-y-5">
                 <NotificationDiagnostics />
