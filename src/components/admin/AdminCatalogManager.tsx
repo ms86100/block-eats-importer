@@ -33,7 +33,7 @@ function matchesQuery(query: string, ...fields: (string | null | undefined)[]): 
 }
 
 export function AdminCatalogManager() {
-  const [subTab, setSubTab] = useState('overview');
+  const [subTab, setSubTab] = useState('categories');
   const [blocks, setBlocks] = useState<AttributeBlock[]>([]);
   const [blocksLoading, setBlocksLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
