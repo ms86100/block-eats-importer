@@ -325,7 +325,14 @@ export default function SellerDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h1 className="text-xl font-bold">{seller.business_name}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold">{seller.business_name}</h1>
+                    <SellerTrustBadge
+                      completedOrders={(seller as any).completed_order_count || 0}
+                      rating={seller.rating}
+                      size="sm"
+                    />
+                  </div>
                   {seller.description && (
                     <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                       {seller.description}
