@@ -70,6 +70,10 @@ export interface CategoryConfig {
   imageUrl: string | null;
   displayOrder: number;
   isActive: boolean;
+  // Admin-configurable feature flags
+  supportsAddons: boolean;
+  supportsRecurring: boolean;
+  supportsStaffAssignment: boolean;
 }
 
 export const DEFAULT_FALLBACK_BEHAVIOR: CategoryBehavior = {
