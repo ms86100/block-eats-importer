@@ -1,62 +1,103 @@
 
 
-## Category Configuration & Attribute Blocks — COMPLETED
+# Booking Workflow: Gap Analysis & Fix Plan
 
-### What Was Done
+## Root Cause — Why Seller Sees No Actions
 
-**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
-- Food & Beverages → `cart_purchase`
-- Education → `book_slot` (with recurring, staff, addons as appropriate)
-- Home Services → `request_service` / `request_quote` / `book_slot`
-- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
-- Domestic Help → `contact_only` (with recurring)
-- Events → `request_quote` / `book_slot`
-- Professional → `book_slot` / `request_service` / `request_quote`
-- Pets → `cart_purchase` / `book_slot`
-- Rentals → `contact_only` / `cart_purchase`
-- Shopping → `cart_purchase` / `buy_now`
-- Real Estate → `schedule_visit` / `contact_only`
+The system has a correct status flow in the database:
 
-**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
-food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
+```text
+education_learning / service_booking flow:
+  requested (buyer, sort 10)
+  rescheduled (buyer, sort 15)  ← THIS IS THE PROBLEM
+  confirmed (seller, sort 20)
+  scheduled (seller, sort 30)
+  in_progress (seller, sort 60)
+  completed (seller, sort 70, terminal)
+```
 
-### No Code Changes Needed
-Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
+**Bug in `getNextStatusForActor()`** (`useCategoryStatusFlow.ts` line 72-87): It only checks the *immediate* next step. When the current status is `requested`, the next step is `rescheduled` (actor: buyer). Since the function checks `if (actor === 'seller' && next.actor !== 'seller') return null`, it returns **null** — the seller gets no action button.
 
----
+The function should **scan forward** past non-seller steps to find the next seller-actionable step (`confirmed`).
 
-## Listing Type Behavior Fix — COMPLETED
+**Second bug on `OrderDetailPage.tsx` line 302**: The Reject button only shows for `placed` or `enquired` status. For service bookings that start at `requested`, the seller cannot reject either.
 
-### Root Cause
-- DB trigger `propagate_category_transaction_type` was never installed
-- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
-- DB default was `'buy'` instead of `'add_to_cart'`
-- No INSERT-time trigger to derive action_type from category
+## What Currently Works (No Changes Needed)
 
-### Database Fixes Applied
-1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
-2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
-3. **Default changed** to `'add_to_cart'`
-4. **Backfilled** all existing products with correct action_type values
-5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+- **Buyer post-booking message**: Line 132 shows "Booking request sent. Awaiting confirmation." for `requested` status. Already works.
+- **Buyer timeline**: `displayStatuses` correctly derives from `category_status_flows`. Shows requested → confirmed → scheduled → in_progress. Already works.
+- **Service booking details card**: Shows date, time, location, staff. Already works.
+- **Buyer reschedule & cancel actions**: Already present in the order detail.
+- **Admin configuration**: `category_status_flows` table already drives the flow per parent_group + transaction_type. Statuses are NOT hardcoded — they come from DB. Already configurable.
+- **Notifications**: DB trigger `enqueue_order_status_notification` fires on order status change. Already works.
 
-### Frontend Fixes Applied
-1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
-2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
-3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
-4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
-5. **useProductDetail** — uses `deriveActionType`
-6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
-7. **useBulkUpload** — sets `action_type` from category config on bulk create
-8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+## Fixes Required
 
-### Mapping Reference
-| transaction_type | action_type | Button |
-|-----------------|-------------|--------|
-| cart_purchase | add_to_cart | ADD |
-| buy_now | buy_now | BUY |
-| book_slot | book | Book |
-| request_service | request_service | Request |
-| request_quote | request_quote | Quote |
-| contact_only | contact_seller | Contact |
-| schedule_visit | schedule_visit | Visit |
+### Fix 1: `getNextStatusForActor()` — scan forward past non-actor steps
+
+**File:** `src/hooks/useCategoryStatusFlow.ts`
+
+Change the function to iterate forward from the current position, skipping steps that belong to a different actor, until it finds the next step the current actor can perform:
+
+```typescript
+export function getNextStatusForActor(
+  flow: StatusFlowStep[],
+  currentStatus: string,
+  actor: string
+): string | null {
+  const currentIndex = flow.findIndex(s => s.status_key === currentStatus);
+  if (currentIndex === -1) return null;
+
+  // Scan forward for the next step this actor can perform
+  for (let i = currentIndex + 1; i < flow.length; i++) {
+    const step = flow[i];
+    if (step.is_terminal) return step.actor === actor ? step.status_key : null;
+    if (step.actor === actor) return step.status_key;
+  }
+  return null;
+}
+```
+
+This means when the seller views a `requested` booking, it skips `rescheduled` (buyer) and finds `confirmed` (seller) → the "Mark Confirmed" button appears.
+
+### Fix 2: Reject button for `requested` status
+
+**File:** `src/pages/OrderDetailPage.tsx` line 302
+
+Add `requested` to the reject condition:
+
+```
+(order.status === 'placed' || order.status === 'enquired' || order.status === 'requested')
+```
+
+### Fix 3: Seller guidance text for service bookings
+
+**File:** `src/pages/OrderDetailPage.tsx`
+
+Currently the seller action bar (line 298-310) shows just a button with no context. Add a small guidance line for sellers when viewing service bookings, showing what the next action means:
+
+```
+{o.isSellerView && order.status === 'requested' && (
+  <p className="text-xs text-muted-foreground">
+    Review the booking details and confirm or reject this appointment.
+  </p>
+)}
+```
+
+## Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/hooks/useCategoryStatusFlow.ts` | Fix `getNextStatusForActor` to scan forward past non-actor steps |
+| `src/pages/OrderDetailPage.tsx` | Add `requested` to reject button condition; add seller guidance text |
+
+## What Already Works (No Gaps)
+
+- Status lifecycle is admin-configurable via `category_status_flows` table
+- Buyer sees status timeline, contextual messages, appointment details
+- Buyer can reschedule and cancel
+- Notifications fire on status changes
+- Realtime updates refresh the order detail page
+
+The core issue is simply that the seller's "next action" resolver has a logic bug that prevents buttons from appearing for service booking flows.
+
