@@ -100,7 +100,7 @@ export function UpcomingAppointmentBanner() {
   const hoursAway = differenceInHours(appointmentDate, new Date());
   const dateLabel = isToday(new Date(booking.booking_date + 'T00:00'))
     ? 'Today'
-    : isTomorrow(new Date(booking.booking_date))
+    : isTomorrow(new Date(booking.booking_date + 'T00:00'))
     ? 'Tomorrow'
     : format(new Date(booking.booking_date + 'T00:00'), 'MMM d');
 
