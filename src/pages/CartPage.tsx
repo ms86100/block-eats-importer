@@ -194,7 +194,7 @@ export default function CartPage() {
                   </div>
                 )}
 
-                {c.profile?.society_id && seller?.society_id && seller.society_id !== c.profile.society_id && (
+                {c.profile?.society_id && (group.items[0]?.product?.seller as any)?.society_id && (group.items[0]?.product?.seller as any).society_id !== c.profile.society_id && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground bg-muted"><MapPin size={11} /><span>Seller from another community</span></div>
                 )}
                 <div className="divide-y divide-border">

@@ -127,6 +127,7 @@ export function useSystemSettings(): SystemSettings {
           : DEFAULTS.supportedCountryCodes,
         refundPromiseText: map.refund_promise_text || DEFAULTS.refundPromiseText,
         refundSlaHours: parseInt(map.refund_sla_hours || '24', 10) || 24,
+        sellerResponseTimeoutMinutes: parseInt(map.seller_response_timeout_minutes || '3', 10) || 3,
       };
     },
     staleTime: jitteredStaleTime(15 * 60 * 1000),
