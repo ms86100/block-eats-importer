@@ -118,6 +118,8 @@ export default function SellerProductsPage() {
             {sp.products.map((product) => {
               const approvalStatus = (product as any).approval_status || 'draft';
               const showPendingHint = approvalStatus === 'pending';
+              const showDraftHint = approvalStatus === 'draft';
+              const showRejectedHint = approvalStatus === 'rejected';
               return (
                 <div key={product.id} className={`bg-card rounded-xl p-4 shadow-sm transition-opacity ${!product.is_available ? 'opacity-60' : ''}`}>
                   <div className="flex items-start gap-3">
