@@ -71,9 +71,9 @@ serve(async (req) => {
     if (!allowed) return rateLimitResponse(corsHeaders);
 
     const body: CreateOrderRequest = await req.json();
-    const { orderId, amount, sellerId, customerName, customerEmail, customerPhone } = body;
+    const { orderId, sellerId, customerName, customerEmail, customerPhone } = body;
 
-    console.log('Creating Razorpay order:', { orderId, amount, sellerId });
+    console.log('Creating Razorpay order:', { orderId, sellerId });
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -87,6 +87,30 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Order not found or you are not authorized' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // [SECURITY FIX] Use server-side order total instead of client-supplied amount
+    // This prevents price tampering where a malicious client sends amount=1
+    const amount = order.total_amount;
+    if (!amount || amount <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid order amount' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // [SECURITY FIX] Prevent paying for already-paid or cancelled orders
+    if (order.payment_status === 'paid') {
+      return new Response(
+        JSON.stringify({ error: 'Order is already paid' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (order.status === 'cancelled') {
+      return new Response(
+        JSON.stringify({ error: 'Cannot pay for a cancelled order' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

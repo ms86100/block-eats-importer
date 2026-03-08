@@ -94,6 +94,15 @@ app.post("/", async (c) => {
       })
     );
 
+    // [BUG FIX] Trigger notification queue to deliver the enqueued buyer notifications
+    if (expiredOrders.length > 0) {
+      try {
+        await supabase.functions.invoke("process-notification-queue");
+      } catch (triggerErr) {
+        console.warn("Failed to trigger notification queue:", triggerErr);
+      }
+    }
+
     const mapped = results.map((r) =>
       r.status === 'fulfilled' ? r.value : { id: (r.reason as any)?.id, success: false, error: (r.reason as any)?.error }
     );

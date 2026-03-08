@@ -165,7 +165,7 @@ serve(async (req) => {
         })
         .eq('id', orderId)
         .neq('status', 'cancelled')
-        .select('id');
+        .select('id, buyer_id, seller_id');
 
       if (!updatedOrder || updatedOrder.length === 0) {
         console.warn(`Order ${orderId} is cancelled — skipping payment.captured update`);
@@ -175,6 +175,41 @@ serve(async (req) => {
         console.error('Error updating order:', orderError);
       }
 
+      // [BUG FIX] Notify buyer that payment was successful
+      if (updatedOrder && updatedOrder.length > 0) {
+        const paidOrder = updatedOrder[0];
+        if (paidOrder.buyer_id) {
+          await supabase.from('notification_queue').insert({
+            user_id: paidOrder.buyer_id,
+            type: 'order',
+            title: '✅ Payment Confirmed',
+            body: `Your payment for order has been confirmed.`,
+            reference_path: `/orders/${orderId}`,
+            payload: { orderId, status: 'paid', type: 'order' },
+          });
+        }
+        // Also notify seller about new paid order
+        if (paidOrder.seller_id) {
+          // Resolve seller user_id
+          const { data: sellerProfile } = await supabase
+            .from('seller_profiles')
+            .select('user_id')
+            .eq('id', paidOrder.seller_id)
+            .single();
+          if (sellerProfile?.user_id) {
+            await supabase.from('notification_queue').insert({
+              user_id: sellerProfile.user_id,
+              type: 'order',
+              title: '💰 Payment Received',
+              body: `Payment confirmed for an order. Check your dashboard.`,
+              reference_path: `/orders/${orderId}`,
+              payload: { orderId, status: 'paid', type: 'order' },
+            });
+          }
+        }
+        // Trigger notification delivery
+        supabase.functions.invoke('process-notification-queue').catch(() => {});
+      }
 
       console.log(`Order ${orderId} marked as paid`);
     } else if (event === 'payment.failed') {
