@@ -91,12 +91,10 @@ export function ContactSellerModal({
 
             {/* Action buttons */}
             <div className="space-y-2.5">
-              {phone && (
-                <Button onClick={handleCall} className="w-full gap-2" variant="default">
-                  <Phone size={16} />
-                  Call Now
-                </Button>
-              )}
+              <Button onClick={handleCall} className="w-full gap-2" variant="default" disabled={!phone}>
+                <Phone size={16} />
+                {phone ? 'Call Now' : 'Phone not available'}
+              </Button>
               <Button onClick={handleMessage} className="w-full gap-2" variant="outline">
                 <MessageCircle size={16} />
                 Message
