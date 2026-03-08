@@ -89,6 +89,7 @@ export function ShopByStoreDiscovery() {
                     business_name: s.business_name,
                     profile_image_url: s.profile_image_url,
                     rating: s.rating,
+                    lastActiveAt: activityMap[s.id] || null,
                   }))}
                 />
               ))}
