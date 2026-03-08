@@ -97,6 +97,7 @@ export default function ProfilePage() {
     { icon: Package, label: 'Orders', to: '/orders', key: 'orders' },
     { icon: Heart, label: 'Favorites', to: '/favorites', key: 'favorites' },
     { icon: Repeat, label: 'Order Again', to: '/orders', key: 'reorder' },
+    ...(isSeller ? [{ icon: Store, label: 'My Store', to: '/seller', key: 'seller' }] : []),
   ];
 
   const menuItems = [
