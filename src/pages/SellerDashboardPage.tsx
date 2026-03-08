@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -33,7 +33,7 @@ import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCale
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
 import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
 
-const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
+import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
 export default function SellerDashboardPage() {
   const { user, sellerProfiles = [], currentSellerId } = useAuth();
@@ -45,6 +45,8 @@ export default function SellerDashboardPage() {
 
   const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0 ? sellerProfiles[0].id : null);
   const { pendingAlerts, dismiss: dismissAlert, snooze: snoozeAlert } = useNewOrderAlert(activeSellerId);
+  const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
+  const sellerFlags = useSellerCategoryFlags(sellerCategories);
 
   // Debug: log auth state for seller dashboard
   useEffect(() => {
@@ -259,8 +261,8 @@ export default function SellerDashboardPage() {
           />
         </div>
 
-        {/* ── Service Bookings Calendar ── */}
-        {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
+        {/* ── Service Bookings Calendar — dynamic from category_config flags ── */}
+        {sellerProfile && sellerFlags.hasServiceLayout && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
             <ServiceBookingStats sellerId={sellerProfile.id} />
@@ -269,7 +271,7 @@ export default function SellerDashboardPage() {
         )}
 
         {/* ── Slot Calendar Management ── */}
-        {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
+        {sellerProfile && sellerFlags.hasServiceLayout && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Slot Management</p>
             <SlotCalendarManager sellerId={sellerProfile.id} />

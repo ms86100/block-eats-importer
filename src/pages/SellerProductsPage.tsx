@@ -70,7 +70,7 @@ export default function SellerProductsPage() {
                   {sp.isCurrentCategoryService && (
                     <ServiceFieldsSection data={sp.serviceFields} onChange={sp.setServiceFields} />
                   )}
-                  {sp.editingProduct && sp.isCurrentCategoryService && (
+                  {sp.editingProduct && sp.currentCategorySupportsAddons && (
                     <ServiceAddonsManager productId={sp.editingProduct.id} />
                   )}
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg"><span className="text-sm font-medium">Available for order</span><Switch checked={sp.formData.is_available} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, is_available: checked })} /></div>

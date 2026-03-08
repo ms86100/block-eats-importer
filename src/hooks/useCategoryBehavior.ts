@@ -96,6 +96,10 @@ export const fetchCategoryConfigs = async (): Promise<CategoryConfig[]> => {
     },
     displayOrder: row.display_order,
     isActive: row.is_active,
+    // Admin-configurable feature flags
+    supportsAddons: (row as any).supports_addons ?? false,
+    supportsRecurring: (row as any).supports_recurring ?? false,
+    supportsStaffAssignment: (row as any).supports_staff_assignment ?? false,
   }));
 };
 

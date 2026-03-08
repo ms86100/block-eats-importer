@@ -22,10 +22,7 @@ import { useSellerSettings } from '@/hooks/useSellerSettings';
 import { ServiceAvailabilityConfig } from '@/components/seller/ServiceAvailabilityConfig';
 import { ServiceStaffManager } from '@/components/seller/ServiceStaffManager';
 
-const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
-function isServiceGroup(group: string) {
-  return SERVICE_PARENT_GROUPS.includes(group);
-}
+import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
 function LicenseUploadSection({ sellerId, primaryGroup }: { sellerId: string; primaryGroup: string }) {
   const [groupId, setGroupId] = useState<string | null>(null);
@@ -50,6 +47,8 @@ export default function SellerSettingsPage() {
     groupedConfigs, getGroupBySlug,
     handleCategoryChange, handleDayChange, togglePauseShop, handleSave,
   } = useSellerSettings();
+
+  const sellerFlags = useSellerCategoryFlags(formData.categories as string[]);
 
   if (isLoading) {
     return (
@@ -265,13 +264,13 @@ export default function SellerSettingsPage() {
             </div>
           </div>
 
-          {/* Service Availability */}
-          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+          {/* Service Availability — shown if any seller category has layout_type=service */}
+          {sellerProfile && sellerFlags.hasServiceLayout && (
             <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
           )}
 
-          {/* Service Staff */}
-          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+          {/* Service Staff — shown if any seller category has supports_staff_assignment */}
+          {sellerProfile && sellerFlags.supportsStaffAssignment && (
             <ServiceStaffManager sellerId={sellerProfile.id} />
           )}
 
