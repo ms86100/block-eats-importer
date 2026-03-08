@@ -1,4 +1,22 @@
-import React, { useEffect, lazy, Suspense } from "react";
+import React, { useEffect, lazy, Suspense, ComponentType } from "react";
+
+// Retry wrapper for lazy imports — handles stale chunks after idle periods
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+  retries = 2,
+): React.LazyExoticComponent<T> {
+  return lazy(() =>
+    factory().catch((err) => {
+      if (retries > 0 && String(err).includes('Failed to fetch dynamically imported module')) {
+        // Cache-bust by appending timestamp to force fresh fetch
+        return new Promise<{ default: T }>((resolve) => {
+          setTimeout(() => resolve(lazyWithRetry(factory, retries - 1) as any), 500);
+        });
+      }
+      throw err;
+    }),
+  );
+}
 import { supabase } from "@/integrations/supabase/client";
 import { IdentityContext as IdentityCtx, SellerContext as SellerCtx } from "@/contexts/auth/contexts";
 
