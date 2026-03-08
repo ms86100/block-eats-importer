@@ -47,7 +47,9 @@ export default function SellerDashboardPage() {
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0 ? sellerProfiles[0].id : null);
+  const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0
+    ? (sellerProfiles.find(sp => sp.verification_status === 'approved') || sellerProfiles.find(sp => sp.verification_status !== 'draft') || sellerProfiles[0]).id
+    : null);
   const { pendingAlerts, dismiss: dismissAlert, snooze: snoozeAlert } = useNewOrderAlert(activeSellerId);
   const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
   const sellerFlags = useSellerCategoryFlags(sellerCategories);
