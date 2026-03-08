@@ -343,6 +343,9 @@ function ProductListings({
           </div>
         </div>
       ))}
+
+      {/* Society Leaderboard */}
+      <SocietyLeaderboard />
     </div>
   );
 }
