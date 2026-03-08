@@ -7737,6 +7737,17 @@ export type Database = {
       }
       refresh_all_trust_scores: { Args: never; Returns: undefined }
       release_service_slot: { Args: { _slot_id: string }; Returns: undefined }
+      reschedule_service_booking: {
+        Args: {
+          _actor_id: string
+          _booking_id: string
+          _new_date: string
+          _new_end_time: string
+          _new_slot_id: string
+          _new_start_time: string
+        }
+        Returns: Json
+      }
       search_marketplace: {
         Args: { search_term: string; user_society_id?: string }
         Returns: {
