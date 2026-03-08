@@ -4886,6 +4886,55 @@ export type Database = {
           },
         ]
       }
+      seller_recommendations: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          recommender_id: string
+          seller_id: string
+          society_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          recommender_id: string
+          seller_id: string
+          society_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          recommender_id?: string
+          seller_id?: string
+          society_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_recommendations_recommender_id_fkey"
+            columns: ["recommender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_recommendations_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_recommendations_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_reputation_ledger: {
         Row: {
           event_detail: Json | null
@@ -7652,6 +7701,13 @@ export type Database = {
         }[]
       }
       get_seller_demand_stats: { Args: { _seller_id: string }; Returns: Json }
+      get_seller_recommendations: {
+        Args: { _seller_id: string }
+        Returns: {
+          recommenders: Json
+          total_count: number
+        }[]
+      }
       get_seller_trust_snapshot: {
         Args: { _seller_id: string }
         Returns: {
