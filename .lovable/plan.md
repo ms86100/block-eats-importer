@@ -1,70 +1,134 @@
+## Category Configuration & Attribute Blocks — COMPLETED
 
+### What Was Done
 
-# Audit: Buyer Appointment Calendar & Order Detail — Static vs Dynamic
+**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
+- Food & Beverages → `cart_purchase`
+- Education → `book_slot` (with recurring, staff, addons as appropriate)
+- Home Services → `request_service` / `request_quote` / `book_slot`
+- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
+- Domestic Help → `contact_only` (with recurring)
+- Events → `request_quote` / `book_slot`
+- Professional → `book_slot` / `request_service` / `request_quote`
+- Pets → `cart_purchase` / `book_slot`
+- Rentals → `contact_only` / `cart_purchase`
+- Shopping → `cart_purchase` / `buy_now`
+- Real Estate → `schedule_visit` / `contact_only`
 
-## Audit Results
+**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
+food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
 
-**Everything is fully dynamic.** There is zero dummy/static/hardcoded data in the buyer booking views. Here is the component-by-component breakdown:
-
----
-
-### 1. `BuyerBookingsCalendar` (Orders Page)
-
-| Element | Source | Verdict |
-|---------|--------|---------|
-| Week day strip (dates) | Computed from `selectedDate` state via `date-fns` | **Dynamic** — real dates |
-| Dot indicators on days | Checked against `bookings` array from DB | **Dynamic** |
-| "X upcoming" count | `bookings.length` from DB query | **Dynamic** |
-| "Next Appointment" card | First future booking with status `confirmed/scheduled/rescheduled` | **Dynamic** |
-| Countdown text ("in 2h", "tomorrow") | Computed from `booking_date + start_time` vs `new Date()` | **Dynamic** — real-time |
-| Booking cards (service name, seller name, time, location, staff, status) | All from `useBuyerServiceBookings` query joining `service_bookings → products → seller_profiles → service_staff` | **Dynamic** |
-
-**Data hook:** `useBuyerServiceBookings` queries `service_bookings` filtered by `buyer_id`, `booking_date >= today`, status not cancelled/no_show. All joined data is real.
-
----
-
-### 2. `UpcomingAppointmentBanner` (Home Page)
-
-| Element | Source | Verdict |
-|---------|--------|---------|
-| Service name | `products.name` via FK join | **Dynamic** |
-| Seller name | `seller_profiles.business_name` | **Dynamic** |
-| Date label ("Today", "Tomorrow", "Mar 15") | Computed from `booking_date` | **Dynamic** |
-| Time | `start_time` from `service_bookings` | **Dynamic** |
-| Urgent pulse animation | `differenceInHours <= 2` | **Dynamic** |
+### No Code Changes Needed
+Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
 
 ---
 
-### 3. `OrderDetailPage` — Appointment Details Section
+## Listing Type Behavior Fix — COMPLETED
 
-| Element | Source | Verdict |
-|---------|--------|---------|
-| Booking date | `serviceBooking.booking_date` from `useServiceBookingForOrder` | **Dynamic** |
-| Time range | `serviceBooking.start_time / end_time` | **Dynamic** |
-| Countdown badge ("Starts in 2h") | Computed from booking time vs `new Date()` | **Dynamic** |
-| Location type + address | `serviceBooking.location_type`, `buyer_address` | **Dynamic** |
-| Status badge | `serviceBooking.status` mapped to `SERVICE_STATUS_LABELS` | **Dynamic** |
-| Staff name | `service_staff.name` via join | **Dynamic** |
-| Preparation instructions | Fetched from `service_listings.preparation_instructions` | **Dynamic** |
-| Calendar export (.ics) | Generated from real booking data | **Dynamic** |
-| Status timeline steps | From `category_status_flows` DB table via `useOrderDetail` | **Dynamic** |
-| Guidance text ("Awaiting confirmation") | Mapped from `order.status` — hardcoded text per status, but the status itself is dynamic | **Dynamic trigger, static copy** (this is correct behavior — the copy is intentional UX guidance) |
+### Root Cause
+- DB trigger `propagate_category_transaction_type` was never installed
+- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
+- DB default was `'buy'` instead of `'add_to_cart'`
+- No INSERT-time trigger to derive action_type from category
+
+### Database Fixes Applied
+1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
+2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
+3. **Default changed** to `'add_to_cart'`
+4. **Backfilled** all existing products with correct action_type values
+5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+
+### Frontend Fixes Applied
+1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
+2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
+3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
+4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
+5. **useProductDetail** — uses `deriveActionType`
+6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
+7. **useBulkUpload** — sets `action_type` from category config on bulk create
+8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+
+### Mapping Reference
+| transaction_type | action_type | Button |
+|-----------------|-------------|--------|
+| cart_purchase | add_to_cart | ADD |
+| buy_now | buy_now | BUY |
+| book_slot | book | Book |
+| request_service | request_service | Request |
+| request_quote | request_quote | Quote |
+| contact_only | contact_seller | Contact |
+| schedule_visit | schedule_visit | Visit |
 
 ---
 
-### 4. Seller's `ServiceBookingsCalendar`
+## Buyer & Seller Service Booking Experience — COMPLETED
 
-| Element | Source | Verdict |
-|---------|--------|---------|
-| All booking cards | `useSellerServiceBookings` query | **Dynamic** |
-| Staff list for assignment | Queried from `service_staff` table | **Dynamic** |
-| Week strip + day filtering | Same pattern as buyer — computed dates, filtered from DB | **Dynamic** |
+### What Was Done
+
+**1. Database: `session_feedback` table**
+- New table with RLS for per-session ratings (1-5 stars + comment)
+- Buyer can insert/read own; seller can read for their bookings
+- Validation trigger ensures rating 1-5
+
+**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
+- Fetches upcoming bookings for buyer joined with product + seller info
+- Also added `useSessionFeedback` hook for checking existing feedback
+
+**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
+- Week strip day selector with dot indicators
+- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
+- Each booking card shows: service name, seller, time, location type, status badge
+- Tap navigates to order detail
+- Self-hides if no upcoming bookings
+
+**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
+- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
+
+**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
+- Location type with icon (home visit / at seller / online)
+- Duration display (e.g., "60 min")
+- Buyer address when present (home visits)
+
+**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
+- Inline 1-5 star rating with optional comment
+- Shows after booking is completed on order detail page
+- Shows "rated X/5" summary if already submitted
+
+**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
+- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
+- Session feedback prompt integrated below booking add-ons
 
 ---
 
-## Conclusion
+## Service Marketplace Tier 1 Enhancements — COMPLETED
 
-**No dummy data exists anywhere in the booking/calendar system.** Every date, time, service name, seller name, status, countdown, and staff assignment is pulled from the database in real-time. The only "static" elements are intentional UX copy strings (e.g., "Your booking is confirmed") that are triggered by dynamic status values — this is standard and correct.
+### What Was Done
 
-Both buyer and seller calendars query the same `service_bookings` table, so a booking made by a buyer is immediately visible on the seller's calendar (and vice versa for status changes), subject to React Query's stale time (15 seconds for slots, default for bookings).
+**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
+- Client-side .ics file generation with event title, date, time, location, description
+- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
+- Works with Google Calendar, Apple Calendar, Outlook
 
+**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
+- Vertical timeline showing today's bookings with time, service, buyer, status
+- Quick "View" action navigates to order detail
+- Integrated at top of Service Bookings section in SellerDashboardPage
+- Auto-hides if no bookings today
+
+**3. Preparation Instructions** (`service_listings.preparation_instructions`)
+- New column on `service_listings` table
+- Seller can edit in ServiceFieldsSection form during product creation/editing
+- Displayed on OrderDetailPage as "How to prepare" card
+- Included in iCal export description
+
+**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
+- New `slot_holds` table with 5-minute expiry
+- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
+- `release_slot_hold` RPC: releases hold on checkout or navigation away
+- RLS policies for authenticated users on own holds
+
+**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
+- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
+- RLS: buyers can join/view/leave their own waitlist entries
+- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
+- Unique constraint prevents duplicate waitlist entries
