@@ -19,6 +19,8 @@ import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
 import { ServiceAddonsManager } from '@/components/seller/ServiceAddonsManager';
+import { InlineAvailabilitySchedule, type DayScheduleData, INITIAL_AVAILABILITY_SCHEDULE } from '@/components/seller/InlineAvailabilitySchedule';
+import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
 import { type DraftProductFormState, type DraftProductInProgress } from '@/hooks/useSellerApplication';
 
 interface DraftProduct {
