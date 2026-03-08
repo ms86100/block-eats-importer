@@ -16,6 +16,7 @@ import { TypewriterPlaceholder } from '@/components/search/TypewriterPlaceholder
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSearchPage, ProductSearchResult } from '@/hooks/useSearchPage';
 import { ProductDetailSheet } from '@/components/product/ProductDetailSheet';
+import { CommunitySuggestions } from '@/components/search/CommunitySuggestions';
 import { type ProductDetail } from '@/hooks/useProductDetail';
 
 function toProductWithSeller(p: ProductSearchResult): ProductWithSeller {
