@@ -8,6 +8,8 @@ import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewList } from '@/components/review/ReviewList';
 import { FavoriteButton } from '@/components/favorite/FavoriteButton';
 import { SellerReputationTab } from '@/components/seller/SellerReputationTab';
+import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
+import { SellerStatsCard } from '@/components/trust/SellerStatsCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -323,7 +325,14 @@ export default function SellerDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h1 className="text-xl font-bold">{seller.business_name}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold">{seller.business_name}</h1>
+                    <SellerTrustBadge
+                      completedOrders={(seller as any).completed_order_count || 0}
+                      rating={seller.rating}
+                      size="sm"
+                    />
+                  </div>
                   {seller.description && (
                     <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                       {seller.description}
@@ -458,6 +467,11 @@ export default function SellerDetailPage() {
           <span className="text-sm font-medium text-destructive">{storeClosedMsg}</span>
         </div>
       )}
+
+      {/* Seller Trust Stats */}
+      <div className="px-4 mt-3">
+        <SellerStatsCard sellerId={seller.id} />
+      </div>
 
       {/* Tabs */}
       <div className="px-4 mt-4">

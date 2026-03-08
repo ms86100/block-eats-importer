@@ -105,11 +105,31 @@ export default function CartPage() {
           );
         })}
 
+        {/* Multi-seller explanation */}
+        {c.sellerGroups.length > 1 && (
+          <div className="mx-4 mt-3 bg-accent/10 border border-accent/20 rounded-xl p-3 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+              <Store size={18} className="text-accent-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-accent-foreground">
+                {c.sellerGroups.length} separate deliveries
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your cart has items from {c.sellerGroups.length} sellers. Each seller will fulfill their items separately.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Cart Items by Seller */}
         <div className="mt-4 space-y-3 px-4">
-          {c.sellerGroups.map((group) => (
+          {c.sellerGroups.map((group, groupIndex) => (
             <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="px-3 py-2.5 border-b border-border flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-[10px] font-bold text-primary">{groupIndex + 1}</span>
+                </div>
                 <Store size={14} className="text-primary" />
                 <span className="text-sm font-semibold flex-1 truncate">{group.sellerName}</span>
                 <span className="text-xs text-muted-foreground">{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
@@ -138,6 +158,11 @@ export default function CartPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              {/* Per-seller subtotal */}
+              <div className="px-3 py-2 bg-muted/50 border-t border-border flex justify-between items-center">
+                <span className="text-[11px] text-muted-foreground">Subtotal</span>
+                <span className="text-xs font-bold">{c.formatPrice(group.subtotal)}</span>
               </div>
             </div>
           ))}
@@ -173,13 +198,27 @@ export default function CartPage() {
           <div className="mt-5 px-4"><p className="text-xs text-muted-foreground bg-muted rounded-lg px-3 py-2">Coupons are not available for multi-seller carts.</p></div>
         ) : null}
 
-        {/* Bill Details */}
+        {/* Bill Details — Price Transparency */}
         <div className="mt-5 mx-4 bg-muted rounded-xl p-4">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Bill Details</h3>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Price Breakdown</h3>
           <div className="space-y-2 text-sm">
-            {c.sellerGroups.map((group) => (<div key={group.sellerId} className="flex justify-between"><span className="text-muted-foreground truncate mr-2">{group.sellerName}</span><span className="font-medium">{c.formatPrice(group.subtotal)}</span></div>))}
+            {c.sellerGroups.map((group) => (
+              <div key={group.sellerId}>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground truncate mr-2">{group.sellerName} ({group.items.length} item{group.items.length > 1 ? 's' : ''})</span>
+                  <span className="font-medium">{c.formatPrice(group.subtotal)}</span>
+                </div>
+              </div>
+            ))}
             {c.appliedCoupon && (<div className="flex justify-between text-primary"><span>Coupon ({c.appliedCoupon.code})</span><span>-{c.formatPrice(Math.min(c.effectiveCouponDiscount, c.totalAmount))}</span></div>)}
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span className={`font-medium ${c.effectiveDeliveryFee === 0 ? 'text-primary' : ''}`}>{c.fulfillmentType === 'delivery' ? (c.effectiveDeliveryFee === 0 ? 'FREE' : c.formatPrice(c.effectiveDeliveryFee)) : 'Self Pickup'}</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Delivery Fee</span>
+              <span className={`font-medium ${c.effectiveDeliveryFee === 0 ? 'text-primary' : ''}`}>{c.fulfillmentType === 'delivery' ? (c.effectiveDeliveryFee === 0 ? 'FREE' : c.formatPrice(c.effectiveDeliveryFee)) : 'Self Pickup'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Platform Fee</span>
+              <span className="font-medium text-primary">₹0 <span className="text-[10px] text-muted-foreground">(always free)</span></span>
+            </div>
             <div className="border-t border-border pt-2 mt-1 flex justify-between font-bold"><span>To Pay</span><span>{c.formatPrice(c.finalAmount)}</span></div>
           </div>
         </div>
@@ -197,7 +236,7 @@ export default function CartPage() {
           {/* #7: Removed misleading ChevronRight — address card is not interactive */}
         </div>
 
-        {c.sellerGroups.length > 1 && (<p className="text-xs text-muted-foreground text-center mt-4 px-4">Your cart has items from {c.sellerGroups.length} sellers. Separate orders will be created for each.</p>)}
+        
 
         {/* Refund Promise */}
         <div className="mx-4 mt-4 flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl p-3">

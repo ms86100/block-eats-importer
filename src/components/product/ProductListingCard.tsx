@@ -1,5 +1,5 @@
 import { useMemo, useState, memo } from 'react';
-import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell } from 'lucide-react';
+import { Plus, Minus, Clock, MapPin, ShoppingCart, Activity, Bell, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
+import { SellerTrustBadge, getSellerTrustTier } from '@/components/trust/SellerTrustBadge';
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -170,6 +171,13 @@ function ProductListingCardInner({
 
   /* ── Derived values ── */
   const isOutOfStock = !product.is_available;
+
+  /* ── Seller inactive check (>7 days) ── */
+  const isSellerInactive = useMemo(() => {
+    if (!(product as any).last_active_at) return false;
+    const diffMs = Date.now() - new Date((product as any).last_active_at).getTime();
+    return diffMs > 7 * 24 * 60 * 60 * 1000;
+  }, [(product as any).last_active_at]);
 
   /* ── Store availability ── */
   const storeAvailability = useMemo((): StoreAvailability => {
@@ -372,14 +380,31 @@ function ProductListingCardInner({
         </h4>
 
         {product.seller_name && (
-          <p className="text-[10px] text-muted-foreground leading-tight line-clamp-1 mb-0.5">
-            by {product.seller_name}
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+            <span className="text-[10px] text-muted-foreground truncate">
+              by {product.seller_name}
+            </span>
+            {/* Seller trust tier badge */}
+            {(product.completed_order_count != null || (product as any).seller_completed_orders != null) && (
+              <SellerTrustBadge
+                completedOrders={(product.completed_order_count || (product as any).seller_completed_orders || 0)}
+                rating={(product.seller_rating || 0)}
+                size="sm"
+              />
+            )}
             {activityLabel && (
-              <span className="ml-1 text-[8px] opacity-70">
+              <span className="text-[8px] opacity-70">
                 · {activityLabel}
               </span>
             )}
-          </p>
+            {/* Inactive seller warning */}
+            {isSellerInactive && (
+              <span className="inline-flex items-center gap-0.5 text-[7px] font-bold text-warning bg-warning/15 rounded-full px-1 py-0.5">
+                <AlertTriangle size={7} />
+                Inactive
+              </span>
+            )}
+          </div>
         )}
 
         {/* On-time delivery badge */}
@@ -488,6 +513,7 @@ export const ProductListingCard = memo(ProductListingCardInner, (prev, next) => 
     prev.className === next.className &&
     prev.categoryConfigs === next.categoryConfigs &&
     prev.marketplaceConfig === next.marketplaceConfig &&
-    prev.badgeConfigs === next.badgeConfigs
+    prev.badgeConfigs === next.badgeConfigs &&
+    prev.socialProofCount === next.socialProofCount
   );
 });
