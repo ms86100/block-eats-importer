@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 /**
  * Shared auth middleware for edge functions.
- * Uses getClaims() instead of getUser() for Lovable Cloud compatibility.
+ * Uses getUser() for token validation.
  */
 export async function withAuth(
   req: Request,
