@@ -8,6 +8,27 @@ import { ServiceCategory } from '@/types/categories';
 import { DAYS_OF_WEEK } from '@/types/database';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
+import { type BlockData } from '@/hooks/useAttributeBlocks';
+import { type ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+
+export interface DraftProductInProgress {
+  name: string;
+  price: number;
+  mrp?: number | null;
+  discount_percentage?: number | null;
+  description: string;
+  category: string;
+  is_veg: boolean;
+  image_url: string;
+  prep_time_minutes?: number | null;
+}
+
+export interface DraftProductFormState {
+  isAdding: boolean;
+  product: DraftProductInProgress;
+  attributeBlocks: BlockData[];
+  serviceFields: ServiceFieldsData;
+}
 
 export interface SellerFormData {
   business_name: string;
