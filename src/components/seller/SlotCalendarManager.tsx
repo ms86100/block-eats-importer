@@ -4,29 +4,68 @@ import { supabase } from '@/integrations/supabase/client';
 import { ServiceSlot } from '@/hooks/useServiceSlots';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Unlock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface SlotCalendarManagerProps {
-  productId: string;
+  productId?: string; // optional — if empty, show product selector
   sellerId: string;
 }
 
-export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
+interface ProductOption {
+  id: string;
+  name: string;
+}
+
+export function SlotCalendarManager({ productId: initialProductId, sellerId }: SlotCalendarManagerProps) {
+  const [selectedProductId, setSelectedProductId] = useState(initialProductId || '');
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [blockingSlots, setBlockingSlots] = useState<Set<string>>(new Set());
   const [managementSlots, setManagementSlots] = useState<ServiceSlot[]>([]);
-  const [isLoadingSlots, setIsLoadingSlots] = useState(true);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
+  // Fetch service products for this seller
   useEffect(() => {
+    if (!sellerId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('seller_id', sellerId)
+        .eq('is_available', true)
+        .order('name');
+      
+      // Filter to only service products by checking service_listings
+      if (data && data.length > 0) {
+        const { data: serviceListings } = await supabase
+          .from('service_listings')
+          .select('product_id')
+          .in('product_id', data.map(p => p.id));
+        
+        const serviceProductIds = new Set((serviceListings || []).map(sl => sl.product_id));
+        const serviceProducts = data.filter(p => serviceProductIds.has(p.id));
+        setProducts(serviceProducts);
+        if (serviceProducts.length > 0 && !selectedProductId) {
+          setSelectedProductId(serviceProducts[0].id);
+        }
+      }
+    })();
+  }, [sellerId]);
+
+  // Fetch slots when product selected
+  useEffect(() => {
+    if (!selectedProductId) return;
+    setIsLoadingSlots(true);
     (async () => {
       const today = startOfToday();
       const endDate = addDays(today, 30);
       const { data } = await supabase
         .from('service_slots')
         .select('*')
-        .eq('product_id', productId)
+        .eq('product_id', selectedProductId)
         .gte('slot_date', format(today, 'yyyy-MM-dd'))
         .lte('slot_date', format(endDate, 'yyyy-MM-dd'))
         .order('slot_date')
@@ -34,7 +73,7 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
       setManagementSlots((data || []) as ServiceSlot[]);
       setIsLoadingSlots(false);
     })();
-  }, [productId]);
+  }, [selectedProductId]);
 
   const weekStart = startOfWeek(selectedDate);
   const weekDates = useMemo(() => 
@@ -68,7 +107,7 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
     await supabase
       .from('service_slots')
       .update({ is_blocked: true })
-      .eq('product_id', productId)
+      .eq('product_id', selectedProductId)
       .eq('slot_date', dateStr)
       .eq('booked_count', 0);
     setManagementSlots(prev =>
@@ -82,7 +121,7 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
     await supabase
       .from('service_slots')
       .update({ is_blocked: false })
-      .eq('product_id', productId)
+      .eq('product_id', selectedProductId)
       .eq('slot_date', dateStr);
     setManagementSlots(prev =>
       prev.map(s => s.slot_date === dateStr ? { ...s, is_blocked: false } : s)
@@ -98,6 +137,16 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
     const available = dateSlots.filter(s => !s.is_blocked && s.booked_count < s.max_capacity).length;
     return { total: dateSlots.length, blocked, booked, available };
   };
+
+  if (products.length === 0 && !initialProductId) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-center text-sm text-muted-foreground">
+          No service products found. Add a service product first.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -118,6 +167,20 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Product selector */}
+        {products.length > 1 && (
+          <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Select service..." />
+            </SelectTrigger>
+            <SelectContent>
+              {products.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Week view */}
         <div className="grid grid-cols-7 gap-1">
           {weekDates.map((date) => {
@@ -168,7 +231,9 @@ export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
         {/* Slots for selected date */}
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-muted-foreground">{format(selectedDate, 'EEEE, MMM d')} — {slotsForDate.length} slots</p>
-          {slotsForDate.length === 0 ? (
+          {isLoadingSlots ? (
+            <p className="text-xs text-muted-foreground py-3 text-center">Loading slots...</p>
+          ) : slotsForDate.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3 text-center">No slots for this date</p>
           ) : (
             slotsForDate.map((slot) => (
