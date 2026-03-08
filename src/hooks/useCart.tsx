@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CartItem, Product } from '@/types/database';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/query-utils';
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 
 interface SellerGroup {
   sellerId: string;
