@@ -10,6 +10,7 @@ import {
   type SocietyGroup,
 } from '@/hooks/queries/useStoreDiscovery';
 import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Store, Star, MapPin, ChevronDown, Building2, Circle } from 'lucide-react';
