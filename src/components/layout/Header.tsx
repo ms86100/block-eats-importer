@@ -94,7 +94,7 @@ function HeaderInner({
                 </Link>
               )}
               {isSeller && (
-                <Link to="/seller/dashboard">
+                <Link to="/seller">
                   <Button 
                     variant="ghost" 
                     size="icon" 
