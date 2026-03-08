@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck, Check, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck, Check, X, AlertTriangle, Loader2, MapPin, Home, Store, Video, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
