@@ -261,8 +261,8 @@ export default function SellerDashboardPage() {
           />
         </div>
 
-        {/* ── Service Bookings Calendar ── */}
-        {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
+        {/* ── Service Bookings Calendar — dynamic from category_config flags ── */}
+        {sellerProfile && sellerFlags.hasServiceLayout && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
             <ServiceBookingStats sellerId={sellerProfile.id} />
@@ -271,7 +271,7 @@ export default function SellerDashboardPage() {
         )}
 
         {/* ── Slot Calendar Management ── */}
-        {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
+        {sellerProfile && sellerFlags.hasServiceLayout && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Slot Management</p>
             <SlotCalendarManager sellerId={sellerProfile.id} />

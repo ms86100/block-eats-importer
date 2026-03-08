@@ -264,13 +264,13 @@ export default function SellerSettingsPage() {
             </div>
           </div>
 
-          {/* Service Availability */}
-          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+          {/* Service Availability — shown if any seller category has layout_type=service */}
+          {sellerProfile && sellerFlags.hasServiceLayout && (
             <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
           )}
 
-          {/* Service Staff */}
-          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+          {/* Service Staff — shown if any seller category has supports_staff_assignment */}
+          {sellerProfile && sellerFlags.supportsStaffAssignment && (
             <ServiceStaffManager sellerId={sellerProfile.id} />
           )}
 
