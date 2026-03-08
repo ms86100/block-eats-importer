@@ -21,6 +21,7 @@ import { BulkProductUpload } from '@/components/seller/BulkProductUpload';
 import { useCurrency } from '@/hooks/useCurrency';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
 import { useSellerProducts } from '@/hooks/useSellerProducts';
+import { ServiceFieldsSection } from '@/components/seller/ServiceFieldsSection';
 
 export default function SellerProductsPage() {
   const sp = useSellerProducts();
@@ -65,6 +66,9 @@ export default function SellerProductsPage() {
                   <div className="flex items-center justify-between p-3 bg-warning/10 border border-warning/30 rounded-lg"><div className="flex items-center gap-2"><Bell size={16} className="text-warning" /><div><span className="text-sm font-medium block">Urgent Order Alert</span><span className="text-xs text-muted-foreground">3-min timer, auto-cancel if not responded</span></div></div><Switch checked={sp.formData.is_urgent} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, is_urgent: checked })} /></div>
                   <div className="p-3 bg-muted rounded-lg space-y-3"><div className="flex items-center justify-between"><div><span className="text-sm font-medium block">Track Stock Quantity</span><span className="text-xs text-muted-foreground">Auto-marks unavailable when stock hits zero</span></div><Switch checked={sp.formData.stock_quantity !== ''} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, stock_quantity: checked ? '10' : '' })} /></div>{sp.formData.stock_quantity !== '' && <div className="grid grid-cols-2 gap-3 pt-2 border-t"><div className="space-y-1"><Label className="text-xs">Current Stock</Label><Input type="number" min="0" value={sp.formData.stock_quantity} onChange={(e) => sp.setFormData({ ...sp.formData, stock_quantity: e.target.value })} /></div><div className="space-y-1"><Label className="text-xs">Low Stock Alert</Label><Input type="number" min="1" value={sp.formData.low_stock_threshold} onChange={(e) => sp.setFormData({ ...sp.formData, low_stock_threshold: e.target.value })} /></div></div>}</div>
                   <AttributeBlockBuilder category={sp.formData.category || null} value={sp.attributeBlocks} onChange={sp.setAttributeBlocks} />
+                  {sp.isCurrentCategoryService && (
+                    <ServiceFieldsSection data={sp.serviceFields} onChange={sp.setServiceFields} />
+                  )}
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg"><span className="text-sm font-medium">Available for order</span><Switch checked={sp.formData.is_available} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, is_available: checked })} /></div>
                   <Button className="w-full" onClick={sp.handleSave} disabled={sp.isSaving}>{sp.isSaving && <Loader2 className="animate-spin mr-2" size={18} />}{sp.editingProduct ? 'Save Changes' : 'Add Product'}</Button>
                 </div>
