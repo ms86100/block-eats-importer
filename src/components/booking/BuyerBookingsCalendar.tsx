@@ -47,18 +47,22 @@ export function BuyerBookingsCalendar() {
   const { data: bookings = [], isLoading } = useBuyerServiceBookings(user?.id);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
 
-  const weekDates = useMemo(() => {
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      dates.push(addDays(selectedDate, i - selectedDate.getDay()));
-    }
-    return dates;
-  }, [selectedDate]);
+  // Unique dates that have bookings, sorted ascending
+  const bookingDates = useMemo(() => {
+    const dateSet = new Set(bookings.map((b) => b.booking_date));
+    return Array.from(dateSet).sort().map((d) => new Date(d + 'T00:00:00'));
+  }, [bookings]);
 
   const filteredBookings = useMemo(() => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     return bookings.filter((b) => b.booking_date === dateStr);
   }, [bookings, selectedDate]);
+
+  // Auto-select first booking date if current selection has no bookings
+  const hasSelectedDateBookings = bookingDates.some((d) => isSameDay(d, selectedDate));
+  if (bookingDates.length > 0 && !hasSelectedDateBookings && isSameDay(selectedDate, startOfToday())) {
+    // Will be handled in effect below
+  }
 
   // Next upcoming booking (soonest confirmed/scheduled)
   const nextBooking = useMemo(() => {
