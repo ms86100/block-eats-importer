@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Store, Star, MapPin, ChevronDown, Building2 } from 'lucide-react';
+import { Store, Star, MapPin, ChevronDown, Building2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
