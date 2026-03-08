@@ -1,50 +1,24 @@
 
 
-## Notification Health Check — User-Friendly UI
+## Category Configuration & Attribute Blocks — COMPLETED
 
-### What We'll Build
+### What Was Done
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
+- Food & Beverages → `cart_purchase`
+- Education → `book_slot` (with recurring, staff, addons as appropriate)
+- Home Services → `request_service` / `request_quote` / `book_slot`
+- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
+- Domestic Help → `contact_only` (with recurring)
+- Events → `request_quote` / `book_slot`
+- Professional → `book_slot` / `request_service` / `request_quote`
+- Pets → `cart_purchase` / `book_slot`
+- Rentals → `contact_only` / `cart_purchase`
+- Shopping → `cart_purchase` / `buy_now`
+- Real Estate → `schedule_visit` / `contact_only`
 
-### UI Design
+**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
+food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
 
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
-
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
-
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
-
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
-
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
-
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
-
-### Implementation
-
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
-
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
-
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
-
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
-
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
-
+### No Code Changes Needed
+Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
