@@ -40,6 +40,7 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
   const checkPolicy = async () => {
     if (!user) return;
     setIsChecking(true);
+    setPolicyInfo(null); // Reset on each open
     try {
       const { data, error } = await supabase.rpc('can_cancel_booking', {
         _booking_id: bookingId,
@@ -55,31 +56,74 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
   };
 
   const handleCancel = async () => {
+    if (!user) return;
     setIsCancelling(true);
     try {
-      // Update booking
-      await supabase
+      // BUG FIX: Add buyer_id filter to prevent unauthorized cancellations
+      const { error: bookingErr } = await supabase
         .from('service_bookings')
         .update({
           status: 'cancelled',
           cancelled_at: new Date().toISOString(),
           cancellation_reason: reason.trim().slice(0, 500) || 'Cancelled by buyer',
         })
-        .eq('id', bookingId);
+        .eq('id', bookingId)
+        .eq('buyer_id', user.id); // Ownership check
+
+      if (bookingErr) throw bookingErr;
 
       // Update order
-      await supabase
+      const { error: orderErr } = await supabase
         .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId);
+        .update({ status: 'cancelled', rejection_reason: reason.trim().slice(0, 500) || 'Cancelled by buyer' })
+        .eq('id', orderId)
+        .eq('buyer_id', user.id); // Ownership check
+
+      if (orderErr) throw orderErr;
 
       // Release slot atomically
       if (slotId) {
         await supabase.rpc('release_service_slot', { _slot_id: slotId });
       }
 
+      // BUG FIX: Notify seller about buyer cancellation
+      const { data: booking } = await supabase
+        .from('service_bookings')
+        .select('seller_id, booking_date, start_time, product_id')
+        .eq('id', bookingId)
+        .maybeSingle();
+
+      if (booking?.seller_id) {
+        // Get seller user_id
+        const { data: sellerProfile } = await supabase
+          .from('seller_profiles')
+          .select('user_id')
+          .eq('id', booking.seller_id)
+          .single();
+
+        if (sellerProfile?.user_id) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('name')
+            .eq('id', booking.product_id)
+            .single();
+
+          await supabase.from('notification_queue').insert({
+            user_id: sellerProfile.user_id,
+            type: 'order',
+            title: '📋 Booking Cancelled by Buyer',
+            body: `A booking for ${product?.name || 'your service'} on ${booking.booking_date} at ${booking.start_time?.slice(0, 5)} has been cancelled.`,
+            reference_path: `/orders/${orderId}`,
+            payload: { orderId, status: 'cancelled', type: 'order' },
+          });
+          supabase.functions.invoke('process-notification-queue').catch(() => {});
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ['service-booking-order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['service-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['order-detail'] });
 
       toast.success('Booking cancelled');
       setIsOpen(false);
@@ -93,7 +137,10 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
-      if (open) checkPolicy();
+      if (open) {
+        setReason(''); // Reset reason on reopen
+        checkPolicy();
+      }
     }}>
       <AlertDialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">

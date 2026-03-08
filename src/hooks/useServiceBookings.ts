@@ -32,11 +32,13 @@ export function useSellerServiceBookings(sellerId: string | null) {
     queryFn: async (): Promise<ServiceBooking[]> => {
       if (!sellerId) return [];
 
+      // BUG FIX: Include 'rescheduled' status in results (was being filtered by excluding cancelled only,
+      // but rescheduled bookings should show). Also show cancelled for historical context.
       const { data, error } = await supabase
         .from('service_bookings')
         .select('*, buyer:profiles!service_bookings_buyer_id_fkey(name), product:products!service_bookings_product_id_fkey(name), staff:service_staff(name)')
         .eq('seller_id', sellerId)
-        .not('status', 'in', '("cancelled")')
+        .not('status', 'in', '("cancelled","no_show")')
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true });
 
