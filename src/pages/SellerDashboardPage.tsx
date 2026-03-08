@@ -266,7 +266,7 @@ export default function SellerDashboardPage() {
         {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Slot Management</p>
-            <SlotCalendarManager productId="" sellerId={sellerProfile.id} />
+            <SlotCalendarManager sellerId={sellerProfile.id} />
           </div>
         )}
 
