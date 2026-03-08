@@ -10,6 +10,7 @@ import { ACTION_CONFIG, deriveActionType } from '@/lib/marketplace-constants';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
+import { useCategoryConfig } from '@/hooks/queries/useCategoryConfig';
 
 export interface ProductWithSeller extends Product {
   seller_name?: string;
