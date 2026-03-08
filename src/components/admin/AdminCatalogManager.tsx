@@ -116,7 +116,21 @@ export function AdminCatalogManager() {
       .filter(Boolean) as typeof tree;
   }, [parentGroups, categories, subcategories, query, isSearching]);
 
-  const resultCount = isSearching ? filteredCategories.length : 0;
+  // Filtered blocks for attributes tab
+  const filteredBlocksForSearch = useMemo(() => {
+    if (!isSearching) return blocks;
+    return blocks.filter(b =>
+      matchesQuery(query, b.display_name, b.block_type, b.description,
+        ...(b.category_hints || []))
+    );
+  }, [blocks, query, isSearching]);
+
+  const resultCount = useMemo(() => {
+    if (!isSearching) return 0;
+    if (subTab === 'categories') return filteredCategories.length;
+    if (subTab === 'attributes') return filteredBlocksForSearch.length;
+    return filteredCategories.length;
+  }, [isSearching, subTab, filteredCategories, filteredBlocksForSearch]);
 
   const TAB_ITEMS = [
     { value: 'overview', label: 'Overview', icon: Layers3 },
