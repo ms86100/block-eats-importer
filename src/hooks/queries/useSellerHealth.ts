@@ -80,7 +80,7 @@ export function useSellerHealth(sellerId: string | null) {
       if (profile.is_available) {
         checks.push({ key: 'store_available', label: 'Store is open', status: 'pass', message: 'Buyers can see your store.', group: 'critical' });
       } else {
-        checks.push({ key: 'store_available', label: 'Store is closed', status: 'fail', message: 'Your store is marked as closed. Toggle it open to become visible.', group: 'critical' });
+        checks.push({ key: 'store_available', label: 'Store is paused', status: 'warn', message: 'Your store is approved but currently paused. Toggle it open to become visible to buyers.', group: 'critical' });
       }
 
       // C3: At least one approved & available product

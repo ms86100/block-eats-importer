@@ -38,6 +38,7 @@ const NAV_GROUPS = [
       { value: 'features', label: 'Features', icon: Layers },
       { value: 'campaigns', label: 'Campaigns', icon: Send },
       { value: 'ai-review', label: 'AI Review', icon: Bot },
+      { value: 'feedback', label: 'Feedback', icon: Star },
       { value: 'settings', label: 'Settings', icon: Settings2 },
       { value: 'api-docs', label: 'API Docs', icon: FileCode },
       { value: 'navigator', label: 'Navigate', icon: Navigation },

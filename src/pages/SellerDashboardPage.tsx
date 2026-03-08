@@ -62,8 +62,7 @@ export default function SellerDashboardPage() {
       const { count } = await supabase
         .from('service_availability_schedules')
         .select('*', { count: 'exact', head: true })
-        .eq('seller_id', activeSellerId)
-        .eq('is_active', true);
+        .eq('seller_id', activeSellerId);
       return (count ?? 0) > 0;
     },
     enabled: !!activeSellerId && sellerFlags.hasServiceLayout,
