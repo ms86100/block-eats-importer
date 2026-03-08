@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { friendlyError } from '@/lib/utils';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
+import { deriveActionType } from '@/lib/marketplace-constants';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
@@ -125,6 +126,7 @@ export function DraftProductManager({
           is_available: true,
           prep_time_minutes: newProduct.prep_time_minutes || null,
           specifications: attributeBlocks.length > 0 ? { blocks: attributeBlocks } : null,
+          action_type: deriveActionType(null, activeConfig?.transactionType),
         } as any)
         .select()
         .single();
