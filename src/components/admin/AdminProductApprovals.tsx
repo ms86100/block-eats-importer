@@ -84,21 +84,21 @@ export function AdminProductApprovals() {
 
   const handleReject = async (id: string) => {
     setActionId(id);
-    const { error } = await supabase.from('products').update({ approval_status: 'rejected', rejection_note: rejectionNote.trim() || null } as any).eq('id', id);
+    const note = rejectionNotes[id] || '';
+    const { error } = await supabase.from('products').update({ approval_status: 'rejected', rejection_note: note.trim() || null } as any).eq('id', id);
     if (error) { toast.error('Failed to reject'); setActionId(null); return; }
-    await logAudit('product_rejected', 'product', id, '', { reason: rejectionNote });
-    // PA-09: Notify seller
+    await logAudit('product_rejected', 'product', id, '', { reason: note });
     const { data: prod } = await supabase.from('products').select('name, seller_id').eq('id', id).single();
     if (prod) {
       const { data: seller } = await supabase.from('seller_profiles').select('user_id').eq('id', prod.seller_id).single();
       if (seller) {
-        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `❌ "${prod.name}" was not approved`, body: `Reason: ${rejectionNote || 'No reason provided'}. Edit and resubmit from your Products page.`, type: 'product_rejected', is_read: false });
+        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `❌ "${prod.name}" was not approved`, body: `Reason: ${note || 'No reason provided'}. Edit and resubmit from your Products page.`, type: 'product_rejected', is_read: false });
       }
     }
     toast.success('Product rejected');
     setActionId(null);
     setRejectingId(null);
-    setRejectionNote('');
+    setRejectionNotes(prev => { const next = { ...prev }; delete next[id]; return next; });
     fetchPending();
   };
 
