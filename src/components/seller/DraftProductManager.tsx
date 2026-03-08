@@ -9,13 +9,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { VegBadge } from '@/components/ui/veg-badge';
 import { ProductImageUpload } from '@/components/ui/product-image-upload';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Trash2, Loader2, Package, Percent, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Package, Percent, CheckCircle2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { friendlyError } from '@/lib/utils';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
 
 interface DraftProduct {
   id?: string;
@@ -47,6 +48,7 @@ export function DraftProductManager({
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [attributeBlocks, setAttributeBlocks] = useState<BlockData[]>([]);
+  const [serviceFields, setServiceFields] = useState<ServiceFieldsData>(INITIAL_SERVICE_FIELDS);
   const { configs } = useCategoryConfigs();
   const { formatPrice, currencySymbol } = useCurrency();
   const [newProduct, setNewProduct] = useState<DraftProduct>({
@@ -68,6 +70,7 @@ export function DraftProductManager({
 
   const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
   const showDurationField = activeConfig?.formHints.showDurationField ?? false;
+  const isServiceCategory = activeConfig?.layoutType === 'service';
 
   const requiresPrice = useMemo(() => {
     if (!activeConfig) return true;
@@ -122,6 +125,23 @@ export function DraftProductManager({
 
       if (error) throw error;
 
+      // Upsert service_listings if this is a service category
+      if (isServiceCategory && data.id) {
+        const { error: slError } = await supabase
+          .from('service_listings')
+          .upsert({
+            product_id: data.id,
+            service_type: serviceFields.service_type,
+            location_type: serviceFields.location_type,
+            duration_minutes: parseInt(serviceFields.duration_minutes) || 60,
+            buffer_minutes: parseInt(serviceFields.buffer_minutes) || 15,
+            max_bookings_per_slot: parseInt(serviceFields.max_bookings_per_slot) || 1,
+            cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
+            rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
+          } as any, { onConflict: 'product_id' });
+        if (slError) console.error('Service listing upsert error:', slError);
+      }
+
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
       setNewProduct({
         name: '',
@@ -136,7 +156,8 @@ export function DraftProductManager({
       });
       setIsAdding(false);
       setAttributeBlocks([]);
-      toast.success('Product added');
+      setServiceFields(INITIAL_SERVICE_FIELDS);
+      toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);
       toast.error(friendlyError(error));
@@ -387,7 +408,7 @@ export function DraftProductManager({
               onChange={setAttributeBlocks}
             />
 
-            {showDurationField && (
+            {showDurationField && !isServiceCategory && (
               <div className="space-y-2">
                 <Label htmlFor="prod-prep" className="text-xs">{activeConfig?.formHints.durationLabel || 'Prep Time (min)'}</Label>
                 <Input
@@ -400,6 +421,19 @@ export function DraftProductManager({
                     setNewProduct({ ...newProduct, prep_time_minutes: e.target.value ? Number(e.target.value) : null })
                   }
                 />
+              </div>
+            )}
+
+            {/* Service Configuration Section */}
+            {isServiceCategory && (
+              <div className="space-y-2">
+                <ServiceFieldsSection data={serviceFields} onChange={setServiceFields} />
+                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
+                  <Info size={14} className="text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    After your service is approved, set your <span className="font-semibold text-foreground">availability schedule</span> in Seller Settings to start receiving bookings.
+                  </p>
+                </div>
               </div>
             )}
 

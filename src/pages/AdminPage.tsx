@@ -27,6 +27,7 @@ import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
 import { FeatureManagement } from '@/components/admin/FeatureManagement';
 import { PlatformSettingsManager } from '@/components/admin/PlatformSettingsManager';
 import { AdminCatalogManager } from '@/components/admin/AdminCatalogManager';
+import { AdminServiceBookingsTab } from '@/components/admin/AdminServiceBookingsTab';
 import { AdminBannerManager } from '@/components/admin/AdminBannerManager';
 import { ResetAndSeedButton } from '@/components/admin/ResetAndSeedButton';
 import { PurgeDataButton } from '@/components/admin/PurgeDataButton';
@@ -424,6 +425,7 @@ export default function AdminPage() {
           )}
 
           {admin.activeTab === 'features' && <FeatureManagement />}
+          {admin.activeTab === 'services' && <AdminServiceBookingsTab />}
           {admin.activeTab === 'catalog' && <AdminCatalogManager />}
 
           {admin.activeTab === 'settings' && (
