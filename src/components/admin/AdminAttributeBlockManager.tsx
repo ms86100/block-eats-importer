@@ -382,8 +382,8 @@ export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?:
                               onCheckedChange={() => toggleCategory(c.category)}
                             />
                             <span className="flex items-center gap-1.5">
-                              {c.icon && <span>{c.icon}</span>}
-                              <span className="font-medium">{c.display_name || c.category}</span>
+                              {c.icon && <DynamicIcon name={c.icon} size={14} />}
+                              <span className="font-medium">{c.display_name || c.displayName || c.category}</span>
                             </span>
                           </label>
                         ))}
