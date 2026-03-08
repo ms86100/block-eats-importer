@@ -5,8 +5,47 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CartItem, Product } from '@/types/database';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/query-utils';
-import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
+import { computeStoreStatus, formatStoreClosedMessage, type StoreStatus } from '@/lib/store-availability';
 
+const hasOwn = (obj: unknown, key: string) => Object.prototype.hasOwnProperty.call(obj ?? {}, key);
+
+function parseStoreAvailabilityError(error: unknown): string | null {
+  const msg = String((error as any)?.message || '');
+  const statusMatch = msg.match(/STORE_CLOSED:([a-z_]+)/i);
+  if (statusMatch?.[1]) {
+    const status = statusMatch[1].toLowerCase() as StoreStatus;
+    return formatStoreClosedMessage({ status, nextOpenAt: null, minutesUntilOpen: null }) || 'This store is currently closed.';
+  }
+  if (msg.includes('PRODUCT_NOT_ORDERABLE')) return 'This item is no longer available.';
+  if (msg.includes('SELLER_NOT_FOUND')) return 'Seller is unavailable right now.';
+  return null;
+}
+
+function getInlineSellerAvailability(product: Product) {
+  const p = product as any;
+  const seller = p?.seller as any;
+
+  const hasProductAvailabilityFields =
+    hasOwn(p, 'seller_availability_start') ||
+    hasOwn(p, 'seller_availability_end') ||
+    hasOwn(p, 'seller_operating_days') ||
+    hasOwn(p, 'seller_is_available');
+
+  const hasSellerAvailabilityFields = !!seller && (
+    hasOwn(seller, 'availability_start') ||
+    hasOwn(seller, 'availability_end') ||
+    hasOwn(seller, 'operating_days') ||
+    hasOwn(seller, 'is_available')
+  );
+
+  return {
+    hasInlineAvailability: hasProductAvailabilityFields || hasSellerAvailabilityFields,
+    availabilityStart: p.seller_availability_start ?? seller?.availability_start ?? null,
+    availabilityEnd: p.seller_availability_end ?? seller?.availability_end ?? null,
+    operatingDays: p.seller_operating_days ?? seller?.operating_days ?? null,
+    isAvailable: p.seller_is_available ?? seller?.is_available ?? true,
+  };
+}
 interface SellerGroup {
   sellerId: string;
   sellerName: string;
