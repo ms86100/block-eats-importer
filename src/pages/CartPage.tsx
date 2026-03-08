@@ -48,20 +48,9 @@ export default function CartPage() {
 
   // Trust summary for confirm dialog
   const trustSummaryText = useMemo(() => {
-    const badges: string[] = [];
-    for (const group of c.sellerGroups) {
-      const seller = group.items[0]?.product?.seller as any;
-      const orders = seller?.completed_order_count || seller?.total_orders || 0;
-      if (orders >= 100) badges.push('Community Favorite');
-      else if (orders >= 50) badges.push('Community Trusted');
-    }
-    if (badges.length > 0) {
-      const unique = [...new Set(badges)];
-      return `Ordering from ${unique.join(' & ')} seller${c.sellerGroups.length > 1 ? 's' : ''}`;
-    }
     if (firstOrderSellerIds.size > 0) return '🛡 First Order Protected — instant refund if something goes wrong';
     return null;
-  }, [c.sellerGroups, firstOrderSellerIds]);
+  }, [firstOrderSellerIds]);
 
   if (c.isLoading) {
     return (
