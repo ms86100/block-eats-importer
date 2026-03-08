@@ -97,3 +97,38 @@ Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` c
 **7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
 - Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
 - Session feedback prompt integrated below booking add-ons
+
+---
+
+## Service Marketplace Tier 1 Enhancements — COMPLETED
+
+### What Was Done
+
+**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
+- Client-side .ics file generation with event title, date, time, location, description
+- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
+- Works with Google Calendar, Apple Calendar, Outlook
+
+**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
+- Vertical timeline showing today's bookings with time, service, buyer, status
+- Quick "View" action navigates to order detail
+- Integrated at top of Service Bookings section in SellerDashboardPage
+- Auto-hides if no bookings today
+
+**3. Preparation Instructions** (`service_listings.preparation_instructions`)
+- New column on `service_listings` table
+- Seller can edit in ServiceFieldsSection form during product creation/editing
+- Displayed on OrderDetailPage as "How to prepare" card
+- Included in iCal export description
+
+**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
+- New `slot_holds` table with 5-minute expiry
+- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
+- `release_slot_hold` RPC: releases hold on checkout or navigation away
+- RLS policies for authenticated users on own holds
+
+**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
+- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
+- RLS: buyers can join/view/leave their own waitlist entries
+- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
+- Unique constraint prevents duplicate waitlist entries
