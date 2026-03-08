@@ -73,6 +73,9 @@ export function DraftProductManager({
   const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
   const showDurationField = activeConfig?.formHints.showDurationField ?? false;
   const isServiceCategory = activeConfig?.layoutType === 'service';
+  const supportsAddons = activeConfig?.supportsAddons ?? false;
+  const supportsRecurring = activeConfig?.supportsRecurring ?? false;
+  const supportsStaffAssignment = activeConfig?.supportsStaffAssignment ?? false;
 
   const requiresPrice = useMemo(() => {
     if (!activeConfig) return true;
@@ -426,6 +429,26 @@ export function DraftProductManager({
             {isServiceCategory && (
               <div className="space-y-2">
                 <ServiceFieldsSection data={serviceFields} onChange={setServiceFields} />
+                <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+                  <p className="text-xs font-medium">Enabled for this category</p>
+                  <div className="grid gap-1 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className={supportsAddons ? 'text-success' : 'text-muted-foreground'} />
+                      Service Add-ons {supportsAddons ? 'enabled' : 'not enabled'}
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className={supportsRecurring ? 'text-success' : 'text-muted-foreground'} />
+                      Recurring Bookings {supportsRecurring ? 'enabled' : 'not enabled'}
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className={supportsStaffAssignment ? 'text-success' : 'text-muted-foreground'} />
+                      Staff Assignment {supportsStaffAssignment ? 'enabled' : 'not enabled'}
+                    </p>
+                  </div>
+                  {supportsAddons && (
+                    <p className="text-[11px] text-muted-foreground">Add-ons can be configured after saving this item from the seller product editor.</p>
+                  )}
+                </div>
                 <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
                   <Info size={14} className="text-primary mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-muted-foreground">
