@@ -116,7 +116,7 @@ export default function SellerProductsPage() {
         {sp.products.length > 0 ? (
           <div className="space-y-3">
             {sp.products.map((product) => {
-              const approvalStatus = (product as any).approval_status || 'approved';
+              const approvalStatus = (product as any).approval_status || 'draft';
               const showPendingHint = approvalStatus === 'pending';
               return (
                 <div key={product.id} className={`bg-card rounded-xl p-4 shadow-sm transition-opacity ${!product.is_available ? 'opacity-60' : ''}`}>
