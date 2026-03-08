@@ -245,7 +245,7 @@ function CategorySellerRow({
                 compact ? 'w-20' : 'w-24'
               )}
             >
-              <div className={cn('flex items-center justify-center bg-muted', compact ? 'h-12 p-1.5' : 'h-16 p-2')}>
+              <div className={cn('flex items-center justify-center bg-muted relative', compact ? 'h-12 p-1.5' : 'h-16 p-2')}>
                 {seller.profile_image_url ? (
                   <img
                     src={seller.profile_image_url}
@@ -258,6 +258,13 @@ function CategorySellerRow({
                     <Store className="text-muted-foreground" size={compact ? 16 : 22} />
                   </div>
                 )}
+                {/* Activity dot */}
+                {(() => {
+                  const dot = getActivityDot(seller.lastActiveAt);
+                  return dot ? (
+                    <div className={cn('absolute top-1 right-1 w-2 h-2 rounded-full border border-card', dot.color)} title={dot.label} />
+                  ) : null;
+                })()}
               </div>
               <div className="px-1.5 pb-2 pt-1.5 text-center">
                 <p className={cn('font-bold text-foreground line-clamp-2 leading-tight', compact ? 'text-[9px]' : 'text-[11px]')}>
