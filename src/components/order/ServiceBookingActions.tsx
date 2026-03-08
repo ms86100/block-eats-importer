@@ -83,13 +83,19 @@ export function ServiceBookingActions({
         .single();
 
       if (oldBooking?.slot_id) {
-        await supabase.rpc('decrement_slot_count' as any, { slot_id: oldBooking.slot_id }).catch(() => {
-          // If RPC doesn't exist, do manual update
-          supabase
+        // Free the old slot
+        const { data: oldSlotData } = await supabase
+          .from('service_slots')
+          .select('booked_count')
+          .eq('id', oldBooking.slot_id)
+          .single();
+
+        if (oldSlotData) {
+          await supabase
             .from('service_slots')
-            .update({ booked_count: Math.max(0, slot.booked_count - 1) })
+            .update({ booked_count: Math.max(0, oldSlotData.booked_count - 1) })
             .eq('id', oldBooking.slot_id);
-        });
+        }
       }
 
       // Update the booking
