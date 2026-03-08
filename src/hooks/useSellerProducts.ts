@@ -208,6 +208,12 @@ export function useSellerProducts() {
                 if (contentChanged && ['approved', 'rejected'].includes(ep.approval_status)) return 'pending';
                 return ep.approval_status;
               })(),
+              // PA-04 fix: Flag product as modified while pending
+              ...((() => {
+                const ep = editingProduct as any;
+                if (ep.approval_status === 'pending') return { updated_while_pending: true };
+                return {};
+              })()),
               // PA-07 fix: Only clear rejection_note when status is being reset to pending
               ...((() => {
                 const ep = editingProduct as any;
