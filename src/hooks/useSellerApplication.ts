@@ -96,6 +96,7 @@ export function useSellerApplication() {
     },
     attributeBlocks: [],
     serviceFields: INITIAL_SERVICE_FIELDS,
+    availabilitySchedule: INITIAL_AVAILABILITY_SCHEDULE,
   });
 
   // Sync default category when formData.categories changes and form isn't actively being filled
