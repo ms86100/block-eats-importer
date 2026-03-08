@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BookOpen, KeyRound, Home, ShoppingBag, Store, Truck, Shield, Users, ChevronRight } from 'lucide-react';
+import { BookOpen, KeyRound, Home, ShoppingBag, Store, Truck, Shield, Users, ChevronRight, Calendar, Package } from 'lucide-react';
 import { AuthOnboardingDocs } from '@/components/docs/AuthOnboardingDocs';
 import { HomeDiscoveryDocs } from '@/components/docs/HomeDiscoveryDocs';
 import { ServiceBookingDocs } from '@/components/docs/ServiceBookingDocs';
@@ -23,13 +23,18 @@ const NAV_SECTIONS = [
     group: 'Marketplace',
     items: [
       { id: 'marketplace', label: 'Shopping & Orders', icon: ShoppingBag },
-      { id: 'service-booking', label: 'Service Booking', icon: BookOpen },
+      { id: 'service-booking', label: 'Service Booking', icon: Calendar },
     ],
   },
   {
     group: 'Selling',
     items: [
       { id: 'seller', label: 'Seller Tools', icon: Store },
+    ],
+  },
+  {
+    group: 'Operations',
+    items: [
       { id: 'delivery', label: 'Delivery & Logistics', icon: Truck },
     ],
   },
