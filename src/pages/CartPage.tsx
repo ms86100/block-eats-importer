@@ -163,10 +163,8 @@ export default function CartPage() {
         {/* Cart Items by Seller */}
         <div className="mt-4 space-y-3 px-4">
           {c.sellerGroups.map((group, groupIndex) => {
-            const seller = group.items[0]?.product?.seller as any;
-            const completedOrders = seller?.completed_order_count || seller?.total_orders || 0;
-            const rating = seller?.rating || 0;
             const isFirstOrder = firstOrderSellerIds.has(group.sellerId);
+            const deliveryScore = deliveryScores.get(group.sellerId);
 
             return (
               <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
@@ -182,8 +180,10 @@ export default function CartPage() {
                   </div>
                   {/* Trust signals row */}
                   <div className="flex items-center gap-2 mt-1.5 ml-8 flex-wrap">
-                    <SellerTrustBadge completedOrders={completedOrders} rating={rating} size="sm" />
-                    <DeliveryReliabilityScore sellerId={group.sellerId} compact />
+                    <SellerTrustBadge sellerId={group.sellerId} size="sm" />
+                    {deliveryScore && deliveryScore.on_time_pct > 0 && (
+                      <DeliveryScoreBadge onTimePct={deliveryScore.on_time_pct} compact />
+                    )}
                   </div>
                 </div>
 
