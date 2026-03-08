@@ -29,6 +29,7 @@ import { NewOrderAlertOverlay } from '@/components/seller/NewOrderAlertOverlay';
 import { useSellerOrderStats, useSellerOrdersInfinite, useSellerOrderFilterCounts } from '@/hooks/queries/useSellerOrders';
 import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
 import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
+import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
 import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
 
 const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
@@ -258,6 +259,7 @@ export default function SellerDashboardPage() {
         {sellerProfile?.primary_group && SERVICE_PARENT_GROUPS.includes(sellerProfile.primary_group) && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
+            <ServiceBookingStats sellerId={sellerProfile.id} />
             <ServiceBookingsCalendar sellerId={sellerProfile.id} />
           </div>
         )}
