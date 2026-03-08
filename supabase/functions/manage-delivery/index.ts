@@ -456,25 +456,70 @@ async function handleWebhook(req: Request, db: any) {
     'picked_up': 'picked_up',
     'in_transit': 'picked_up',
     'arrived': 'at_gate',
-    'delivered': 'delivered',
+    // [SECURITY FIX] Do NOT allow 3PL webhook to mark as 'delivered' — 
+    // delivery completion requires OTP verification via handleComplete()
+    // 3PL can only report 'arrived' (at_gate), buyer must confirm with OTP
     'failed': 'failed',
     'cancelled': 'cancelled',
   };
 
   const internalStatus = statusMap[status];
-  if (internalStatus) {
+  
+  // [BUG FIX] Block 3PL from setting 'delivered' status — requires OTP
+  if (status === 'delivered') {
+    console.warn(`[Webhook] Blocked 3PL attempt to mark ${assignment.id} as delivered without OTP`);
+    // Treat as 'at_gate' instead — buyer still needs to confirm via OTP
+    updateData.status = 'at_gate';
+    updateData.at_gate_at = new Date().toISOString();
+  } else if (internalStatus) {
     updateData.status = internalStatus;
     if (internalStatus === 'picked_up') updateData.pickup_at = new Date().toISOString();
-    if (internalStatus === 'delivered') updateData.delivered_at = new Date().toISOString();
   }
 
   if (Object.keys(updateData).length > 0) {
     await db.from('delivery_assignments').update(updateData).eq('id', assignment.id);
   }
 
+  // [BUG FIX] Update order status to match delivery status
+  if (internalStatus === 'picked_up' || status === 'delivered') {
+    const orderStatus = status === 'delivered' ? 'out_for_delivery' : 'picked_up';
+    await db.from('orders').update({ status: orderStatus }).eq('id', assignment.order_id);
+  }
+  if (internalStatus === 'failed') {
+    await db.from('orders').update({ status: 'returned' }).eq('id', assignment.order_id);
+  }
+
+  // [BUG FIX] Notify buyer on meaningful 3PL status changes
+  if (['picked_up', 'at_gate', 'failed'].includes(updateData.status || '') || status === 'delivered') {
+    const { data: order } = await db.from('orders').select('buyer_id').eq('id', assignment.order_id).single();
+    if (order?.buyer_id) {
+      const titles: Record<string, string> = {
+        'picked_up': '📦 Order Picked Up',
+        'at_gate': '🏠 Delivery Rider at Gate',
+        'failed': '❌ Delivery Failed',
+      };
+      const bodies: Record<string, string> = {
+        'picked_up': 'Your order has been picked up and is on the way!',
+        'at_gate': 'Your delivery rider is at the gate. Please share your OTP to confirm.',
+        'failed': 'Delivery could not be completed. We\'ll try again soon.',
+      };
+      const effectiveStatus = status === 'delivered' ? 'at_gate' : (updateData.status || '');
+      if (titles[effectiveStatus]) {
+        await db.from('notification_queue').insert({
+          user_id: order.buyer_id,
+          type: 'delivery',
+          title: titles[effectiveStatus],
+          body: bodies[effectiveStatus],
+          reference_path: `/orders/${assignment.order_id}`,
+          payload: { orderId: assignment.order_id, deliveryStatus: effectiveStatus },
+        });
+      }
+    }
+  }
+
   await db.from('delivery_tracking_logs').insert({
     assignment_id: assignment.id,
-    status: internalStatus || status,
+    status: updateData.status || internalStatus || status,
     location_lat: location_lat || null,
     location_lng: location_lng || null,
     note: `3PL status: ${status}`,
