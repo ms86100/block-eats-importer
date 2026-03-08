@@ -1,77 +1,165 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { BookOpen, KeyRound, Home, ShoppingBag } from 'lucide-react';
+import { BookOpen, KeyRound, Home, ShoppingBag, Store, Truck, Shield, Users, ChevronRight } from 'lucide-react';
 import { AuthOnboardingDocs } from '@/components/docs/AuthOnboardingDocs';
 import { HomeDiscoveryDocs } from '@/components/docs/HomeDiscoveryDocs';
 import { ServiceBookingDocs } from '@/components/docs/ServiceBookingDocs';
+import { MarketplaceShoppingDocs } from '@/components/docs/MarketplaceShoppingDocs';
+import { SellerToolsDocs } from '@/components/docs/SellerToolsDocs';
+import { DeliveryDocs } from '@/components/docs/DeliveryDocs';
+import { AdminCommunityDocs } from '@/components/docs/AdminCommunityDocs';
+import { cn } from '@/lib/utils';
 
-const MODULES = [
-  { id: 'auth', label: 'Auth & Onboarding', icon: KeyRound },
-  { id: 'home', label: 'Home & Discovery', icon: Home },
-  { id: 'service-booking', label: 'Service Booking', icon: ShoppingBag },
-] as const;
+const NAV_SECTIONS = [
+  {
+    group: 'Getting Started',
+    items: [
+      { id: 'auth', label: 'Auth & Onboarding', icon: KeyRound },
+      { id: 'home', label: 'Home & Discovery', icon: Home },
+    ],
+  },
+  {
+    group: 'Marketplace',
+    items: [
+      { id: 'marketplace', label: 'Shopping & Orders', icon: ShoppingBag },
+      { id: 'service-booking', label: 'Service Booking', icon: BookOpen },
+    ],
+  },
+  {
+    group: 'Selling',
+    items: [
+      { id: 'seller', label: 'Seller Tools', icon: Store },
+      { id: 'delivery', label: 'Delivery & Logistics', icon: Truck },
+    ],
+  },
+  {
+    group: 'Platform',
+    items: [
+      { id: 'admin', label: 'Admin & Community', icon: Shield },
+    ],
+  },
+];
+
+const MODULE_COMPONENTS: Record<string, React.FC> = {
+  auth: AuthOnboardingDocs,
+  home: HomeDiscoveryDocs,
+  marketplace: MarketplaceShoppingDocs,
+  'service-booking': ServiceBookingDocs,
+  seller: SellerToolsDocs,
+  delivery: DeliveryDocs,
+  admin: AdminCommunityDocs,
+};
 
 export default function DocumentationPage() {
+  const [activeModule, setActiveModule] = useState('auth');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const ActiveComponent = MODULE_COMPONENTS[activeModule];
+
+  const activeLabel = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeModule)?.label || '';
+
   return (
     <AppLayout headerTitle="Documentation">
-      <ScrollArea className="h-[calc(100dvh-3.5rem)]">
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-6">
-          {/* Hero */}
-          <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-6 mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <BookOpen className="text-primary-foreground" size={20} />
+      <div className="flex h-[calc(100dvh-3.5rem)]">
+        {/* ─── Left Sidebar (Desktop) ─── */}
+        <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-muted/30">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <BookOpen className="text-primary-foreground" size={16} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Platform Documentation</h1>
-                <p className="text-xs text-muted-foreground">Complete system reference · Navigate by module</p>
+                <p className="text-sm font-bold text-foreground">Platform Docs</p>
+                <p className="text-[10px] text-muted-foreground">Complete Reference</p>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              This documentation explains every feature of the platform in a clear, storytelling style — designed for business analysts,
-              developers, and non-technical users alike. Select a module below to explore.
-            </p>
           </div>
+          <ScrollArea className="flex-1 py-2">
+            {NAV_SECTIONS.map((section) => (
+              <div key={section.group} className="mb-1">
+                <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{section.group}</p>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeModule === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveModule(item.id)}
+                      className={cn(
+                        'w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      <Icon size={15} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </ScrollArea>
+        </aside>
 
-          {/* Tabbed Modules */}
-          <Tabs defaultValue="auth" className="w-full">
-            <TabsList className="w-full h-auto flex-wrap gap-1 bg-muted/50 p-1 mb-6">
-              {MODULES.map((m) => {
-                const Icon = m.icon;
-                return (
-                  <TabsTrigger key={m.id} value={m.id} className="flex items-center gap-1.5 text-xs px-3 py-2 flex-1 min-w-[120px]">
-                    <Icon size={14} />
-                    <span className="hidden sm:inline">{m.label}</span>
-                    <span className="sm:hidden">{m.label.split(' ')[0]}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+        {/* ─── Mobile Nav Toggle ─── */}
+        <div className="md:hidden absolute top-[3.5rem] left-0 right-0 z-10 bg-background border-b border-border">
+          <button
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen size={14} className="text-primary" />
+              {activeLabel}
+            </span>
+            <ChevronRight size={14} className={cn('transition-transform', mobileNavOpen && 'rotate-90')} />
+          </button>
 
-            <TabsContent value="auth">
-              <AuthOnboardingDocs />
-            </TabsContent>
-            <TabsContent value="home">
-              <HomeDiscoveryDocs />
-            </TabsContent>
-            <TabsContent value="service-booking">
-              <ServiceBookingDocs />
-            </TabsContent>
-          </Tabs>
-
-          {/* Footer */}
-          <div className="pt-8 pb-12 border-t border-border mt-8 text-center">
-            <p className="text-[11px] text-muted-foreground">
-              Platform Documentation · Last updated March 2026
-            </p>
-            <p className="text-[10px] text-muted-foreground/60 mt-1">
-              More modules will be added as new features are documented.
-            </p>
-          </div>
+          {mobileNavOpen && (
+            <div className="bg-background border-b border-border pb-2 shadow-lg">
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.group}>
+                  <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{section.group}</p>
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeModule === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => { setActiveModule(item.id); setMobileNavOpen(false); }}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 px-6 py-2 text-left text-sm transition-colors',
+                          isActive ? 'text-primary font-medium bg-primary/5' : 'text-muted-foreground'
+                        )}
+                      >
+                        <Icon size={14} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </ScrollArea>
+
+        {/* ─── Main Content ─── */}
+        <ScrollArea className="flex-1">
+          <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 md:pt-6 pt-14">
+            {ActiveComponent && <ActiveComponent />}
+
+            {/* Footer */}
+            <div className="pt-8 pb-12 border-t border-border mt-8 text-center">
+              <p className="text-[11px] text-muted-foreground">
+                Platform Documentation · Last updated March 2026
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                7 modules · Comprehensive system reference
+              </p>
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
     </AppLayout>
   );
 }
