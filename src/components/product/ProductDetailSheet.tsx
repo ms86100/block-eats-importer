@@ -121,6 +121,8 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
                   <span className="text-xl font-bold text-foreground">{d.formatPrice(product.price)}</span>
                 )}
               </div>
+              <PriceStabilityBadge productId={product.product_id} />
+              <RefundTierBadge amount={product.price} />
 
               <button onClick={() => d.setShowDetails(!d.showDetails)} className="flex items-center gap-1 text-xs font-medium text-primary">
                 {d.showDetails ? 'Hide product details' : 'View product details'}
