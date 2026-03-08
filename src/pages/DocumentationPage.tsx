@@ -412,13 +412,18 @@ export default function DocumentationPage() {
                 </div>
               </SubSection>
               <SubSection title="Step-by-Step: Configuring a Category">
-                <p>1. Go to <strong>Admin Panel → Catalog → Categories</strong>.</p>
-                <p>2. Click on the category you want to configure (e.g. "Beauty").</p>
-                <p>3. In the edit panel, find the <strong>Feature Flags</strong> section.</p>
-                <p>4. Toggle the desired flags:</p>
-                <p className="pl-4">• Turn on <code className="text-[10px] bg-muted px-1 rounded">supports_addons</code> → sellers in this category will see the Add-ons Manager.</p>
-                <p className="pl-4">• Turn on <code className="text-[10px] bg-muted px-1 rounded">supports_staff_assignment</code> → sellers will see the Staff Manager in their settings.</p>
-                <p className="pl-4">• Set <code className="text-[10px] bg-muted px-1 rounded">layout_type</code> to "service" → the full service booking workflow activates.</p>
+                <p>1. Go to <strong>Admin Panel → Catalog</strong> tab → <strong>Categories</strong> sub-tab.</p>
+                <p>2. Find the category row (e.g. "Beauty") and click the <strong>✏️ Edit</strong> icon.</p>
+                <p>3. The <strong>Edit Category</strong> dialog opens with multiple sections:</p>
+                <p className="pl-4"><strong>Basic Info:</strong> Display Name, Icon, Color, Image URL, Parent Group.</p>
+                <p className="pl-4"><strong>Listing Type:</strong> Choose from Purchase, Book Slot, Request Service, Schedule Visit, Rental, or Enquiry. <em>This is the key setting that controls service features.</em></p>
+                <p className="pl-4"><strong>Always-Visible Toggles:</strong> Show Veg/Non-Veg toggle, Show Duration Field.</p>
+                <p className="pl-4"><strong>Service Features (only visible when Listing Type is a service type):</strong></p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_addons</code> — Enables the Add-ons Manager in the product editor.</p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_recurring</code> — Allows buyers to set up recurring appointments.</p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_staff_assignment</code> — Shows Staff Manager in seller settings.</p>
+                <p className="pl-4"><strong>Form Hints:</strong> Customize placeholder text and labels that sellers see when creating products (name placeholder, description placeholder, price label, duration label, price prefix, primary button label).</p>
+                <p>4. Toggle the desired flags.</p>
                 <p>5. Click <strong>Save</strong>.</p>
                 <p>6. The change is <strong>immediate</strong> — any seller with products in this category will see the updated UI on their next page load.</p>
               </SubSection>
