@@ -215,7 +215,7 @@ Contrast with seller approval which sends a notification (line 158-164).
 | PA-01 | CRITICAL | Dual approval paths diverge | ✅ Fixed |
 | PA-02 | CRITICAL | is_available toggle misleads sellers | ✅ Fixed |
 | PA-03 | HIGH | Bulk upload has no submit path | ✅ Fixed |
-| PA-04 | HIGH | Edits during review not flagged | Open (needs `updated_while_pending` column) |
+| PA-04 | HIGH | Edits during review not flagged | ✅ Fixed |
 | PA-05 | HIGH | Admins can't see draft pipeline | ✅ Fixed |
 | PA-06 | HIGH | Seller approval auto-approves all products | ✅ Fixed |
 | PA-07 | MEDIUM | rejection_note cleared on non-content edits | ✅ Fixed |
