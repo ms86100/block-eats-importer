@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { SellerProfile } from '@/types/database';
-import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck } from 'lucide-react';
+import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck, CalendarClock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { logAudit } from '@/lib/audit';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useQuery } from '@tanstack/react-query';
 
 // Import refactored components
 import { StoreStatusCard } from '@/components/seller/StoreStatusCard';
