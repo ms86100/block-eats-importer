@@ -497,11 +497,12 @@ export function DraftProductManager({
                     <p className="text-[11px] text-muted-foreground">Add-ons can be configured after saving this item from the seller product editor.</p>
                   )}
                 </div>
-                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
-                  <Info size={14} className="text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground">
-                    After your service is approved, set your <span className="font-semibold text-foreground">availability schedule</span> in Seller Settings to start receiving bookings.
-                  </p>
+                {/* Inline Availability Schedule */}
+                <div className="rounded-lg border bg-card p-3">
+                  <InlineAvailabilitySchedule
+                    schedule={availabilitySchedule}
+                    onChange={setAvailabilitySchedule}
+                  />
                 </div>
               </div>
             )}
