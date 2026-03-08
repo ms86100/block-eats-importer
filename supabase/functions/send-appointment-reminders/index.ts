@@ -18,15 +18,21 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
+    // [BUG FIX #M14] Only look at bookings up to 2 days ahead (no need to scan further)
+    const twoDaysAhead = new Date(now);
+    twoDaysAhead.setDate(twoDaysAhead.getDate() + 2);
+    const maxDateStr = twoDaysAhead.toISOString().split("T")[0];
 
-    // Find bookings needing reminders (not cancelled/completed/no_show)
-    // BUG FIX: Also fetch seller_id for seller reminders
+    // Find bookings needing reminders
+    // [BUG FIX #M15] Add limit to prevent unbounded queries
     const { data: bookings, error: fetchErr } = await supabase
       .from("service_bookings")
       .select("id, buyer_id, seller_id, booking_date, start_time, product_id, order_id, reminder_24h_sent_at, reminder_1h_sent_at")
       .not("status", "in", '("cancelled","completed","no_show")')
       .gte("booking_date", todayStr)
-      .or("reminder_24h_sent_at.is.null,reminder_1h_sent_at.is.null");
+      .lte("booking_date", maxDateStr)
+      .or("reminder_24h_sent_at.is.null,reminder_1h_sent_at.is.null")
+      .limit(500);
 
     if (fetchErr) throw fetchErr;
     if (!bookings?.length) {
@@ -36,7 +42,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // BUG FIX: Batch-fetch product names to avoid N+1 queries
+    // Batch-fetch product names
     const productIds = [...new Set(bookings.map(b => b.product_id).filter(Boolean))];
     const { data: products } = await supabase
       .from("products")
@@ -44,7 +50,7 @@ Deno.serve(async (req) => {
       .in("id", productIds);
     const productMap = new Map((products || []).map(p => [p.id, p.name]));
 
-    // BUG FIX: Batch-fetch seller user_ids for seller reminders
+    // Batch-fetch seller user_ids
     const sellerIds = [...new Set(bookings.map(b => b.seller_id).filter(Boolean))];
     const { data: sellerProfiles } = await supabase
       .from("seller_profiles")
@@ -58,7 +64,12 @@ Deno.serve(async (req) => {
 
     for (const booking of bookings) {
       try {
-        // BUG FIX: Parse time with explicit UTC handling to avoid timezone drift
+        // [BUG FIX #M16] Validate booking has required fields
+        if (!booking.buyer_id || !booking.booking_date || !booking.start_time) {
+          skipped++;
+          continue;
+        }
+
         const [hours, minutes] = (booking.start_time || "00:00").split(":").map(Number);
         const appointmentTime = new Date(`${booking.booking_date}T00:00:00`);
         appointmentTime.setHours(hours, minutes, 0, 0);
@@ -82,7 +93,7 @@ Deno.serve(async (req) => {
             payload: { orderId: booking.order_id, type: "appointment_reminder" },
           });
 
-          // BUG FIX: Also remind seller
+          // Also remind seller
           if (sellerUserId) {
             await supabase.from("notification_queue").insert({
               user_id: sellerUserId,
@@ -112,7 +123,6 @@ Deno.serve(async (req) => {
             payload: { orderId: booking.order_id, type: "appointment_reminder" },
           });
 
-          // Also remind seller
           if (sellerUserId) {
             await supabase.from("notification_queue").insert({
               user_id: sellerUserId,

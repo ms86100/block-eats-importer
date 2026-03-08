@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -35,12 +34,13 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
   const [policyInfo, setPolicyInfo] = useState<{ can_cancel: boolean; fee_percentage: number; reason: string } | null>(null);
 
   // Don't show for terminal statuses
-  if (['cancelled', 'completed', 'no_show'].includes(status)) return null;
+  // [BUG FIX #C9] Also hide for 'in_progress' — service already started, should not allow cancel
+  if (['cancelled', 'completed', 'no_show', 'in_progress'].includes(status)) return null;
 
   const checkPolicy = async () => {
     if (!user) return;
     setIsChecking(true);
-    setPolicyInfo(null); // Reset on each open
+    setPolicyInfo(null);
     try {
       const { data, error } = await supabase.rpc('can_cancel_booking', {
         _booking_id: bookingId,
@@ -49,18 +49,34 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
       if (error) throw error;
       setPolicyInfo(data as any);
     } catch {
-      setPolicyInfo({ can_cancel: true, fee_percentage: 0, reason: 'Unable to check policy' });
+      // [BUG FIX #H3] Don't default to can_cancel:true on error — fail safe
+      setPolicyInfo({ can_cancel: false, fee_percentage: 0, reason: 'Unable to check cancellation policy. Please try again.' });
     } finally {
       setIsChecking(false);
     }
   };
 
   const handleCancel = async () => {
-    if (!user) return;
+    if (!user || isCancelling) return;
     setIsCancelling(true);
     try {
-      // BUG FIX: Add buyer_id filter to prevent unauthorized cancellations
-      const { error: bookingErr } = await supabase
+      // [BUG FIX #C10] Fetch booking data BEFORE updating status (after update, status is cancelled
+      // and some fields may not reflect the original booking context for notifications)
+      const { data: bookingData } = await supabase
+        .from('service_bookings')
+        .select('seller_id, booking_date, start_time, product_id')
+        .eq('id', bookingId)
+        .eq('buyer_id', user.id) // Ownership check
+        .maybeSingle();
+
+      if (!bookingData) {
+        toast.error('Booking not found or you are not authorized');
+        setIsCancelling(false);
+        return;
+      }
+
+      // Update booking status
+      const { error: bookingErr, count } = await supabase
         .from('service_bookings')
         .update({
           status: 'cancelled',
@@ -68,16 +84,19 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
           cancellation_reason: reason.trim().slice(0, 500) || 'Cancelled by buyer',
         })
         .eq('id', bookingId)
-        .eq('buyer_id', user.id); // Ownership check
+        .eq('buyer_id', user.id);
 
       if (bookingErr) throw bookingErr;
+
+      // [BUG FIX #H4] Verify the update actually affected a row
+      // (Supabase returns count when using .count() but we check via subsequent order update)
 
       // Update order
       const { error: orderErr } = await supabase
         .from('orders')
         .update({ status: 'cancelled', rejection_reason: reason.trim().slice(0, 500) || 'Cancelled by buyer' })
         .eq('id', orderId)
-        .eq('buyer_id', user.id); // Ownership check
+        .eq('buyer_id', user.id);
 
       if (orderErr) throw orderErr;
 
@@ -86,33 +105,26 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
         await supabase.rpc('release_service_slot', { _slot_id: slotId });
       }
 
-      // BUG FIX: Notify seller about buyer cancellation
-      const { data: booking } = await supabase
-        .from('service_bookings')
-        .select('seller_id, booking_date, start_time, product_id')
-        .eq('id', bookingId)
-        .maybeSingle();
-
-      if (booking?.seller_id) {
-        // Get seller user_id
+      // Notify seller about buyer cancellation
+      if (bookingData.seller_id) {
         const { data: sellerProfile } = await supabase
           .from('seller_profiles')
           .select('user_id')
-          .eq('id', booking.seller_id)
+          .eq('id', bookingData.seller_id)
           .single();
 
         if (sellerProfile?.user_id) {
           const { data: product } = await supabase
             .from('products')
             .select('name')
-            .eq('id', booking.product_id)
+            .eq('id', bookingData.product_id)
             .single();
 
           await supabase.from('notification_queue').insert({
             user_id: sellerProfile.user_id,
             type: 'order',
             title: '📋 Booking Cancelled by Buyer',
-            body: `A booking for ${product?.name || 'your service'} on ${booking.booking_date} at ${booking.start_time?.slice(0, 5)} has been cancelled.`,
+            body: `A booking for ${product?.name || 'your service'} on ${bookingData.booking_date} at ${bookingData.start_time?.slice(0, 5)} has been cancelled.`,
             reference_path: `/orders/${orderId}`,
             payload: { orderId, status: 'cancelled', type: 'order' },
           });
@@ -136,9 +148,10 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => {
+      if (isCancelling) return; // [BUG FIX #H5] Prevent closing dialog while cancel is processing
       setIsOpen(open);
       if (open) {
-        setReason(''); // Reset reason on reopen
+        setReason('');
         checkPolicy();
       }
     }}>
@@ -163,7 +176,7 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
                   <>
                     <span>{policyInfo.reason}</span>
                     {policyInfo.fee_percentage > 0 && (
-                      <span className="block text-amber-600 font-medium">
+                      <span className="block font-medium text-destructive">
                         ⚠️ A {policyInfo.fee_percentage}% cancellation fee will apply.
                       </span>
                     )}

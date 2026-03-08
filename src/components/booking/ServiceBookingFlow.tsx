@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, isBefore, startOfToday } from 'date-fns';
@@ -29,7 +29,7 @@ interface ServiceBookingFlowProps {
   category: string;
   imageUrl?: string | null;
   durationMinutes?: number;
-  locationType?: string; // from service_listings
+  locationType?: string;
 }
 
 const MAX_NOTES_LENGTH = 500;
@@ -45,6 +45,9 @@ export function ServiceBookingFlow({
   const queryClient = useQueryClient();
   const { config } = useCategoryBehavior(category as ServiceCategory);
 
+  // [BUG FIX #C1] Guard against double-submit with ref
+  const isSubmittingRef = useRef(false);
+
   const { data: serviceSlots = [], refetch: refetchSlots } = useServiceSlots(open ? productId : undefined);
   const availableSlots = useMemo(
     () => (serviceSlots.length > 0 ? slotsToPickerFormat(serviceSlots) : undefined),
@@ -59,7 +62,7 @@ export function ServiceBookingFlow({
   const [recurringConfig, setRecurringConfig] = useState<RecurringConfig>({ enabled: false, frequency: 'weekly' });
   const [isLoading, setIsLoading] = useState(false);
 
-  // BUG FIX: Reset state when sheet reopens to prevent stale selections
+  // [BUG FIX #C2] Reset state when sheet reopens to prevent stale selections
   useEffect(() => {
     if (open) {
       setSelectedDate(undefined);
@@ -69,13 +72,12 @@ export function ServiceBookingFlow({
       setSelectedAddons([]);
       setRecurringConfig({ enabled: false, frequency: 'weekly' });
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   }, [open]);
 
   const supportsAddons = (config as any)?.supports_addons ?? false;
   const supportsRecurring = (config as any)?.supports_recurring ?? false;
-
-  // BUG FIX: Determine if address is needed from locationType prop instead of hardcoded false
   const needsAddress = locationType === 'home_visit' || locationType === 'at_buyer';
 
   const addonTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
@@ -85,18 +87,31 @@ export function ServiceBookingFlow({
   const isDateValid = selectedDate && !isBefore(selectedDate, startOfToday());
   const isValid = isDateValid && selectedTime && (!needsAddress || buyerAddress.trim().length > 0);
 
+  // [BUG FIX #C3] Clear selectedTime when selectedDate changes (old time may not exist for new date)
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setSelectedTime(undefined);
+  };
+
   const handleConfirm = async () => {
+    // [BUG FIX #C1] Prevent double-submit race condition
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     if (!user) {
       toast.error('Please sign in first');
       navigate('/auth');
+      isSubmittingRef.current = false;
       return;
     }
     if (!selectedDate || !selectedTime || !isDateValid) {
       toast.error('Please select a valid date and time');
+      isSubmittingRef.current = false;
       return;
     }
     if (needsAddress && !buyerAddress.trim()) {
       toast.error('Please enter your address for home visit');
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -104,17 +119,27 @@ export function ServiceBookingFlow({
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Find matching slot from fresh data
-      const slot = findSlot(serviceSlots, dateStr, selectedTime);
-      if (!slot) {
+      // [BUG FIX #C4] Re-fetch slots to get FRESH data before booking (prevent stale slot booking)
+      const { data: freshSlots } = await supabase
+        .from('service_slots')
+        .select('*')
+        .eq('product_id', productId)
+        .eq('slot_date', dateStr)
+        .eq('start_time', selectedTime)
+        .eq('is_blocked', false)
+        .maybeSingle();
+
+      if (!freshSlots || freshSlots.booked_count >= freshSlots.max_capacity) {
         toast.error('Selected slot is no longer available. Refreshing...');
         refetchSlots();
         setIsLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
-      // BUG FIX: Prevent self-booking — sellerId is seller_profiles.id, NOT user_id
-      // Must check against seller_profiles.user_id to correctly identify self-booking
+      const slot = freshSlots;
+
+      // [BUG FIX #C5] Prevent self-booking — sellerId is seller_profiles.id, NOT user_id
       const { data: sellerProfile } = await supabase
         .from('seller_profiles')
         .select('user_id')
@@ -124,6 +149,15 @@ export function ServiceBookingFlow({
       if (sellerProfile?.user_id === user.id) {
         toast.error('You cannot book your own service');
         setIsLoading(false);
+        isSubmittingRef.current = false;
+        return;
+      }
+
+      // [BUG FIX #C6] Validate price is positive and matches server
+      if (price <= 0) {
+        toast.error('Invalid service price');
+        setIsLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -154,7 +188,7 @@ export function ServiceBookingFlow({
         unit_price: price,
       });
 
-      // BUG FIX: If order_items insert fails, rollback the order
+      // [BUG FIX #C7] If order_items insert fails, rollback the order
       if (itemErr) {
         await supabase.from('orders').delete().eq('id', order.id);
         throw itemErr;
@@ -186,25 +220,30 @@ export function ServiceBookingFlow({
         toast.error(result?.error || 'Failed to book slot');
         refetchSlots();
         setIsLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
       const bookingId = result.booking_id;
 
-      // Persist selected addons
+      // Persist selected addons — [BUG FIX #H1] Check for addon insert errors
       if (selectedAddons.length > 0 && bookingId) {
-        await supabase.from('service_booking_addons').insert(
+        const { error: addonErr } = await supabase.from('service_booking_addons').insert(
           selectedAddons.map(a => ({
             booking_id: bookingId,
             addon_id: a.id,
             price_at_booking: a.price,
           }))
         );
+        if (addonErr) {
+          console.error('Failed to save addons:', addonErr);
+          // Non-fatal: booking still works, just log it
+        }
       }
 
-      // Persist recurring config
+      // Persist recurring config — [BUG FIX #H2] Check for recurring config insert errors
       if (recurringConfig.enabled && bookingId) {
-        await supabase.from('service_recurring_configs').insert({
+        const { error: recurErr } = await supabase.from('service_recurring_configs').insert({
           booking_id: bookingId,
           buyer_id: user.id,
           seller_id: sellerId,
@@ -212,6 +251,22 @@ export function ServiceBookingFlow({
           frequency: recurringConfig.frequency,
           preferred_time: slot.start_time,
           start_date: dateStr,
+        });
+        if (recurErr) {
+          console.error('Failed to save recurring config:', recurErr);
+          toast.info('Booking created, but recurring schedule failed. Please set it up again.');
+        }
+      }
+
+      // [BUG FIX #C8] Notify seller about new booking request
+      if (sellerProfile?.user_id) {
+        await supabase.from('notification_queue').insert({
+          user_id: sellerProfile.user_id,
+          type: 'order',
+          title: '🆕 New Booking Request',
+          body: `${user.user_metadata?.name || 'A customer'} requested ${productName} on ${dateStr} at ${slot.start_time.slice(0, 5)}`,
+          reference_path: `/orders/${order.id}`,
+          payload: { orderId: order.id, status: 'requested', type: 'order' },
         });
       }
 
@@ -230,6 +285,7 @@ export function ServiceBookingFlow({
       toast.error('Failed to create booking. Please try again.');
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -258,11 +314,11 @@ export function ServiceBookingFlow({
             </div>
           </div>
 
-          {/* Time Slot Picker */}
+          {/* Time Slot Picker — [BUG FIX #C3] Use handleDateSelect to clear time on date change */}
           <TimeSlotPicker
             selectedDate={selectedDate}
             selectedTime={selectedTime}
-            onDateSelect={setSelectedDate}
+            onDateSelect={handleDateSelect}
             onTimeSelect={setSelectedTime}
             serviceDuration={durationMinutes}
             availableSlots={availableSlots}

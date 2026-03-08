@@ -23,8 +23,14 @@ export function UpcomingAppointmentBanner() {
 
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false; // [BUG FIX #M6] Prevent state update on unmount
+
     (async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
+      // [BUG FIX #H10] Also exclude 'rescheduled' from showing stale data —
+      // rescheduled bookings should show with their NEW date, which they do since
+      // the reschedule RPC updates booking_date. But we should also filter out past-time
+      // bookings for today.
       const { data } = await supabase
         .from('service_bookings')
         .select('id, order_id, booking_date, start_time, end_time, status, product:products!service_bookings_product_id_fkey(name, seller_id)')
@@ -33,12 +39,22 @@ export function UpcomingAppointmentBanner() {
         .not('status', 'in', '("cancelled","completed","no_show")')
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .limit(5); // [BUG FIX #M7] Fetch a few to filter past-time today slots
 
-      if (!data) return;
+      if (cancelled || !data || data.length === 0) return;
 
-      const product = (data as any).product;
+      // [BUG FIX #M7] Filter out today's bookings where the time has already passed
+      const now = new Date();
+      const currentTimeStr = format(now, 'HH:mm:ss');
+      const todayStr = format(now, 'yyyy-MM-dd');
+      const validBooking = data.find((b: any) => {
+        if (b.booking_date === todayStr && b.start_time < currentTimeStr) return false;
+        return true;
+      });
+
+      if (!validBooking) return;
+
+      const product = (validBooking as any).product;
       let sellerName = '';
       if (product?.seller_id) {
         const { data: seller } = await supabase
@@ -46,20 +62,23 @@ export function UpcomingAppointmentBanner() {
           .select('business_name')
           .eq('id', product.seller_id)
           .single();
-        sellerName = seller?.business_name || '';
+        if (!cancelled) sellerName = seller?.business_name || '';
       }
 
-      setBooking({
-        id: data.id,
-        order_id: data.order_id,
-        booking_date: data.booking_date,
-        start_time: data.start_time,
-        end_time: data.end_time,
-        status: data.status,
-        product_name: product?.name || 'Service',
-        seller_name: sellerName,
-      });
+      if (!cancelled) {
+        setBooking({
+          id: validBooking.id,
+          order_id: validBooking.order_id,
+          booking_date: validBooking.booking_date,
+          start_time: validBooking.start_time,
+          end_time: validBooking.end_time,
+          status: validBooking.status,
+          product_name: product?.name || 'Service',
+          seller_name: sellerName,
+        });
+      }
     })();
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   if (!booking) return null;

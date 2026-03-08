@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -20,11 +20,13 @@ Deno.serve(async (req) => {
     const todayStr = now.toISOString().split("T")[0];
 
     // Get active recurring configs that haven't ended
+    // [BUG FIX #C10] Add limit to prevent unbounded query
     const { data: configs, error: configErr } = await supabase
       .from("service_recurring_configs")
       .select("*")
       .eq("is_active", true)
-      .or(`end_date.is.null,end_date.gte.${todayStr}`);
+      .or(`end_date.is.null,end_date.gte.${todayStr}`)
+      .limit(500);
 
     if (configErr) throw configErr;
     if (!configs?.length) {
@@ -34,17 +36,32 @@ Deno.serve(async (req) => {
       );
     }
 
+    // [BUG FIX #H11] Batch-fetch product info to avoid N+1 queries
+    const productIds = [...new Set(configs.map(c => c.product_id).filter(Boolean))];
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, name, price")
+      .in("id", productIds);
+    const productMap = new Map((products || []).map(p => [p.id, p]));
+
     let totalCreated = 0;
     let errors = 0;
 
     for (const config of configs) {
       try {
+        // [BUG FIX #M11] Validate config has required fields
+        if (!config.buyer_id || !config.seller_id || !config.product_id || !config.preferred_time) {
+          console.error(`Invalid recurring config ${config.id}: missing required fields`);
+          errors++;
+          continue;
+        }
+
         // Calculate next booking date
         const lastGenerated = config.last_generated_date
           ? new Date(config.last_generated_date)
           : new Date(config.start_date);
 
-        let nextDate = new Date(lastGenerated);
+        const nextDate = new Date(lastGenerated);
         const daysToAdd =
           config.frequency === "weekly" ? 7 :
           config.frequency === "biweekly" ? 14 : 30;
@@ -65,6 +82,26 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // [BUG FIX #M12] Check if a booking already exists for this config+date to prevent duplicates
+        const { data: existingBooking } = await supabase
+          .from("service_bookings")
+          .select("id")
+          .eq("buyer_id", config.buyer_id)
+          .eq("product_id", config.product_id)
+          .eq("booking_date", nextDateStr)
+          .not("status", "in", '("cancelled","no_show")')
+          .limit(1)
+          .maybeSingle();
+
+        if (existingBooking) {
+          // Already has a booking for this date, update last_generated and skip
+          await supabase
+            .from("service_recurring_configs")
+            .update({ last_generated_date: nextDateStr })
+            .eq("id", config.id);
+          continue;
+        }
+
         // Find an available slot
         const timeStr = config.preferred_time;
         const { data: slot } = await supabase
@@ -81,13 +118,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get product info for order_items
-        const { data: product } = await supabase
-          .from("products")
-          .select("name, price")
-          .eq("id", config.product_id)
-          .single();
-
+        // Get product info from batch-fetched map
+        const product = productMap.get(config.product_id);
         const productPrice = product?.price || 0;
         const productName = product?.name || "Recurring Service";
 
@@ -113,14 +145,22 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Create order item (was missing before!)
-        await supabase.from("order_items").insert({
+        // Create order item
+        const { error: itemErr } = await supabase.from("order_items").insert({
           order_id: order.id,
           product_id: config.product_id,
           product_name: productName,
           quantity: 1,
           unit_price: productPrice,
         });
+
+        // [BUG FIX #M13] If order_items fails, rollback order
+        if (itemErr) {
+          await supabase.from("orders").delete().eq("id", order.id);
+          console.error("Failed to create order_items for recurring", config.id, itemErr);
+          errors++;
+          continue;
+        }
 
         // Use atomic book_service_slot RPC to prevent race conditions
         const { data: bookResult, error: bookErr } = await supabase.rpc("book_service_slot", {
@@ -136,7 +176,7 @@ Deno.serve(async (req) => {
         });
 
         if (bookErr || !(bookResult as any)?.success) {
-          // Rollback order
+          // Rollback order + items
           await supabase.from("order_items").delete().eq("order_id", order.id);
           await supabase.from("orders").delete().eq("id", order.id);
           console.error("Failed to book slot for recurring", config.id, bookErr || (bookResult as any)?.error);
@@ -170,6 +210,24 @@ Deno.serve(async (req) => {
           reference_path: `/orders/${order.id}`,
           payload: { orderId: order.id, type: "recurring_booking_created" },
         });
+
+        // [BUG FIX #H12] Also notify seller about auto-generated bookings
+        const { data: sellerProfile } = await supabase
+          .from("seller_profiles")
+          .select("user_id")
+          .eq("id", config.seller_id)
+          .single();
+
+        if (sellerProfile?.user_id) {
+          await supabase.from("notification_queue").insert({
+            user_id: sellerProfile.user_id,
+            type: "appointment_reminder",
+            title: "🔄 Recurring Booking Auto-Created",
+            body: `A recurring ${productName} booking has been auto-scheduled for ${nextDateStr} at ${timeStr.slice(0, 5)}`,
+            reference_path: `/orders/${order.id}`,
+            payload: { orderId: order.id, type: "recurring_booking_created" },
+          });
+        }
 
         totalCreated++;
       } catch (configProcessErr) {
