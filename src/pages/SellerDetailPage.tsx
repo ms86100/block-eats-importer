@@ -560,10 +560,20 @@ export default function SellerDetailPage() {
                       society_name: (seller as any).society?.name || null,
                       distance_km: distanceKm,
                       is_same_society: seller!.society_id === effectiveSocietyId,
+                      seller_availability_start: seller!.availability_start,
+                      seller_availability_end: seller!.availability_end,
+                      seller_operating_days: seller!.operating_days,
+                      seller_is_available: seller!.is_available,
                     });
                     setDetailOpen(true);
                   }} className="cursor-pointer">
-                    <ProductCard product={product} />
+                    <ProductCard product={{
+                      ...product,
+                      seller_availability_start: seller!.availability_start,
+                      seller_availability_end: seller!.availability_end,
+                      seller_operating_days: seller!.operating_days,
+                      seller_is_available: seller!.is_available,
+                    } as any} />
                   </div>
                 ))}
               </div>
