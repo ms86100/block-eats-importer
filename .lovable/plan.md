@@ -1,106 +1,50 @@
 
 
-# OTP Phone Verification via n8n Webhooks
+## Notification Health Check — User-Friendly UI
 
-## Overview
+### What We'll Build
 
-Build an OTP verification system where the backend generates and stores OTPs, triggers n8n webhooks for message delivery (WhatsApp/SMS), and verifies OTPs on the backend. The messaging provider is fully swappable.
+A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
 
-## Database Changes (1 migration)
+### UI Design
 
-**Table: `phone_otp_verifications`**
+**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| user_id | uuid | References profiles, nullable (guest OTP) |
-| phone_number | text NOT NULL | E.164 format |
-| otp_hash | text NOT NULL | SHA-256 hashed OTP |
-| expires_at | timestamptz NOT NULL | |
-| status | text | `pending`, `verified`, `expired`, `exhausted` |
-| attempt_count | int default 0 | |
-| max_attempts | int default 5 | |
-| created_at | timestamptz | |
-| verified_at | timestamptz | |
+**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
 
-RLS: service-role only (edge function access). No direct client access.
+| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
+|---|---|---|
+| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
+| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
+| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
+| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
 
-**System settings rows** (insert via data tool):
-- `otp_length` → `4`
-- `otp_expiry_minutes` → `5`
-- `otp_max_attempts` → `5`
-- `otp_resend_cooldown_seconds` → `30`
-- `otp_message_template` → `Your verification code is {OTP}. This code will expire in {expiry_minutes} minutes. Do not share this code with anyone.`
-- `n8n_otp_webhook_url` → (empty, admin configures)
-- `n8n_otp_enabled` → `false`
+Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
 
-## New Edge Function: `otp-verify`
+**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
 
-Single function with `action` query param:
+**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
 
-### `action=send` (authenticated)
-1. Validate phone number (E.164 regex)
-2. Rate limit: 3 OTP sends per phone per 5 minutes
-3. Check resend cooldown (30s since last OTP for same phone)
-4. Read config from `system_settings` (length, expiry, template)
-5. Generate cryptographic OTP, hash with SHA-256, store in `phone_otp_verifications`
-6. If `n8n_otp_enabled` is true and webhook URL configured, POST to n8n webhook:
-   ```json
-   { "phone_number": "+91...", "otp_code": "1234", "user_type": "buyer", "message": "Your verification code is 1234...", "expiry_minutes": 5 }
-   ```
-7. Return `{ success: true, expires_in_seconds: 300, resend_after_seconds: 30 }`
+### Implementation
 
-### `action=verify` (authenticated)
-1. Look up latest `pending` OTP for phone number
-2. Check expiry, attempt count
-3. Increment attempt_count
-4. Constant-time compare OTP hash
-5. If valid: mark `verified`, update `profiles.phone_verified = true` (add column if missing)
-6. If exhausted: mark `exhausted`
-7. Return `{ verified: true/false, error?: string }`
+**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
+- Renders the trigger button and the bottom sheet
+- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
+- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
+- Provides actionable buttons for failures (Open Settings, Retry Registration)
 
-### `action=resend` (authenticated)
-1. Check cooldown
-2. If existing OTP not expired, resend same OTP via webhook
-3. If expired, generate new OTP
-4. Same webhook call as `send`
+**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
+- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
+- Consolidates the 7+ technical steps into 4 simple categories
+- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
 
-## Secret Required
+**3. Update `src/pages/ProfilePage.tsx`**
+- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
+- Keep Push Debug link visible only for admins
 
-**`N8N_OTP_WEBHOOK_SECRET`** — Optional HMAC secret for signing webhook payloads to n8n. Will prompt user to add this when they configure their n8n workflow.
+**4. Optionally add to `src/pages/NotificationsPage.tsx`**
+- Add a small "Check notification status" link at the top
 
-The n8n webhook URL itself is stored in `system_settings` (not as a secret) so admins can change it from the UI.
-
-## Frontend Components
-
-### `src/components/auth/PhoneOtpVerification.tsx`
-- Phone input with country code
-- "Send OTP" button with cooldown timer
-- 4-digit OTP input (using existing `InputOTP` component)
-- "Verify" button
-- "Resend OTP" with countdown
-- Success/error states
-
-### `src/components/admin/OtpSettings.tsx`
-- Configure OTP length, expiry, max attempts, cooldown
-- Set n8n webhook URL
-- Toggle n8n OTP delivery on/off
-- Test send button
-- Uses `system_settings` table
-
-## Integration Points
-
-- The edge function calls n8n via HTTP POST — n8n workflow handles actual WhatsApp/SMS delivery
-- No direct dependency on any messaging provider in the codebase
-- Swapping from n8n to WhatsApp Business API later = change the HTTP call in `otp-verify`
-
-## Files to Create/Modify
-
-1. **Migration SQL** — `phone_otp_verifications` table + `phone_verified` column on profiles
-2. **Data insert** — system_settings rows for OTP config
-3. **New** `supabase/functions/otp-verify/index.ts`
-4. **New** `src/components/auth/PhoneOtpVerification.tsx`
-5. **New** `src/components/admin/OtpSettings.tsx`
-6. **Edit** admin settings page — add OTP configuration section
-7. **Edit** `supabase/config.toml` — register `otp-verify` function
+### No backend changes needed
+The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
 

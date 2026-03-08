@@ -3698,6 +3698,53 @@ export type Database = {
           },
         ]
       }
+      phone_otp_verifications: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          otp_hash: string
+          phone_number: string
+          status: string
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          otp_hash: string
+          phone_number: string
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          otp_hash?: string
+          phone_number?: string
+          status?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_otp_verifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_features: {
         Row: {
           audience: string[] | null
@@ -4003,6 +4050,7 @@ export type Database = {
           name: string
           phase: string | null
           phone: string
+          phone_verified: boolean
           search_radius_km: number
           society_id: string | null
           updated_at: string | null
@@ -4022,6 +4070,7 @@ export type Database = {
           name: string
           phase?: string | null
           phone: string
+          phone_verified?: boolean
           search_radius_km?: number
           society_id?: string | null
           updated_at?: string | null
@@ -4041,6 +4090,7 @@ export type Database = {
           name?: string
           phase?: string | null
           phone?: string
+          phone_verified?: boolean
           search_radius_km?: number
           society_id?: string | null
           updated_at?: string | null
