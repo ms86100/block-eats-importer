@@ -6,6 +6,7 @@ import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { ParentGroup } from '@/types/categories';
 import { useSubcategories } from '@/hooks/useSubcategories';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
+import { INITIAL_SERVICE_FIELDS, type ServiceFieldsData } from '@/components/seller/ServiceFieldsSection';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 
@@ -55,6 +56,8 @@ export function useSellerProducts() {
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [attributeBlocks, setAttributeBlocks] = useState<BlockData[]>([]);
   const [formData, setFormData] = useState<ProductFormData>(INITIAL_FORM);
+  const [serviceFields, setServiceFields] = useState<ServiceFieldsData>(INITIAL_SERVICE_FIELDS);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   const activeCategoryConfig = useMemo(() => {
@@ -116,9 +119,10 @@ export function useSellerProducts() {
     setFormData({ ...INITIAL_FORM, category: defaultCategory });
     setEditingProduct(null);
     setAttributeBlocks([]);
+    setServiceFields(INITIAL_SERVICE_FIELDS);
   };
 
-  const openEditDialog = (product: Product) => {
+  const openEditDialog = async (product: Product) => {
     setEditingProduct(product);
     setFormData({
       name: product.name, description: product.description || '', price: product.price.toString(),
@@ -133,6 +137,28 @@ export function useSellerProducts() {
     });
     const specs = (product as any).specifications;
     setAttributeBlocks(specs?.blocks && Array.isArray(specs.blocks) ? specs.blocks as BlockData[] : []);
+
+    // Load service listing data if exists
+    const { data: sl } = await supabase
+      .from('service_listings')
+      .select('*')
+      .eq('product_id', product.id)
+      .maybeSingle();
+
+    if (sl) {
+      setServiceFields({
+        service_type: sl.service_type || 'scheduled',
+        location_type: sl.location_type || 'at_seller',
+        duration_minutes: sl.duration_minutes?.toString() || '60',
+        buffer_minutes: sl.buffer_minutes?.toString() || '15',
+        max_bookings_per_slot: sl.max_bookings_per_slot?.toString() || '1',
+        cancellation_notice_hours: sl.cancellation_notice_hours?.toString() || '24',
+        rescheduling_notice_hours: sl.rescheduling_notice_hours?.toString() || '12',
+      });
+    } else {
+      setServiceFields(INITIAL_SERVICE_FIELDS);
+    }
+
     setIsDialogOpen(true);
   };
 
