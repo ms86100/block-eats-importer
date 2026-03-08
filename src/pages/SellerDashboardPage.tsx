@@ -9,6 +9,7 @@ import { SellerProfile } from '@/types/database';
 import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck, CalendarClock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { logAudit } from '@/lib/audit';
@@ -220,156 +221,158 @@ export default function SellerDashboardPage() {
 
         <SellerVisibilityChecklist sellerId={sellerProfile.id} />
 
-        {/* ── Performance & Earnings ── */}
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Performance</p>
-          
-          {/* Store Performance Card */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">How buyers see your store</h3>
-                <Link to={`/seller/${sellerProfile.id}`}>
-                  <Button variant="ghost" size="sm" className="gap-1 text-xs h-7">
-                    <Eye size={14} />
-                    Preview
-                  </Button>
-                </Link>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                  <Star size={16} className="text-warning" />
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{Number(sellerProfile.rating || 0).toFixed(1)} ★</p>
-                    <p className="text-[10px] text-muted-foreground">{sellerProfile.total_reviews || 0} reviews</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                  <Clock size={16} className="text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{sellerProfile.avg_response_minutes != null ? `~${sellerProfile.avg_response_minutes} min` : 'N/A'}</p>
-                    <p className="text-[10px] text-muted-foreground">Avg response</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                  <CheckCircle size={16} className="text-success" />
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{sellerProfile.completed_order_count || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">Orders fulfilled</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                  <XCircle size={16} className="text-destructive" />
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{sellerProfile.cancellation_rate != null ? `${sellerProfile.cancellation_rate}%` : '0%'}</p>
-                    <p className="text-[10px] text-muted-foreground">Cancellation</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(sellerProfile.completed_order_count || 0) === 0 && (
-                  <Badge variant="secondary" className="text-[10px] bg-secondary text-secondary-foreground">New Seller</Badge>
-                )}
-                {(sellerProfile.cancellation_rate === 0 || sellerProfile.cancellation_rate === null) && (sellerProfile.completed_order_count || 0) > 2 && (
-                  <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">
-                    <ShieldCheck size={10} className="mr-0.5" />0% Cancellation
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* ── Tabbed Dashboard ── */}
+        <Tabs defaultValue="orders" className="w-full">
+          <TabsList className="w-full grid grid-cols-4 h-10 rounded-xl bg-muted/60">
+            <TabsTrigger value="orders" className="text-xs font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Orders</TabsTrigger>
+            <TabsTrigger value="schedule" className="text-xs font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Schedule</TabsTrigger>
+            <TabsTrigger value="tools" className="text-xs font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Tools</TabsTrigger>
+            <TabsTrigger value="stats" className="text-xs font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Stats</TabsTrigger>
+          </TabsList>
 
-          <EarningsSummary
-            todayEarnings={stats?.todayEarnings || 0}
-            weekEarnings={stats?.weekEarnings || 0}
-            totalEarnings={stats?.totalEarnings || 0}
-            repeatBuyerPct={analytics?.totalCustomers ? Math.round((analytics.repeatCustomers / analytics.totalCustomers) * 100) : undefined}
-            uniqueCustomers={analytics?.totalCustomers}
-          />
+          {/* ── Orders Tab ── */}
+          <TabsContent value="orders" className="mt-4 space-y-3">
+            <div className="mb-4">
+              <OrderFilters
+                currentFilter={orderFilter}
+                onFilterChange={setOrderFilter}
+                counts={filterCounts || { all: 0, today: 0, enquiries: 0, pending: 0, preparing: 0, ready: 0, completed: 0 }}
+              />
+            </div>
 
-          <DashboardStats
-            totalOrders={stats?.totalOrders || 0}
-            pendingOrders={stats?.pendingOrders || 0}
-            todayOrders={stats?.todayOrders || 0}
-            completedOrders={stats?.completedOrders || 0}
-          />
-        </div>
-
-        {/* ── Service Bookings Calendar — dynamic from category_config flags ── */}
-        {sellerProfile && sellerFlags.hasServiceLayout && (
-          <div className="space-y-3">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
-            <SellerDayAgenda sellerId={sellerProfile.id} />
-            <ServiceBookingStats sellerId={sellerProfile.id} />
-            <ServiceBookingsCalendar sellerId={sellerProfile.id} supportsStaffAssignment={sellerFlags.supportsStaffAssignment} />
-          </div>
-        )}
-
-        {/* ── Slot Calendar Management ── */}
-        {sellerProfile && sellerFlags.hasServiceLayout && (
-          <div className="space-y-3">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Slot Management</p>
-            <SlotCalendarManager sellerId={sellerProfile.id} />
-          </div>
-        )}
-
-        {/* ── Tools & Promotions ── */}
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Tools & Promotions</p>
-          <QuickActions />
-          <CouponManager />
-        </div>
-        
-        {/* ── Analytics ── */}
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Analytics</p>
-          <SellerAnalytics sellerId={sellerProfile.id} />
-          {sellerProfile.society_id && (
-            <DemandInsights societyId={sellerProfile.society_id} />
-          )}
-        </div>
-
-        {/* Orders Section */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Orders</h3>
-          </div>
-
-          <div className="mb-4">
-            <OrderFilters
-              currentFilter={orderFilter}
-              onFilterChange={setOrderFilter}
-              counts={filterCounts || { all: 0, today: 0, enquiries: 0, pending: 0, preparing: 0, ready: 0, completed: 0 }}
-            />
-          </div>
-
-          {allOrders.length > 0 ? (
-            <div className="space-y-3">
-              {allOrders.map((order: any) => (
-                <SellerOrderCard key={order.id} order={order} />
-              ))}
-              {hasNextPage && (
-                <div className="flex justify-center py-2">
+            {allOrders.length > 0 ? (
+              <div className="space-y-3">
+                {allOrders.map((order: any) => (
+                  <SellerOrderCard key={order.id} order={order} />
+                ))}
+                {hasNextPage && (
+                  <div className="flex justify-center py-2">
                     <Button variant="secondary" size="default" className="w-full" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-                     {isFetchingNextPage ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</> : 'Load More'}
-                  </Button>
+                      {isFetchingNextPage ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</> : 'Load More'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-muted rounded-xl">
+                <Package className="mx-auto text-muted-foreground mb-2" size={32} />
+                <p className="text-sm text-muted-foreground">
+                  No {orderFilter !== 'all' ? orderFilter : ''} orders
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {orderFilter === 'all'
+                    ? 'Share your store link with neighbors to get your first order'
+                    : 'Orders in this status will appear here as buyers place them'}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Schedule Tab ── */}
+          <TabsContent value="schedule" className="mt-4 space-y-4">
+            {sellerFlags.hasServiceLayout ? (
+              <>
+                <SellerDayAgenda sellerId={sellerProfile.id} />
+                <ServiceBookingStats sellerId={sellerProfile.id} />
+                <ServiceBookingsCalendar sellerId={sellerProfile.id} supportsStaffAssignment={sellerFlags.supportsStaffAssignment} />
+                <div className="pt-2">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1 mb-3">Slot Management</p>
+                  <SlotCalendarManager sellerId={sellerProfile.id} />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8 bg-muted rounded-xl">
-              <Package className="mx-auto text-muted-foreground mb-2" size={32} />
-              <p className="text-sm text-muted-foreground">
-                No {orderFilter !== 'all' ? orderFilter : ''} orders
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {orderFilter === 'all'
-                  ? 'Share your store link with neighbors to get your first order'
-                  : 'Orders in this status will appear here as buyers place them'}
-              </p>
-            </div>
-          )}
-        </div>
+              </>
+            ) : (
+              <div className="text-center py-8 bg-muted rounded-xl">
+                <CalendarClock className="mx-auto text-muted-foreground mb-2" size={32} />
+                <p className="text-sm text-muted-foreground">No service categories configured</p>
+                <p className="text-xs text-muted-foreground mt-1">Schedule management appears when you add service-type products</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Tools Tab ── */}
+          <TabsContent value="tools" className="mt-4 space-y-4">
+            <QuickActions />
+            <CouponManager />
+          </TabsContent>
+
+          {/* ── Stats Tab ── */}
+          <TabsContent value="stats" className="mt-4 space-y-4">
+            {/* Performance Card */}
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">How buyers see your store</h3>
+                  <Link to={`/seller/${sellerProfile.id}`}>
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs h-7">
+                      <Eye size={14} />
+                      Preview
+                    </Button>
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <Star size={16} className="text-warning" />
+                    <div>
+                      <p className="text-sm font-semibold tabular-nums">{Number(sellerProfile.rating || 0).toFixed(1)} ★</p>
+                      <p className="text-[10px] text-muted-foreground">{sellerProfile.total_reviews || 0} reviews</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <Clock size={16} className="text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold tabular-nums">{sellerProfile.avg_response_minutes != null ? `~${sellerProfile.avg_response_minutes} min` : 'N/A'}</p>
+                      <p className="text-[10px] text-muted-foreground">Avg response</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <CheckCircle size={16} className="text-success" />
+                    <div>
+                      <p className="text-sm font-semibold tabular-nums">{sellerProfile.completed_order_count || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">Orders fulfilled</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <XCircle size={16} className="text-destructive" />
+                    <div>
+                      <p className="text-sm font-semibold tabular-nums">{sellerProfile.cancellation_rate != null ? `${sellerProfile.cancellation_rate}%` : '0%'}</p>
+                      <p className="text-[10px] text-muted-foreground">Cancellation</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(sellerProfile.completed_order_count || 0) === 0 && (
+                    <Badge variant="secondary" className="text-[10px] bg-secondary text-secondary-foreground">New Seller</Badge>
+                  )}
+                  {(sellerProfile.cancellation_rate === 0 || sellerProfile.cancellation_rate === null) && (sellerProfile.completed_order_count || 0) > 2 && (
+                    <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">
+                      <ShieldCheck size={10} className="mr-0.5" />0% Cancellation
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <EarningsSummary
+              todayEarnings={stats?.todayEarnings || 0}
+              weekEarnings={stats?.weekEarnings || 0}
+              totalEarnings={stats?.totalEarnings || 0}
+              repeatBuyerPct={analytics?.totalCustomers ? Math.round((analytics.repeatCustomers / analytics.totalCustomers) * 100) : undefined}
+              uniqueCustomers={analytics?.totalCustomers}
+            />
+
+            <DashboardStats
+              totalOrders={stats?.totalOrders || 0}
+              pendingOrders={stats?.pendingOrders || 0}
+              todayOrders={stats?.todayOrders || 0}
+              completedOrders={stats?.completedOrders || 0}
+            />
+
+            <SellerAnalytics sellerId={sellerProfile.id} />
+            {sellerProfile.society_id && (
+              <DemandInsights societyId={sellerProfile.society_id} />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );

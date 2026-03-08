@@ -128,8 +128,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* ═══ SIDEBAR NAV ═══ */}
-        <div className="px-4 mb-5">
+        {/* ═══ SIDEBAR NAV — sticky so section label persists while scrolling ═══ */}
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/30 px-4 py-2.5">
           <AdminSidebarNav activeTab={admin.activeTab} onTabChange={admin.setActiveTab} />
         </div>
 

@@ -65,28 +65,30 @@ export default function HomePage() {
         {/* ═══ SOCIETY TRUST STRIP ═══ */}
         <SocietyTrustStrip />
 
-        {/* ═══ COMMUNITY SEARCH SUGGESTIONS ═══ */}
-        <HomeSearchSuggestions />
+        {/* ═══ DISCOVER ═══ */}
+        <section className="space-y-1">
+          <HomeSearchSuggestions />
+          <div className="px-4 mt-3">
+            <UpcomingAppointmentBanner />
+          </div>
+        </section>
 
-        {/* ═══ UPCOMING APPOINTMENT ═══ */}
-        <div className="px-4 mt-3">
-          <UpcomingAppointmentBanner />
-        </div>
+        {/* ═══ YOUR ORDERS ═══ */}
+        <section className="mt-4 border-t border-border/40 pt-3">
+          <ReorderLastOrder />
+          <BuyAgainRow />
+        </section>
 
-        {/* ═══ REORDER LAST ORDER ═══ */}
-        <ReorderLastOrder />
+        {/* ═══ COMMUNITY ═══ */}
+        <section className="mt-2 border-t border-border/40 pt-3">
+          <SocietyQuickLinks />
+        </section>
 
-        {/* ═══ BUY AGAIN ═══ */}
-        <BuyAgainRow />
-
-        {/* ═══ SOCIETY QUICK LINKS ═══ */}
-        <SocietyQuickLinks />
-
-        {/* ═══ UNIFIED MARKETPLACE ═══ */}
-        <MarketplaceSection />
-
-        {/* ═══ COMMUNITY TEASER ═══ */}
-        <CommunityTeaser />
+        {/* ═══ MARKETPLACE & COMMUNITY ═══ */}
+        <section className="mt-2 border-t border-border/40 pt-3">
+          <MarketplaceSection />
+          <CommunityTeaser />
+        </section>
       </div>
     </AppLayout>
   );
