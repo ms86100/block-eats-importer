@@ -1,15 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck } from 'lucide-react';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 interface ServiceBookingsCalendarProps {
   sellerId: string;
@@ -27,10 +28,13 @@ const STATUS_COLORS: Record<string, string> = {
   no_show: 'bg-red-100 text-red-700',
 };
 
+type BookingAction = { id: string; action: string } | null;
+
 export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarProps) {
   const { data: bookings = [], isLoading, refetch } = useSellerServiceBookings(sellerId);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
+  const [actionLoading, setActionLoading] = useState<BookingAction>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,6 +55,47 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       .eq('id', bookingId);
     refetch();
     toast.success(staffId ? 'Staff assigned' : 'Staff unassigned');
+  };
+
+  const updateBookingStatus = async (bookingId: string, orderId: string, newStatus: string) => {
+    setActionLoading({ id: bookingId, action: newStatus });
+    try {
+      await supabase
+        .from('service_bookings')
+        .update({ status: newStatus, ...(newStatus === 'cancelled' ? { cancelled_at: new Date().toISOString(), cancellation_reason: 'Rejected by seller' } : {}) })
+        .eq('id', bookingId);
+
+      const orderStatus = newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'cancelled' : newStatus === 'no_show' ? 'no_show' : newStatus === 'completed' ? 'completed' : newStatus;
+      await supabase
+        .from('orders')
+        .update({ status: orderStatus, ...(newStatus === 'cancelled' ? { rejection_reason: 'Rejected by seller' } : {}) })
+        .eq('id', orderId);
+
+      // Free slot on cancel/no_show
+      if (newStatus === 'cancelled' || newStatus === 'no_show') {
+        const booking = bookings.find(b => b.id === bookingId);
+        if (booking?.slot_id) {
+          const { data: slotData } = await supabase
+            .from('service_slots')
+            .select('booked_count')
+            .eq('id', booking.slot_id)
+            .single();
+          if (slotData) {
+            await supabase
+              .from('service_slots')
+              .update({ booked_count: Math.max(0, slotData.booked_count - 1) })
+              .eq('id', booking.slot_id);
+          }
+        }
+      }
+
+      refetch();
+      toast.success(`Booking ${newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'rejected' : newStatus === 'no_show' ? 'marked no-show' : 'updated'}`);
+    } catch (err: any) {
+      toast.error('Failed to update booking');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const weekDates = useMemo(() => {
@@ -92,49 +137,31 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       <CardContent className="space-y-3">
         {/* Week day selector */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setSelectedDate(addDays(selectedDate, -7))}
-          >
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
             <ChevronLeft size={14} />
           </Button>
           <div className="flex gap-1 flex-1">
             {weekDates.map((date) => {
               const isToday = isSameDay(date, startOfToday());
               const isSelected = isSameDay(date, selectedDate);
-              const hasBookings = bookings.some(
-                (b) => b.booking_date === format(date, 'yyyy-MM-dd')
-              );
+              const hasBookings = bookings.some((b) => b.booking_date === format(date, 'yyyy-MM-dd'));
               return (
                 <button
                   key={date.toISOString()}
                   onClick={() => setSelectedDate(date)}
                   className={cn(
                     'flex-1 flex flex-col items-center py-1.5 rounded-lg text-xs transition-colors',
-                    isSelected
-                      ? 'bg-primary text-primary-foreground'
-                      : isToday
-                      ? 'bg-primary/10 text-primary'
-                      : 'hover:bg-muted'
+                    isSelected ? 'bg-primary text-primary-foreground' : isToday ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                   )}
                 >
                   <span className="font-medium">{format(date, 'EEE')}</span>
                   <span className="text-[10px]">{format(date, 'd')}</span>
-                  {hasBookings && !isSelected && (
-                    <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />
-                  )}
+                  {hasBookings && !isSelected && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
                 </button>
               );
             })}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setSelectedDate(addDays(selectedDate, 7))}
-          >
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
             <ChevronRight size={14} />
           </Button>
         </div>
@@ -150,57 +177,108 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
               No bookings for this date
             </div>
           ) : (
-            filteredBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="flex items-center gap-3 p-3 rounded-lg border bg-card"
-              >
-                <div className="flex flex-col items-center text-center min-w-[50px]">
-                  <Clock size={12} className="text-muted-foreground mb-0.5" />
-                  <span className="text-xs font-semibold">
-                    {booking.start_time?.slice(0, 5)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {booking.end_time?.slice(0, 5)}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {(booking as any).product_name || 'Service'}
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User size={10} />
-                    {(booking as any).buyer_name || 'Customer'}
-                  </p>
-                  {/* Staff assignment */}
-                  {staffList.length > 0 && (
-                    <div className="mt-1">
-                      <Select
-                        value={(booking as any).staff_id || 'none'}
-                        onValueChange={(v) => assignStaff(booking.id, v === 'none' ? null : v)}
+            filteredBookings.map((booking) => {
+              const isActionLoading = actionLoading?.id === booking.id;
+              return (
+                <div key={booking.id} className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-center text-center min-w-[50px]">
+                      <Clock size={12} className="text-muted-foreground mb-0.5" />
+                      <span className="text-xs font-semibold">{booking.start_time?.slice(0, 5)}</span>
+                      <span className="text-[10px] text-muted-foreground">{booking.end_time?.slice(0, 5)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{booking.product_name || 'Service'}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <User size={10} />
+                        {booking.buyer_name || 'Customer'}
+                      </p>
+                      {/* Staff assignment */}
+                      {staffList.length > 0 && (
+                        <div className="mt-1">
+                          <Select
+                            value={(booking as any).staff_id || 'none'}
+                            onValueChange={(v) => assignStaff(booking.id, v === 'none' ? null : v)}
+                          >
+                            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[100px]">
+                              <UserCheck size={10} className="mr-1" />
+                              <SelectValue placeholder="Assign staff" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Unassigned</SelectItem>
+                              {staffList.map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className={cn('text-[10px] shrink-0', STATUS_COLORS[booking.status] || '')}>
+                      {booking.status}
+                    </Badge>
+                  </div>
+
+                  {/* Action buttons based on status */}
+                  {booking.status === 'requested' && (
+                    <div className="flex gap-2 pt-1 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'confirmed')}
                       >
-                        <SelectTrigger className="h-6 text-[10px] w-auto min-w-[100px]">
-                          <UserCheck size={10} className="mr-1" />
-                          <SelectValue placeholder="Assign staff" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Unassigned</SelectItem>
-                          {staffList.map(s => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <Check size={12} /> Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'cancelled')}
+                      >
+                        <X size={12} /> Reject
+                      </Button>
+                    </div>
+                  )}
+
+                  {['confirmed', 'scheduled'].includes(booking.status) && (
+                    <div className="flex gap-2 pt-1 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'in_progress')}
+                      >
+                        Start Service
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 text-destructive hover:bg-destructive/10"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'no_show')}
+                      >
+                        <AlertTriangle size={12} /> No Show
+                      </Button>
+                    </div>
+                  )}
+
+                  {booking.status === 'in_progress' && (
+                    <div className="pt-1 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="w-full h-7 text-xs gap-1"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'completed')}
+                      >
+                        <Check size={12} /> Mark Completed
+                      </Button>
                     </div>
                   )}
                 </div>
-                <Badge
-                  variant="secondary"
-                  className={cn('text-[10px]', STATUS_COLORS[booking.status] || '')}
-                >
-                  {booking.status}
-                </Badge>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </CardContent>

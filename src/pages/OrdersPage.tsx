@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReorderButton } from '@/components/order/ReorderButton';
 import { SellerSwitcher } from '@/components/seller/SellerSwitcher';
+import { RecurringBookingsList } from '@/components/booking/RecurringBookingsList';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order } from '@/types/database';
 import { useStatusLabels } from '@/hooks/useStatusLabels';
@@ -211,6 +212,7 @@ export default function OrdersPage() {
                 <TabsTrigger value="selling" className="flex-1 text-xs">Received</TabsTrigger>
               </TabsList>
               <TabsContent value="buying">
+                <RecurringBookingsList />
                 <OrderList type="buyer" userId={user.id} />
               </TabsContent>
               <TabsContent value="selling">
@@ -221,7 +223,10 @@ export default function OrdersPage() {
               </TabsContent>
             </Tabs>
           ) : (
-            <OrderList type="buyer" userId={user.id} />
+            <>
+              <RecurringBookingsList />
+              <OrderList type="buyer" userId={user.id} />
+            </>
           )}
         </div>
       </div>
