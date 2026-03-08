@@ -8115,6 +8115,10 @@ export type Database = {
         | "on_the_way"
         | "arrived"
         | "assigned"
+        | "requested"
+        | "confirmed"
+        | "rescheduled"
+        | "no_show"
       product_category:
         | "home_food"
         | "bakery"
@@ -8327,6 +8331,10 @@ export const Constants = {
         "on_the_way",
         "arrived",
         "assigned",
+        "requested",
+        "confirmed",
+        "rescheduled",
+        "no_show",
       ],
       product_category: ["home_food", "bakery", "snacks", "groceries", "other"],
       service_category: [
