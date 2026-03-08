@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, isTomorrow, differenceInHours } from 'date-fns';
 import { Calendar, Clock, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 interface UpcomingBooking {
   id: string;
@@ -20,10 +21,8 @@ export function UpcomingAppointmentBanner() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<UpcomingBooking | null>(null);
-  // [FIX] Add a refresh key so external invalidation (cancel/book) forces re-fetch
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Listen for custom event to refresh banner (fired after booking/cancel)
   useEffect(() => {
     const handler = () => setRefreshKey(k => k + 1);
     window.addEventListener('booking-changed', handler);
@@ -93,7 +92,6 @@ export function UpcomingAppointmentBanner() {
 
   if (!booking) return null;
 
-  // [FIX] Parse as local time, not UTC — append T00:00 to force local interpretation
   const [bH, bM] = (booking.start_time || '00:00').split(':').map(Number);
   const appointmentDate = new Date(booking.booking_date + 'T00:00:00');
   appointmentDate.setHours(bH, bM, 0, 0);
@@ -107,28 +105,30 @@ export function UpcomingAppointmentBanner() {
   const isUrgent = hoursAway <= 2 && hoursAway >= 0;
 
   return (
-    <button
+    <motion.button
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
       onClick={() => navigate(`/orders/${booking.order_id}`)}
-      className={`w-full p-3 rounded-xl border flex items-center gap-3 text-left transition-colors ${
+      className={`w-full p-3.5 rounded-2xl border flex items-center gap-3 text-left transition-all ${
         isUrgent
-          ? 'bg-primary/10 border-primary/30 animate-pulse'
-          : 'bg-accent/5 border-accent/20 hover:bg-accent/10'
+          ? 'bg-primary/10 border-primary/30 shadow-sm'
+          : 'bg-card border-border hover:border-primary/20 hover:shadow-sm'
       }`}
     >
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-        isUrgent ? 'bg-primary/20' : 'bg-accent/10'
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+        isUrgent ? 'bg-primary/20' : 'bg-primary/10'
       }`}>
-        <Calendar size={18} className={isUrgent ? 'text-primary' : 'text-accent'} />
+        <Calendar size={18} className={isUrgent ? 'text-primary' : 'text-primary'} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{booking.product_name}</p>
-        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+        <p className="text-[13px] font-bold truncate text-foreground">{booking.product_name}</p>
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
           <Clock size={10} />
           {dateLabel} at {booking.start_time?.slice(0, 5)}
           {booking.seller_name && <span> · {booking.seller_name}</span>}
         </p>
       </div>
       <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-    </button>
+    </motion.button>
   );
 }
