@@ -92,6 +92,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       }
 
       refetch();
+      queryClient.invalidateQueries({ queryKey: ['service-slots'] });
       toast.success(`Booking ${newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'rejected' : newStatus === 'no_show' ? 'marked no-show' : 'updated'}`);
     } catch (err: any) {
       toast.error('Failed to update booking');
