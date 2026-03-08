@@ -105,11 +105,31 @@ export default function CartPage() {
           );
         })}
 
+        {/* Multi-seller explanation */}
+        {c.sellerGroups.length > 1 && (
+          <div className="mx-4 mt-3 bg-accent/10 border border-accent/20 rounded-xl p-3 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+              <Store size={18} className="text-accent-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-accent-foreground">
+                {c.sellerGroups.length} separate deliveries
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your cart has items from {c.sellerGroups.length} sellers. Each seller will fulfill their items separately.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Cart Items by Seller */}
         <div className="mt-4 space-y-3 px-4">
-          {c.sellerGroups.map((group) => (
+          {c.sellerGroups.map((group, groupIndex) => (
             <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="px-3 py-2.5 border-b border-border flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-[10px] font-bold text-primary">{groupIndex + 1}</span>
+                </div>
                 <Store size={14} className="text-primary" />
                 <span className="text-sm font-semibold flex-1 truncate">{group.sellerName}</span>
                 <span className="text-xs text-muted-foreground">{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
@@ -138,6 +158,11 @@ export default function CartPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              {/* Per-seller subtotal */}
+              <div className="px-3 py-2 bg-muted/50 border-t border-border flex justify-between items-center">
+                <span className="text-[11px] text-muted-foreground">Subtotal</span>
+                <span className="text-xs font-bold">{c.formatPrice(group.subtotal)}</span>
               </div>
             </div>
           ))}
