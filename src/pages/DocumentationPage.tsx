@@ -484,6 +484,10 @@ export default function DocumentationPage() {
                 </div>
               </SubSection>
 
+              {/* ─── CATEGORY MANAGEMENT SYSTEM ─── */}
+              <SectionHeader title="Category Management System" id="category-management" stakeholder="admin" />
+              <CategoryManagementDocs />
+
               {/* ─── BOOKING LIFECYCLE ─── */}
               <SectionHeader title="Booking Lifecycle" id="booking-lifecycle" stakeholder="all" />
               <div className="text-sm text-muted-foreground space-y-3">
