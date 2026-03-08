@@ -131,36 +131,30 @@ export function BuyerBookingsCalendar() {
           </Link>
         )}
 
-        {/* Week Day Selector */}
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
-            <ChevronLeft size={14} />
-          </Button>
-          <div className="flex gap-1 flex-1">
-            {weekDates.map((date) => {
+        {/* Date Selector — only days with bookings */}
+        {bookingDates.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+            {bookingDates.map((date) => {
               const isToday = isSameDay(date, startOfToday());
               const isSelected = isSameDay(date, selectedDate);
-              const hasBookings = bookings.some((b) => b.booking_date === format(date, 'yyyy-MM-dd'));
+              const count = bookings.filter((b) => b.booking_date === format(date, 'yyyy-MM-dd')).length;
               return (
                 <button
                   key={date.toISOString()}
                   onClick={() => setSelectedDate(date)}
                   className={cn(
-                    'flex-1 flex flex-col items-center py-1.5 rounded-lg text-xs transition-colors',
+                    'flex flex-col items-center py-1.5 px-3 rounded-lg text-xs transition-colors shrink-0',
                     isSelected ? 'bg-primary text-primary-foreground' : isToday ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                   )}
                 >
                   <span className="font-medium">{format(date, 'EEE')}</span>
-                  <span className="text-[10px]">{format(date, 'd')}</span>
-                  {hasBookings && !isSelected && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
+                  <span className="text-[10px]">{format(date, 'MMM d')}</span>
+                  {count > 1 && <span className="text-[9px] mt-0.5">{count}</span>}
                 </button>
               );
             })}
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
-            <ChevronRight size={14} />
-          </Button>
-        </div>
+        )}
 
         {/* Bookings for selected day */}
         <div className="space-y-2">
