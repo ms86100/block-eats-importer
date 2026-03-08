@@ -1,0 +1,1 @@
+ALTER TABLE public.products ALTER COLUMN action_type SET DEFAULT 'add_to_cart';
