@@ -29,6 +29,7 @@ export interface DraftProductFormState {
   product: DraftProductInProgress;
   attributeBlocks: BlockData[];
   serviceFields: ServiceFieldsData;
+  availabilitySchedule: DayScheduleData[];
 }
 
 export interface SellerFormData {
