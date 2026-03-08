@@ -1,134 +1,39 @@
-## Category Configuration & Attribute Blocks — COMPLETED
 
-### What Was Done
 
-**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
-- Food & Beverages → `cart_purchase`
-- Education → `book_slot` (with recurring, staff, addons as appropriate)
-- Home Services → `request_service` / `request_quote` / `book_slot`
-- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
-- Domestic Help → `contact_only` (with recurring)
-- Events → `request_quote` / `book_slot`
-- Professional → `book_slot` / `request_service` / `request_quote`
-- Pets → `cart_purchase` / `book_slot`
-- Rentals → `contact_only` / `cart_purchase`
-- Shopping → `cart_purchase` / `buy_now`
-- Real Estate → `schedule_visit` / `contact_only`
+# Fix: `products_action_type_valid` Constraint Violation
 
-**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
-food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
+## Root Cause
 
-### No Code Changes Needed
-Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
+The `action_type` column on `products` has a **column default of `'buy'`** (set in migration `20260306152924`), but a later migration (`20260308110457`) added a CHECK constraint that only allows:
+`add_to_cart`, `buy_now`, `book`, `request_service`, `request_quote`, `contact_seller`, `schedule_visit`, `make_offer`
 
----
+`'buy'` is not in that list. When `DraftProductManager.tsx` inserts a product without explicitly setting `action_type`, the DB default `'buy'` kicks in and violates the constraint.
 
-## Listing Type Behavior Fix — COMPLETED
+The same issue affects the main `useSellerProducts` hook — it does set `action_type`, so it works for the edit flow, but could also fail if the value is somehow empty.
 
-### Root Cause
-- DB trigger `propagate_category_transaction_type` was never installed
-- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
-- DB default was `'buy'` instead of `'add_to_cart'`
-- No INSERT-time trigger to derive action_type from category
+## Regarding the AI Image Generation Page Reset
 
-### Database Fixes Applied
-1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
-2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
-3. **Default changed** to `'add_to_cart'`
-4. **Backfilled** all existing products with correct action_type values
-5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+This is a separate issue — the image generation likely triggers a re-render or state reset in the parent onboarding stepper. Will need to investigate the stepper state management if it persists after the constraint fix, but it may be caused by the error itself cascading.
 
-### Frontend Fixes Applied
-1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
-2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
-3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
-4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
-5. **useProductDetail** — uses `deriveActionType`
-6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
-7. **useBulkUpload** — sets `action_type` from category config on bulk create
-8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+## Fix (2 changes)
 
-### Mapping Reference
-| transaction_type | action_type | Button |
-|-----------------|-------------|--------|
-| cart_purchase | add_to_cart | ADD |
-| buy_now | buy_now | BUY |
-| book_slot | book | Book |
-| request_service | request_service | Request |
-| request_quote | request_quote | Quote |
-| contact_only | contact_seller | Contact |
-| schedule_visit | schedule_visit | Visit |
+### 1. Database: Change column default from `'buy'` to `'add_to_cart'`
 
----
+```sql
+ALTER TABLE public.products ALTER COLUMN action_type SET DEFAULT 'add_to_cart';
+-- Also fix any existing rows with the invalid default
+UPDATE public.products SET action_type = 'add_to_cart' WHERE action_type = 'buy';
+```
 
-## Buyer & Seller Service Booking Experience — COMPLETED
+### 2. Code: Explicitly set `action_type` in `DraftProductManager.tsx`
 
-### What Was Done
+In the insert call (~line 116), derive the correct `action_type` from the category config's `transaction_type` using the existing `deriveActionType` utility, so service categories get `'book'`, cart categories get `'add_to_cart'`, etc.
 
-**1. Database: `session_feedback` table**
-- New table with RLS for per-session ratings (1-5 stars + comment)
-- Buyer can insert/read own; seller can read for their bookings
-- Validation trigger ensures rating 1-5
+```typescript
+import { deriveActionType } from '@/lib/marketplace-constants';
+// ...
+action_type: deriveActionType(null, activeConfig?.raw?.transaction_type),
+```
 
-**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
-- Fetches upcoming bookings for buyer joined with product + seller info
-- Also added `useSessionFeedback` hook for checking existing feedback
+This ensures the product always gets the correct action type based on its category, matching what `useSellerProducts` already does for the main product management flow.
 
-**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
-- Week strip day selector with dot indicators
-- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
-- Each booking card shows: service name, seller, time, location type, status badge
-- Tap navigates to order detail
-- Self-hides if no upcoming bookings
-
-**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
-- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
-
-**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
-- Location type with icon (home visit / at seller / online)
-- Duration display (e.g., "60 min")
-- Buyer address when present (home visits)
-
-**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
-- Inline 1-5 star rating with optional comment
-- Shows after booking is completed on order detail page
-- Shows "rated X/5" summary if already submitted
-
-**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
-- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
-- Session feedback prompt integrated below booking add-ons
-
----
-
-## Service Marketplace Tier 1 Enhancements — COMPLETED
-
-### What Was Done
-
-**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
-- Client-side .ics file generation with event title, date, time, location, description
-- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
-- Works with Google Calendar, Apple Calendar, Outlook
-
-**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
-- Vertical timeline showing today's bookings with time, service, buyer, status
-- Quick "View" action navigates to order detail
-- Integrated at top of Service Bookings section in SellerDashboardPage
-- Auto-hides if no bookings today
-
-**3. Preparation Instructions** (`service_listings.preparation_instructions`)
-- New column on `service_listings` table
-- Seller can edit in ServiceFieldsSection form during product creation/editing
-- Displayed on OrderDetailPage as "How to prepare" card
-- Included in iCal export description
-
-**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
-- New `slot_holds` table with 5-minute expiry
-- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
-- `release_slot_hold` RPC: releases hold on checkout or navigation away
-- RLS policies for authenticated users on own holds
-
-**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
-- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
-- RLS: buyers can join/view/leave their own waitlist entries
-- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
-- Unique constraint prevents duplicate waitlist entries
