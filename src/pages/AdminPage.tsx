@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AdminSidebarNav } from '@/components/admin/AdminSidebarNav';
 import { SellerApplicationReview } from '@/components/admin/SellerApplicationReview';
 import { AdminProductApprovals } from '@/components/admin/AdminProductApprovals';
-import { LicenseConfigSection } from '@/components/admin/LicenseConfigSection';
+
 import { AdminDisputesTab } from '@/components/admin/AdminDisputesTab';
 import { EmergencyBroadcastSheet } from '@/components/admin/EmergencyBroadcastSheet';
 import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
@@ -449,7 +449,6 @@ export default function AdminPage() {
               </TabsList>
               <TabsContent value="platform" className="space-y-5">
                 <PlatformSettingsManager />
-                <LicenseConfigSection />
               </TabsContent>
               <TabsContent value="notifications" className="space-y-5">
                 <NotificationDiagnostics />
