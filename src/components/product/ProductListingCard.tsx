@@ -425,6 +425,11 @@ function ProductListingCardInner({
           </span>
         )}
 
+        {/* First order protection — shown when no social proof (likely first-time) */}
+        {(socialProofCount == null || socialProofCount === 0) && (
+          <FirstOrderBadge className="mb-0.5" />
+        )}
+
         {deliveryText && (
           <div className="flex items-center gap-0.5 mb-0.5">
             <Clock size={9} className="text-rating-star" />

@@ -22,6 +22,10 @@ export function ShopByStoreDiscovery() {
   const { data: localGrouped = {}, isLoading: loadingLocal } = useLocalSellers();
   const { data: nearbyBands = [], isLoading: loadingNearby } = useNearbySocietySellers(radiusKm, browseBeyond);
 
+  // Fetch last_active_at for local sellers to show activity dots
+  const localSellerIds = Object.values(localGrouped).flat().map(s => s.id);
+  const { data: activityMap = {} } = useSellerActivity(localSellerIds);
+
   const hasLocal = Object.keys(localGrouped).length > 0;
   const hasNearby = nearbyBands.length > 0;
 
