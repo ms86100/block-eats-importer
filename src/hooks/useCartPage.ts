@@ -144,11 +144,15 @@ export function useCartPage() {
 
     if (error) throw error;
 
-    const result = data as { success: boolean; order_ids?: string[]; order_count?: number; error?: string; unavailable_items?: string[] };
+    const result = data as { success: boolean; order_ids?: string[]; order_count?: number; error?: string; unavailable_items?: string[]; closed_sellers?: string[] };
     if (!result?.success) {
       if (result?.error === 'stock_validation_failed' && result?.unavailable_items) {
         const itemList = result.unavailable_items.join('\n• ');
         throw new Error(`Some items are unavailable:\n• ${itemList}`);
+      }
+      if (result?.error === 'store_closed') {
+        const sellers = result.closed_sellers?.join(', ');
+        throw new Error(sellers ? `Store closed: ${sellers}` : 'Store is currently closed. Please try again later.');
       }
       throw new Error('Failed to create orders');
     }
