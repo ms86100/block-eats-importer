@@ -126,6 +126,16 @@ export function ServiceFieldsSection({ data, onChange }: ServiceFieldsSectionPro
           />
         </div>
       </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs">Preparation Instructions (optional)</Label>
+        <textarea
+          placeholder="e.g. Bring a yoga mat, wear comfortable clothing..."
+          value={data.preparation_instructions}
+          onChange={(e) => update('preparation_instructions', e.target.value)}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px] resize-y"
+        />
+      </div>
     </div>
   );
 }
