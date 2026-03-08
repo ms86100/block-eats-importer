@@ -64,6 +64,14 @@ export function AdminProductApprovals() {
     const { error } = await supabase.from('products').update({ approval_status: 'approved' } as any).eq('id', id);
     if (error) { toast.error('Failed to approve'); setActionId(null); return; }
     await logAudit('product_approved', 'product', id, '', {});
+    // PA-09: Notify seller
+    const { data: prod } = await supabase.from('products').select('name, seller_id').eq('id', id).single();
+    if (prod) {
+      const { data: seller } = await supabase.from('seller_profiles').select('user_id').eq('id', prod.seller_id).single();
+      if (seller) {
+        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `✅ "${prod.name}" is now live!`, body: 'Your product has been approved and is visible to buyers.', type: 'product_approved', is_read: false });
+      }
+    }
     toast.success('Product approved');
     setActionId(null);
     fetchPending();
@@ -74,6 +82,14 @@ export function AdminProductApprovals() {
     const { error } = await supabase.from('products').update({ approval_status: 'rejected', rejection_note: rejectionNote.trim() || null } as any).eq('id', id);
     if (error) { toast.error('Failed to reject'); setActionId(null); return; }
     await logAudit('product_rejected', 'product', id, '', { reason: rejectionNote });
+    // PA-09: Notify seller
+    const { data: prod } = await supabase.from('products').select('name, seller_id').eq('id', id).single();
+    if (prod) {
+      const { data: seller } = await supabase.from('seller_profiles').select('user_id').eq('id', prod.seller_id).single();
+      if (seller) {
+        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `❌ "${prod.name}" was not approved`, body: `Reason: ${rejectionNote || 'No reason provided'}. Edit and resubmit from your Products page.`, type: 'product_rejected', is_read: false });
+      }
+    }
     toast.success('Product rejected');
     setActionId(null);
     setRejectingId(null);
