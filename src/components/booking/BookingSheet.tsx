@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import {
   Sheet,
@@ -8,13 +8,17 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { DateRangePicker } from './DateRangePicker';
 import { Listing } from '@/components/listing/ListingCard';
 import { useCategoryBehavior } from '@/hooks/useCategoryBehavior';
 import { RentalPeriodType } from '@/types/categories';
-import { Clock, Calendar, MessageCircle, Loader2 } from 'lucide-react';
+import { Clock, Calendar, MessageCircle, Loader2, MapPin } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useServiceSlots, slotsToPickerFormat, findSlot } from '@/hooks/useServiceSlots';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BookingSheetProps {
   open: boolean;
@@ -35,6 +39,10 @@ export interface BookingDetails {
   notes?: string;
   totalAmount: number;
   depositAmount?: number;
+  // Service booking extras
+  slotId?: string;
+  locationType?: string;
+  buyerAddress?: string;
 }
 
 export function BookingSheet({
@@ -44,14 +52,29 @@ export function BookingSheet({
   onConfirm,
   isLoading = false,
 }: BookingSheetProps) {
-  const { requiresTimeSlot, hasDateRange, enquiryOnly, hasDuration } = useCategoryBehavior(listing.category);
+  const { requiresTimeSlot, hasDateRange, enquiryOnly, hasDuration, config } = useCategoryBehavior(listing.category);
   const { formatPrice } = useCurrency();
+  const isServiceLayout = config?.layoutType === 'service';
+
+  // Fetch real service slots for service-type listings
+  const { data: serviceSlots = [] } = useServiceSlots(
+    isServiceLayout ? listing.id : undefined
+  );
+  const availableSlots = useMemo(
+    () => (serviceSlots.length > 0 ? slotsToPickerFormat(serviceSlots) : undefined),
+    [serviceSlots]
+  );
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
   const [rentalStartDate, setRentalStartDate] = useState<Date | undefined>();
   const [rentalEndDate, setRentalEndDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
+  const [buyerAddress, setBuyerAddress] = useState('');
+
+  // Determine location type from service listing (if available)
+  const locationType = (listing as any).location_type || 'at_seller';
+  const needsAddress = isServiceLayout && locationType === 'home_visit';
 
   const handleConfirm = () => {
     const details: BookingDetails = {
@@ -61,31 +84,43 @@ export function BookingSheet({
       notes: notes || undefined,
     };
 
-    if (requiresTimeSlot || hasDuration) {
+    if (requiresTimeSlot || hasDuration || isServiceLayout) {
       if (!selectedDate || !selectedTime) return;
-      
+
       details.scheduledDate = format(selectedDate, 'yyyy-MM-dd');
       details.scheduledTimeStart = selectedTime;
-      
-      // Calculate end time based on duration
-      if (listing.service_duration_minutes) {
+
+      // Find matching slot for service bookings
+      if (isServiceLayout && serviceSlots.length > 0) {
+        const slot = findSlot(serviceSlots, details.scheduledDate, selectedTime);
+        if (slot) {
+          details.slotId = slot.id;
+          details.scheduledTimeEnd = slot.end_time;
+        }
+      }
+
+      // Calculate end time based on duration if no slot
+      if (!details.scheduledTimeEnd && listing.service_duration_minutes) {
         const [hours, mins] = selectedTime.split(':').map(Number);
         const endMins = hours * 60 + mins + listing.service_duration_minutes;
         const endHours = Math.floor(endMins / 60);
         const endMinutes = endMins % 60;
         details.scheduledTimeEnd = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
       }
+
+      if (needsAddress) {
+        details.locationType = locationType;
+        details.buyerAddress = buyerAddress || undefined;
+      }
     }
 
     if (hasDateRange) {
       if (!rentalStartDate || !rentalEndDate) return;
-      
+
       details.rentalStartDate = format(rentalStartDate, 'yyyy-MM-dd');
       details.rentalEndDate = format(rentalEndDate, 'yyyy-MM-dd');
       details.depositAmount = listing.deposit_amount;
-      
-      // Calculate total based on rental period
-      // This is simplified - actual calculation should consider rental_period_type
+
       const days = Math.ceil((rentalEndDate.getTime() - rentalStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       details.totalAmount = days * listing.price;
     }
@@ -95,7 +130,11 @@ export function BookingSheet({
 
   const isValid = () => {
     if (enquiryOnly) return true;
-    if (requiresTimeSlot || hasDuration) return selectedDate && selectedTime;
+    if (requiresTimeSlot || hasDuration || isServiceLayout) {
+      const basic = selectedDate && selectedTime;
+      if (needsAddress) return basic && buyerAddress.trim().length > 0;
+      return basic;
+    }
     if (hasDateRange) return rentalStartDate && rentalEndDate;
     return false;
   };
@@ -105,7 +144,7 @@ export function BookingSheet({
       <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
         <SheetHeader className="pb-4">
           <SheetTitle>
-            {enquiryOnly ? 'Contact Seller' : hasDateRange ? 'Reserve Rental' : 'Book Service'}
+            {enquiryOnly ? 'Contact Seller' : isServiceLayout ? 'Book Service' : hasDateRange ? 'Reserve Rental' : 'Book Service'}
           </SheetTitle>
         </SheetHeader>
 
@@ -132,13 +171,14 @@ export function BookingSheet({
           </div>
 
           {/* Time Slot Picker for Services */}
-          {(requiresTimeSlot || hasDuration) && !hasDateRange && (
+          {(requiresTimeSlot || hasDuration || isServiceLayout) && !hasDateRange && (
             <TimeSlotPicker
               selectedDate={selectedDate}
               selectedTime={selectedTime}
               onDateSelect={setSelectedDate}
               onTimeSelect={setSelectedTime}
               serviceDuration={listing.service_duration_minutes}
+              availableSlots={availableSlots}
             />
           )}
 
@@ -153,6 +193,21 @@ export function BookingSheet({
               rentalPeriodType={listing.rental_period_type as RentalPeriodType}
               depositAmount={listing.deposit_amount}
             />
+          )}
+
+          {/* Address input for home visit services */}
+          {needsAddress && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <MapPin size={14} />
+                Your Address (for home visit)
+              </label>
+              <Input
+                placeholder="Enter your full address..."
+                value={buyerAddress}
+                onChange={(e) => setBuyerAddress(e.target.value)}
+              />
+            </div>
           )}
 
           {/* Notes/Message */}
@@ -187,6 +242,8 @@ export function BookingSheet({
             ) : null}
             {enquiryOnly
               ? 'Send Enquiry'
+              : isServiceLayout
+              ? 'Confirm Booking'
               : hasDateRange
               ? 'Confirm Rental'
               : 'Confirm Booking'}
