@@ -17,7 +17,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
 import { SellerTrustBadge, getSellerTrustTier } from '@/components/trust/SellerTrustBadge';
-import { FirstOrderBadge } from '@/components/trust/FirstOrderBadge';
+
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -425,10 +425,8 @@ function ProductListingCardInner({
           </span>
         )}
 
-        {/* First order protection — shown when no social proof (likely first-time) */}
-        {(socialProofCount == null || socialProofCount === 0) && (
-          <FirstOrderBadge className="mb-0.5" />
-        )}
+        {/* First order protection removed — now only shown correctly on checkout page 
+             where useFirstOrderCheck verifies buyer-seller order history */}
 
         {deliveryText && (
           <div className="flex items-center gap-0.5 mb-0.5">

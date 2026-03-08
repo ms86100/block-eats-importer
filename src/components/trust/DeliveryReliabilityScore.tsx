@@ -1,25 +1,37 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Clock, CheckCircle } from 'lucide-react';
+import { Truck } from 'lucide-react';
 
 interface Props {
-  sellerId: string;
+  sellerId?: string;
+  sellerIds?: string[];
   compact?: boolean;
 }
 
 interface DeliveryScore {
+  seller_id?: string;
   total_deliveries: number;
   on_time_pct: number;
   avg_delay_minutes: number;
   completion_rate: number;
 }
 
+/**
+ * Delivery reliability score component.
+ * Supports single seller (sellerId) or batch mode (sellerIds) for checkout pages.
+ * When using batch mode, renders nothing — use the hook useDeliveryScoresBatch instead.
+ */
 export function DeliveryReliabilityScore({ sellerId, compact = false }: Props) {
   const [score, setScore] = useState<DeliveryScore | null>(null);
 
   useEffect(() => {
-    supabase.rpc('get_seller_delivery_score', { _seller_id: sellerId }).then(({ data }) => {
+    if (!sellerId) return;
+    supabase.rpc('get_seller_delivery_score', { _seller_id: sellerId }).then(({ data, error }) => {
+      if (error) {
+        console.warn('[DeliveryScore] RPC error:', error.message);
+        return;
+      }
       if (data && data.length > 0) setScore(data[0] as any);
     });
   }, [sellerId]);
@@ -57,4 +69,30 @@ export function DeliveryReliabilityScore({ sellerId, compact = false }: Props) {
       </div>
     </div>
   );
+}
+
+/**
+ * Hook to batch-fetch delivery scores for multiple sellers at once.
+ * Returns a Map of sellerId -> DeliveryScore.
+ */
+export function useDeliveryScoresBatch(sellerIds: string[]) {
+  const [scores, setScores] = useState<Map<string, DeliveryScore>>(new Map());
+
+  useEffect(() => {
+    if (sellerIds.length === 0) return;
+
+    supabase.rpc('get_delivery_scores_batch', { _seller_ids: sellerIds }).then(({ data, error }) => {
+      if (error) {
+        console.warn('[DeliveryScoreBatch] RPC error:', error.message);
+        return;
+      }
+      const map = new Map<string, DeliveryScore>();
+      for (const row of data || []) {
+        map.set(row.seller_id, row as DeliveryScore);
+      }
+      setScores(map);
+    });
+  }, [sellerIds.join(',')]);
+
+  return scores;
 }
