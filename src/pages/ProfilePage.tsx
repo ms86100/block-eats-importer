@@ -187,7 +187,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Quick Actions - 3 column */}
-        <div className="grid grid-cols-3 gap-2.5 px-4 mt-4">
+        <div className={`grid ${quickActions.length > 3 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-2.5 px-4 mt-4`}>
           {quickActions.map(({ icon: Icon, label, to, key }) => (
             <Link key={key} to={to}>
               <div className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-1.5 active:scale-[0.97] transition-transform">
