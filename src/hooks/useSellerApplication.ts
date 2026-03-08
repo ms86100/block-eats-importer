@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { type ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+import { type DayScheduleData, INITIAL_AVAILABILITY_SCHEDULE } from '@/components/seller/InlineAvailabilitySchedule';
 
 export interface DraftProductInProgress {
   name: string;
@@ -28,6 +29,7 @@ export interface DraftProductFormState {
   product: DraftProductInProgress;
   attributeBlocks: BlockData[];
   serviceFields: ServiceFieldsData;
+  availabilitySchedule: DayScheduleData[];
 }
 
 export interface SellerFormData {
@@ -94,6 +96,7 @@ export function useSellerApplication() {
     },
     attributeBlocks: [],
     serviceFields: INITIAL_SERVICE_FIELDS,
+    availabilitySchedule: INITIAL_AVAILABILITY_SCHEDULE,
   });
 
   // Sync default category when formData.categories changes and form isn't actively being filled

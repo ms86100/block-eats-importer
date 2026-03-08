@@ -19,6 +19,8 @@ import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
 import { ServiceAddonsManager } from '@/components/seller/ServiceAddonsManager';
+import { InlineAvailabilitySchedule, type DayScheduleData, INITIAL_AVAILABILITY_SCHEDULE } from '@/components/seller/InlineAvailabilitySchedule';
+import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
 import { type DraftProductFormState, type DraftProductInProgress } from '@/hooks/useSellerApplication';
 
 interface DraftProduct {
@@ -61,11 +63,13 @@ export function DraftProductManager({
   const newProduct = formState.product;
   const attributeBlocks = formState.attributeBlocks;
   const serviceFields = formState.serviceFields;
+  const availabilitySchedule = formState.availabilitySchedule;
 
   const setIsAdding = (v: boolean) => onFormStateChange({ ...formState, isAdding: v });
   const setNewProduct = (p: DraftProductInProgress) => onFormStateChange({ ...formState, product: p });
   const setAttributeBlocks = (b: BlockData[]) => onFormStateChange({ ...formState, attributeBlocks: b });
   const setServiceFields = (s: ServiceFieldsData) => onFormStateChange({ ...formState, serviceFields: s });
+  const setAvailabilitySchedule = (s: DayScheduleData[]) => onFormStateChange({ ...formState, availabilitySchedule: s });
 
   // Get form hints for the selected category
   const activeConfig = useMemo(() => {
@@ -153,6 +157,31 @@ export function DraftProductManager({
           console.error('Service listing upsert error:', slError);
           toast.error('Service details could not be saved. Please try editing the product later.');
         }
+
+        // Save availability schedule for service products
+        if (isServiceCategory && data.id) {
+          const activeSchedules = availabilitySchedule.filter(s => s.is_active || !s.is_active); // save all days
+          const scheduleRows = activeSchedules.map(s => ({
+            seller_id: sellerId,
+            product_id: data.id,
+            day_of_week: s.day_of_week,
+            start_time: s.start_time,
+            end_time: s.end_time,
+            is_active: s.is_active,
+          }));
+
+          const { error: schedError } = await supabase
+            .from('service_availability_schedules')
+            .insert(scheduleRows);
+          if (schedError) {
+            console.error('Availability schedule save error:', schedError);
+          } else {
+            // Trigger slot generation in background (don't block save)
+            supabase.functions.invoke('generate-service-slots', {
+              body: { seller_id: sellerId, product_id: data.id },
+            }).catch(err => console.error('Slot generation error:', err));
+          }
+        }
       }
 
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
@@ -165,8 +194,9 @@ export function DraftProductManager({
         },
         attributeBlocks: [],
         serviceFields: INITIAL_SERVICE_FIELDS,
+        availabilitySchedule: INITIAL_AVAILABILITY_SCHEDULE,
       });
-      toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
+      toast.success(isServiceCategory ? 'Service added with availability schedule! Slots are being generated.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);
       toast.error(friendlyError(error));
@@ -234,6 +264,7 @@ export function DraftProductManager({
         const prodConfig = configs.find(c => c.category === product.category);
         const showVeg = prodConfig?.formHints.showVegToggle ?? false;
         const prodSupportsAddons = prodConfig?.supportsAddons ?? false;
+        const prodIsService = prodConfig?.layoutType === 'service';
         return (
           <Card key={product.id || index} className="bg-muted/30">
             <CardContent className="p-3 space-y-2">
@@ -285,6 +316,10 @@ export function DraftProductManager({
               {/* Service Add-ons inline manager for saved service products */}
               {product.id && prodSupportsAddons && (
                 <ServiceAddonsManager productId={product.id} />
+              )}
+              {/* Slot calendar for saved service products */}
+              {product.id && prodIsService && (
+                <SlotCalendarManager productId={product.id} sellerId={sellerId} />
               )}
             </CardContent>
           </Card>
@@ -462,11 +497,12 @@ export function DraftProductManager({
                     <p className="text-[11px] text-muted-foreground">Add-ons can be configured after saving this item from the seller product editor.</p>
                   )}
                 </div>
-                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
-                  <Info size={14} className="text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground">
-                    After your service is approved, set your <span className="font-semibold text-foreground">availability schedule</span> in Seller Settings to start receiving bookings.
-                  </p>
+                {/* Inline Availability Schedule */}
+                <div className="rounded-lg border bg-card p-3">
+                  <InlineAvailabilitySchedule
+                    schedule={availabilitySchedule}
+                    onChange={setAvailabilitySchedule}
+                  />
                 </div>
               </div>
             )}
