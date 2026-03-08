@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.update-delivery-location]
 verify_jwt = false
+
+[functions.otp-verify]
+verify_jwt = false
