@@ -225,8 +225,28 @@ export default function OrderDetailPage() {
                   <span>Assigned technician: <span className="font-medium text-foreground">{(serviceBooking as any).staff_name || 'Staff member'}</span></span>
                 </div>
               )}
-              {/* Booking add-ons */}
-              <BookingAddonsSummary bookingId={serviceBooking.id} />
+
+              {/* Add to Calendar button for confirmed/scheduled appointments */}
+              {o.isBuyerView && isUpcoming && serviceBooking.booking_date && serviceBooking.start_time && serviceBooking.end_time && (
+                <div className="pt-1">
+                  <CalendarExportButton
+                    title={items?.[0]?.product_name || 'Appointment'}
+                    date={serviceBooking.booking_date}
+                    startTime={serviceBooking.start_time}
+                    endTime={serviceBooking.end_time}
+                    location={serviceBooking.buyer_address || serviceBooking.location_type?.replace('_', ' ')}
+                    description={prepInstructions ? `Preparation: ${prepInstructions}` : undefined}
+                  />
+                </div>
+              )}
+
+              {/* Preparation instructions */}
+              {prepInstructions && (
+                <div className="bg-muted/50 rounded-lg px-3 py-2 mt-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">📋 How to prepare</p>
+                  <p className="text-xs text-foreground whitespace-pre-line">{prepInstructions}</p>
+                </div>
+              )}
 
               {/* Session-level feedback for completed bookings */}
               {o.isBuyerView && (
