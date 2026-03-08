@@ -100,6 +100,7 @@ export const fetchCategoryConfigs = async (): Promise<CategoryConfig[]> => {
     supportsAddons: (row as any).supports_addons ?? false,
     supportsRecurring: (row as any).supports_recurring ?? false,
     supportsStaffAssignment: (row as any).supports_staff_assignment ?? false,
+    transactionType: (row as any).transaction_type || undefined,
   }));
 };
 
