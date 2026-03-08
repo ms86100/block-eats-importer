@@ -15,7 +15,34 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Store, Star, MapPin, ChevronDown, Building2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+
+function useSellerActivity(sellerIds: string[]) {
+  return useQuery({
+    queryKey: ['seller-activity', sellerIds.sort().join(',')],
+    queryFn: async () => {
+      if (sellerIds.length === 0) return {};
+      const { data } = await supabase
+        .from('seller_profiles')
+        .select('id, last_active_at')
+        .in('id', sellerIds);
+      const map: Record<string, string | null> = {};
+      for (const s of data || []) map[s.id] = s.last_active_at;
+      return map;
+    },
+    enabled: sellerIds.length > 0,
+    staleTime: 2 * 60_000,
+  });
+}
+
+function getActivityDot(lastActiveAt: string | null | undefined): { color: string; label: string } | null {
+  if (!lastActiveAt) return null;
+  const diffHours = (Date.now() - new Date(lastActiveAt).getTime()) / (1000 * 60 * 60);
+  if (diffHours < 0.5) return { color: 'bg-success', label: 'Active now' };
+  if (diffHours < 2) return { color: 'bg-warning', label: 'Active recently' };
+  if (diffHours < 24) return { color: 'bg-muted-foreground', label: 'Active today' };
+  return null;
+}
 
 export function ShopByStoreDiscovery() {
   const { effectiveSociety, profile } = useAuth();
@@ -24,8 +51,7 @@ export function ShopByStoreDiscovery() {
   const { data: localGrouped = {}, isLoading: loadingLocal } = useLocalSellers();
   const { data: nearbyBands = [], isLoading: loadingNearby } = useNearbySocietySellers(radiusKm, browseBeyond);
 
-  // Fetch last_active_at for local sellers to show activity dots
-  const localSellerIds = Object.values(localGrouped).flat().map(s => s.id);
+  const localSellerIds = useMemo(() => Object.values(localGrouped).flat().map(s => s.id), [localGrouped]);
   const { data: activityMap = {} } = useSellerActivity(localSellerIds);
 
   const hasLocal = Object.keys(localGrouped).length > 0;
