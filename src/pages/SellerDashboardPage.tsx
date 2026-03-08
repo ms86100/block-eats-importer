@@ -33,7 +33,7 @@ import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCale
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
 import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
 
-const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
+import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
 export default function SellerDashboardPage() {
   const { user, sellerProfiles = [], currentSellerId } = useAuth();
