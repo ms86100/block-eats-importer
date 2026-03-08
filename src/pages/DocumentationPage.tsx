@@ -8,6 +8,7 @@ import {
   BookOpen, ChevronDown, ChevronRight, Users, Store, Shield, Calendar,
   Clock, MapPin, Bell, RefreshCw, XCircle, CheckCircle, UserPlus,
   Settings, Repeat, Sparkles, AlertTriangle, FileText, Zap, Sliders,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
