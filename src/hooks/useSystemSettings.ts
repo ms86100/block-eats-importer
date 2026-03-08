@@ -87,6 +87,7 @@ export function useSystemSettings(): SystemSettings {
           'max_price_filter', 'locale', 'upi_provider_label',
           'default_country_code', 'supported_country_codes',
           'refund_promise_text', 'refund_sla_hours',
+          'seller_response_timeout_minutes',
         ]);
 
       const map: Record<string, string> = {};
