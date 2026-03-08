@@ -43,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'seller-guide', label: 'Seller Guide', icon: Store, stakeholder: 'seller' },
   { id: 'admin-guide', label: 'Admin Guide', icon: Shield, stakeholder: 'admin' },
   { id: 'category-config', label: 'Category Configuration', icon: Sliders, stakeholder: 'admin' },
+  { id: 'category-management', label: 'Category Mgmt System', icon: Database, stakeholder: 'admin' },
   { id: 'booking-lifecycle', label: 'Booking Lifecycle', icon: Calendar, stakeholder: 'all' },
   { id: 'slot-management', label: 'Slot Management', icon: Clock, stakeholder: 'seller' },
   { id: 'cancellation-policy', label: 'Cancellation Policy', icon: XCircle, stakeholder: 'all' },
