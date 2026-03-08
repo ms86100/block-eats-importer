@@ -67,18 +67,28 @@ export function useCategoryProducts(parentGroup: string | null, societyId: strin
   const localQuery = useQuery({
     queryKey: ['category-products', parentGroup, societyId],
     queryFn: async (): Promise<ProductWithSeller[]> => {
+      // 1. Get all categories for this parent group
+      const { data: cats } = await supabase
+        .from('category_config')
+        .select('category')
+        .eq('parent_group', parentGroup!);
+      
+      const categoryList = (cats || []).map((c: any) => c.category);
+      if (categoryList.length === 0) return [];
+
+      // 2. Query products by category (not seller.primary_group)
       let query = supabase
         .from('products')
         .select(`
           *,
           seller:seller_profiles!products_seller_id_fkey(
-            id, business_name, rating, society_id, verification_status, primary_group, fulfillment_mode, delivery_note,
+            id, business_name, rating, society_id, verification_status, fulfillment_mode, delivery_note,
             availability_start, availability_end, operating_days, is_available
           )
         `)
         .eq('is_available', true)
         .eq('approval_status', 'approved')
-        .eq('seller.primary_group', parentGroup!)
+        .in('category', categoryList)
         .order('is_bestseller', { ascending: false })
         .order('created_at', { ascending: false });
 

@@ -83,26 +83,42 @@ export default function CategoryGroupPage() {
   );
   const showAllTab = subCategories.length > 1;
 
-  // Extract nearby sellers for this parent group from RPC data
+  // Extract sellers who have products in this parent group's categories
   const { data: topSellers = [] } = useQuery({
     queryKey: ['category-sellers', category, effectiveSocietyId],
     queryFn: async () => {
-      let query = supabase
+      // Get categories for this parent group
+      const { data: cats } = await supabase
+        .from('category_config')
+        .select('category')
+        .eq('parent_group', category!);
+      
+      const categoryList = (cats || []).map((c: any) => c.category);
+      if (categoryList.length === 0) return [];
+
+      // Get sellers who have products in these categories
+      const { data: sellers, error } = await supabase
         .from('seller_profiles')
-        .select(`*, profile:profiles!seller_profiles_user_id_fkey(name, block)`)
+        .select(`
+          *,
+          profile:profiles!seller_profiles_user_id_fkey(name, block),
+          products!products_seller_id_fkey(category)
+        `)
         .eq('verification_status', 'approved')
-        .eq('primary_group', category!)
         .order('rating', { ascending: false })
-        .limit(10);
-
-      if (effectiveSocietyId) {
-        query = query.eq('society_id', effectiveSocietyId);
-      }
-
-      const { data, error } = await query;
+        .limit(20);
 
       if (error) throw error;
-      return (data as any) || [];
+      
+      // Filter to sellers with at least one product in target categories
+      const filtered = (sellers || []).filter((s: any) => 
+        s.products?.some((p: any) => categoryList.includes(p.category))
+      );
+      
+      // Apply society filter
+      return effectiveSocietyId 
+        ? filtered.filter((s: any) => s.society_id === effectiveSocietyId).slice(0, 10)
+        : filtered.slice(0, 10);
     },
     enabled: !!category && !!effectiveSocietyId,
   });
