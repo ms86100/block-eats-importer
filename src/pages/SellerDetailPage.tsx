@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
 import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
+import { SellerRecommendButton } from '@/components/trust/SellerRecommendButton';
 export default function SellerDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -441,7 +442,12 @@ export default function SellerDetailPage() {
             </div>
           </div>
 
-          {/* Row 6: Category tags */}
+          {/* Row 6: Community Recommendations */}
+          {user && (
+            <SellerRecommendButton sellerId={seller.id} sellerUserId={seller.user_id} />
+          )}
+
+          {/* Row 7: Category tags */}
           {seller.categories.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {seller.categories.map((cat) => {
