@@ -4989,6 +4989,260 @@ export type Database = {
           },
         ]
       }
+      service_availability_schedules: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean
+          product_id: string | null
+          seller_id: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean
+          product_id?: string | null
+          seller_id: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          product_id?: string | null
+          seller_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_availability_schedules_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_availability_schedules_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_bookings: {
+        Row: {
+          booking_date: string
+          buyer_address: string | null
+          buyer_id: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          end_time: string
+          id: string
+          location_type: string
+          order_id: string
+          product_id: string
+          rescheduled_from: string | null
+          seller_id: string
+          slot_id: string
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booking_date: string
+          buyer_address?: string | null
+          buyer_id: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          end_time: string
+          id?: string
+          location_type?: string
+          order_id: string
+          product_id: string
+          rescheduled_from?: string | null
+          seller_id: string
+          slot_id: string
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_date?: string
+          buyer_address?: string | null
+          buyer_id?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          location_type?: string
+          order_id?: string
+          product_id?: string
+          rescheduled_from?: string | null
+          seller_id?: string
+          slot_id?: string
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_bookings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "service_bookings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_rescheduled_from_fkey"
+            columns: ["rescheduled_from"]
+            isOneToOne: false
+            referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bookings_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "service_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_listings: {
+        Row: {
+          buffer_minutes: number
+          cancellation_fee_percentage: number
+          cancellation_notice_hours: number
+          created_at: string
+          duration_minutes: number
+          id: string
+          location_type: string
+          max_bookings_per_slot: number
+          price_model: string
+          product_id: string
+          rescheduling_notice_hours: number
+          service_type: string
+          updated_at: string
+        }
+        Insert: {
+          buffer_minutes?: number
+          cancellation_fee_percentage?: number
+          cancellation_notice_hours?: number
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          location_type?: string
+          max_bookings_per_slot?: number
+          price_model?: string
+          product_id: string
+          rescheduling_notice_hours?: number
+          service_type?: string
+          updated_at?: string
+        }
+        Update: {
+          buffer_minutes?: number
+          cancellation_fee_percentage?: number
+          cancellation_notice_hours?: number
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          location_type?: string
+          max_bookings_per_slot?: number
+          price_model?: string
+          product_id?: string
+          rescheduling_notice_hours?: number
+          service_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_listings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_slots: {
+        Row: {
+          booked_count: number
+          created_at: string
+          end_time: string
+          id: string
+          is_blocked: boolean
+          max_capacity: number
+          product_id: string
+          seller_id: string
+          slot_date: string
+          start_time: string
+        }
+        Insert: {
+          booked_count?: number
+          created_at?: string
+          end_time: string
+          id?: string
+          is_blocked?: boolean
+          max_capacity?: number
+          product_id: string
+          seller_id: string
+          slot_date: string
+          start_time: string
+        }
+        Update: {
+          booked_count?: number
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_blocked?: boolean
+          max_capacity?: number
+          product_id?: string
+          seller_id?: string
+          slot_date?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_slots_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_slots_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_endorsements: {
         Row: {
           comment: string | null

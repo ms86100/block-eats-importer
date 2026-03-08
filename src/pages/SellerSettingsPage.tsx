@@ -19,6 +19,12 @@ import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
 import { cn } from '@/lib/utils';
 import { LicenseUpload } from '@/components/seller/LicenseUpload';
 import { useSellerSettings } from '@/hooks/useSellerSettings';
+import { ServiceAvailabilityConfig } from '@/components/seller/ServiceAvailabilityConfig';
+
+const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
+function isServiceGroup(group: string) {
+  return SERVICE_PARENT_GROUPS.includes(group);
+}
 
 function LicenseUploadSection({ sellerId, primaryGroup }: { sellerId: string; primaryGroup: string }) {
   const [groupId, setGroupId] = useState<string | null>(null);
@@ -239,6 +245,11 @@ export default function SellerSettingsPage() {
               )}
             </div>
           </div>
+
+          {/* Service Availability */}
+          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+            <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
+          )}
 
           {/* License */}
           {sellerProfile && primaryGroup && <LicenseUploadSection sellerId={sellerProfile.id} primaryGroup={primaryGroup} />}

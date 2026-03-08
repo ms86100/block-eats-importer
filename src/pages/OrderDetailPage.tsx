@@ -13,8 +13,10 @@ import { LiveDeliveryTracker } from '@/components/delivery/LiveDeliveryTracker';
 import { OrderItemCard } from '@/components/order/OrderItemCard';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
+import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
 import { OrderItem, OrderStatus, PaymentStatus, ItemStatus } from '@/types/database';
-import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck } from 'lucide-react';
+import { SERVICE_STATUS_LABELS } from '@/types/service';
+import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
@@ -25,6 +27,7 @@ export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const o = useOrderDetail(id);
+  const { data: serviceBooking } = useServiceBookingForOrder(id);
   const [deliveryAssignmentId, setDeliveryAssignmentId] = useState<string | null>(null);
 
   const order = o.order;
@@ -123,12 +126,57 @@ export default function OrderDetailPage() {
                 {order.status === 'delivered' && '🎉 Delivered. Enjoy!'}
                 {order.status === 'completed' && '⭐ Completed. Thank you!'}
                 {order.status === 'scheduled' && '📅 Your booking is confirmed.'}
+                {order.status === 'requested' && '📋 Booking request sent. Awaiting confirmation.'}
+                {order.status === 'confirmed' && '✅ Your appointment is confirmed.'}
+                {order.status === 'rescheduled' && '🔄 Your appointment has been rescheduled.'}
+                {order.status === 'no_show' && '⚠️ You were marked as a no-show.'}
               </p>
             )}
             {o.isBuyerView && (
               <OrderCancellation orderId={order.id} orderStatus={order.status} onCancelled={() => window.location.reload()} />
             )}
           </div>
+
+          {/* Service Booking Details */}
+          {serviceBooking && (
+            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Appointment Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-primary" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="text-sm font-medium">
+                      {serviceBooking.booking_date ? format(new Date(serviceBooking.booking_date + 'T00:00'), 'MMM d, yyyy') : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-primary" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Time</p>
+                    <p className="text-sm font-medium">
+                      {serviceBooking.start_time?.slice(0, 5)} - {serviceBooking.end_time?.slice(0, 5)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {serviceBooking.location_type && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                  <MapPin size={12} />
+                  <span className="capitalize">{serviceBooking.location_type.replace('_', ' ')}</span>
+                  {serviceBooking.buyer_address && <span>• {serviceBooking.buyer_address}</span>}
+                </div>
+              )}
+              {serviceBooking.status && (
+                <div className="pt-1">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${SERVICE_STATUS_LABELS[serviceBooking.status]?.color || 'bg-muted text-muted-foreground'}`}>
+                    {SERVICE_STATUS_LABELS[serviceBooking.status]?.label || serviceBooking.status}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Payment */}
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">

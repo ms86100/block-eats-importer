@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.otp-verify]
 verify_jwt = false
+
+[functions.generate-service-slots]
+verify_jwt = false
