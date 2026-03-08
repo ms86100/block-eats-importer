@@ -513,6 +513,7 @@ export const ProductListingCard = memo(ProductListingCardInner, (prev, next) => 
     prev.className === next.className &&
     prev.categoryConfigs === next.categoryConfigs &&
     prev.marketplaceConfig === next.marketplaceConfig &&
-    prev.badgeConfigs === next.badgeConfigs
+    prev.badgeConfigs === next.badgeConfigs &&
+    prev.socialProofCount === next.socialProofCount
   );
 });
