@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { hapticVibrate, hapticNotification } from '@/lib/haptics';
 
-const ACTIONABLE_STATUSES = ['placed', 'enquired', 'quoted'] as const;
+const ACTIONABLE_STATUSES = ['placed', 'enquired', 'quoted', 'requested'] as const;
 
 function createAlarmSound(audioContext: AudioContext) {
   const now = audioContext.currentTime;
