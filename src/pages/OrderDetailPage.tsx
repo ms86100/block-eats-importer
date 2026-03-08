@@ -12,6 +12,7 @@ import { DeliveryStatusCard } from '@/components/delivery/DeliveryStatusCard';
 import { LiveDeliveryTracker } from '@/components/delivery/LiveDeliveryTracker';
 import { OrderItemCard } from '@/components/order/OrderItemCard';
 import { ServiceBookingActions } from '@/components/order/ServiceBookingActions';
+import { BookingAddonsSummary } from '@/components/booking/BookingAddonsSummary';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
@@ -182,6 +183,9 @@ export default function OrderDetailPage() {
                   <span>Assigned technician: <span className="font-medium text-foreground">{(serviceBooking as any).staff_name || 'Staff member'}</span></span>
                 </div>
               )}
+              {/* Booking add-ons */}
+              <BookingAddonsSummary bookingId={serviceBooking.id} />
+
               {/* Reschedule / Cancel actions for buyer */}
               {o.isBuyerView && !['completed', 'cancelled', 'no_show'].includes(order.status) && serviceBooking.booking_date && serviceBooking.start_time && (
                 <div className="pt-2 border-t border-border mt-2">
