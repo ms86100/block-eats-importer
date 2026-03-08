@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import {
+import { useQuery } from '@tanstack/react-query';
   useLocalSellers,
   useNearbySocietySellers,
   type LocalSeller,
