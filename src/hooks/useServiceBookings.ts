@@ -14,6 +14,7 @@ export interface ServiceBooking {
   location_type: string;
   buyer_address: string | null;
   status: string;
+  staff_id: string | null;
   rescheduled_from: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
@@ -22,6 +23,7 @@ export interface ServiceBooking {
   // joined
   buyer_name?: string;
   product_name?: string;
+  staff_name?: string;
 }
 
 export function useSellerServiceBookings(sellerId: string | null) {
@@ -32,14 +34,19 @@ export function useSellerServiceBookings(sellerId: string | null) {
 
       const { data, error } = await supabase
         .from('service_bookings')
-        .select('*')
+        .select('*, buyer:profiles!service_bookings_buyer_id_fkey(name), product:products!service_bookings_product_id_fkey(name), staff:service_staff(name)')
         .eq('seller_id', sellerId)
         .not('status', 'in', '("cancelled")')
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as ServiceBooking[];
+      return (data || []).map((row: any) => ({
+        ...row,
+        buyer_name: row.buyer?.name || null,
+        product_name: row.product?.name || null,
+        staff_name: row.staff?.name || null,
+      })) as ServiceBooking[];
     },
     enabled: !!sellerId,
   });
@@ -64,8 +71,50 @@ export function useServiceBookingForOrder(orderId: string | undefined) {
       return {
         ...data,
         staff_name: (data as any).staff?.name || null,
-      } as ServiceBooking | null;
+      } as ServiceBooking;
     },
     enabled: !!orderId,
+  });
+}
+
+export function useBookingAddons(bookingId: string | undefined) {
+  return useQuery({
+    queryKey: ['booking-addons', bookingId],
+    queryFn: async () => {
+      if (!bookingId) return [];
+      const { data, error } = await supabase
+        .from('service_booking_addons')
+        .select('*, addon:service_addons(name, description)')
+        .eq('booking_id', bookingId);
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.addon?.name || 'Add-on',
+        description: row.addon?.description || null,
+        price: row.price_at_booking,
+      }));
+    },
+    enabled: !!bookingId,
+  });
+}
+
+export function useBuyerRecurringConfigs(buyerId: string | undefined) {
+  return useQuery({
+    queryKey: ['buyer-recurring-configs', buyerId],
+    queryFn: async () => {
+      if (!buyerId) return [];
+      const { data, error } = await supabase
+        .from('service_recurring_configs')
+        .select('*, product:products(name)')
+        .eq('buyer_id', buyerId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        ...row,
+        product_name: row.product?.name || 'Service',
+      }));
+    },
+    enabled: !!buyerId,
   });
 }
