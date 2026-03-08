@@ -63,11 +63,13 @@ export function DraftProductManager({
   const newProduct = formState.product;
   const attributeBlocks = formState.attributeBlocks;
   const serviceFields = formState.serviceFields;
+  const availabilitySchedule = formState.availabilitySchedule;
 
   const setIsAdding = (v: boolean) => onFormStateChange({ ...formState, isAdding: v });
   const setNewProduct = (p: DraftProductInProgress) => onFormStateChange({ ...formState, product: p });
   const setAttributeBlocks = (b: BlockData[]) => onFormStateChange({ ...formState, attributeBlocks: b });
   const setServiceFields = (s: ServiceFieldsData) => onFormStateChange({ ...formState, serviceFields: s });
+  const setAvailabilitySchedule = (s: DayScheduleData[]) => onFormStateChange({ ...formState, availabilitySchedule: s });
 
   // Get form hints for the selected category
   const activeConfig = useMemo(() => {
