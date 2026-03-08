@@ -32,6 +32,7 @@ export interface SystemSettings {
   supportedCountryCodes: string[];
   refundPromiseText: string;
   refundSlaHours: number;
+  sellerResponseTimeoutMinutes: number;
 }
 
 const DEFAULTS: SystemSettings = {
