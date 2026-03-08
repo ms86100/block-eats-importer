@@ -119,6 +119,12 @@ export function AdminProductApprovals() {
           <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setShowDrafts(!showDrafts)}>
             {showDrafts ? 'Pending only' : 'Show drafts'}
           </Button>
+          <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => {
+            // PA-14: Toggle to show rejected products
+            setShowRejected(!showRejected);
+          }}>
+            {showRejected ? 'Hide rejected' : 'Rejected'}
+          </Button>
         </div>
       </div>
 
