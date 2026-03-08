@@ -115,6 +115,16 @@ Deno.serve(async (req) => {
 
         if (!slot || slot.booked_count >= slot.max_capacity) {
           console.log(`No available slot for recurring ${config.id} on ${nextDateStr} at ${timeStr}`);
+          // Notify buyer that their recurring slot couldn't be generated
+          const failProduct = productMap.get(config.product_id);
+          await supabase.from("notification_queue").insert({
+            user_id: config.buyer_id,
+            type: "appointment_reminder",
+            title: "⚠️ Recurring Booking Unavailable",
+            body: `No available slot for your recurring ${failProduct?.name || "service"} on ${nextDateStr} at ${timeStr.slice(0, 5)}. Please rebook manually.`,
+            reference_path: "/orders",
+            payload: { type: "recurring_slot_failed", configId: config.id },
+          });
           continue;
         }
 
