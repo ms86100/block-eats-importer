@@ -88,8 +88,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return items.filter(item => item.product?.is_available !== false);
     },
     enabled: !!user,
-    staleTime: 30 * 1000, // 30s — keep cart fresh after order clears it
+    staleTime: 30 * 1000,
     gcTime: 60 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 
   const setOptimistic = useCallback((updater: (prev: (CartItem & { product: Product })[]) => (CartItem & { product: Product })[]) => {
