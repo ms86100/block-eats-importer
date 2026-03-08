@@ -36,23 +36,26 @@ export function AdminProductApprovals() {
   const [rejectionNote, setRejectionNote] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
+  const [showRejected, setShowRejected] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
 
   useEffect(() => {
     fetchPending();
-  }, [showDrafts]);
+  }, [showDrafts, showRejected]);
 
   const fetchPending = async () => {
     setIsLoading(true);
-    const statuses = showDrafts ? ['pending', 'draft'] : ['pending'];
+    let statuses = ['pending'];
+    if (showDrafts) statuses.push('draft');
+    if (showRejected) statuses = ['rejected'];
     const { data } = await supabase
       .from('products')
-      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
+      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, rejection_note, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
       .in('approval_status', statuses)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: showRejected ? false : true });
     setProducts((data as any) || []);
     // PA-05: Always fetch draft count for badge
-    if (!showDrafts) {
+    if (!showDrafts && !showRejected) {
       const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('approval_status', 'draft');
       setDraftCount(count || 0);
     }
