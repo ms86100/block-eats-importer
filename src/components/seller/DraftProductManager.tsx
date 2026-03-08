@@ -144,6 +144,7 @@ export function DraftProductManager({
             max_bookings_per_slot: parseInt(serviceFields.max_bookings_per_slot) || 1,
             cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
             rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
+            preparation_instructions: serviceFields.preparation_instructions.trim() || null,
           } as any, { onConflict: 'product_id' });
         if (slError) {
           console.error('Service listing upsert error:', slError);

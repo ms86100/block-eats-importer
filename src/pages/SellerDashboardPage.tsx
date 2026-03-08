@@ -34,6 +34,7 @@ import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
 import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
 import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
+import { SellerDayAgenda } from '@/components/seller/SellerDayAgenda';
 
 import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
@@ -298,6 +299,7 @@ export default function SellerDashboardPage() {
         {sellerProfile && sellerFlags.hasServiceLayout && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
+            <SellerDayAgenda sellerId={sellerProfile.id} />
             <ServiceBookingStats sellerId={sellerProfile.id} />
             <ServiceBookingsCalendar sellerId={sellerProfile.id} supportsStaffAssignment={sellerFlags.supportsStaffAssignment} />
           </div>

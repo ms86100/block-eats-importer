@@ -153,6 +153,7 @@ export function useSellerProducts() {
         max_bookings_per_slot: sl.max_bookings_per_slot?.toString() || '1',
         cancellation_notice_hours: sl.cancellation_notice_hours?.toString() || '24',
         rescheduling_notice_hours: sl.rescheduling_notice_hours?.toString() || '12',
+        preparation_instructions: (sl as any).preparation_instructions || '',
       });
     } else {
       setServiceFields(INITIAL_SERVICE_FIELDS);

@@ -5387,6 +5387,7 @@ export type Database = {
           id: string
           location_type: string
           max_bookings_per_slot: number
+          preparation_instructions: string | null
           price_model: string
           product_id: string
           rescheduling_notice_hours: number
@@ -5402,6 +5403,7 @@ export type Database = {
           id?: string
           location_type?: string
           max_bookings_per_slot?: number
+          preparation_instructions?: string | null
           price_model?: string
           product_id: string
           rescheduling_notice_hours?: number
@@ -5417,6 +5419,7 @@ export type Database = {
           id?: string
           location_type?: string
           max_bookings_per_slot?: number
+          preparation_instructions?: string | null
           price_model?: string
           product_id?: string
           rescheduling_notice_hours?: number
@@ -5718,6 +5721,80 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slot_holds: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          slot_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          slot_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          slot_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_holds_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "service_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slot_waitlist: {
+        Row: {
+          buyer_id: string
+          created_at: string
+          id: string
+          notified_at: string | null
+          product_id: string
+          slot_id: string
+        }
+        Insert: {
+          buyer_id: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          product_id: string
+          slot_id: string
+        }
+        Update: {
+          buyer_id?: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          product_id?: string
+          slot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_waitlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_waitlist_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "service_slots"
             referencedColumns: ["id"]
           },
         ]
@@ -8039,6 +8116,10 @@ export type Database = {
         Args: { lat1: number; lat2: number; lon1: number; lon2: number }
         Returns: number
       }
+      hold_service_slot: {
+        Args: { _slot_id: string; _user_id: string }
+        Returns: Json
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_builder_for_society: {
         Args: { _society_id: string; _user_id: string }
@@ -8071,6 +8152,10 @@ export type Database = {
       }
       refresh_all_trust_scores: { Args: never; Returns: undefined }
       release_service_slot: { Args: { _slot_id: string }; Returns: undefined }
+      release_slot_hold: {
+        Args: { _slot_id: string; _user_id: string }
+        Returns: undefined
+      }
       reschedule_service_booking: {
         Args: {
           _actor_id: string

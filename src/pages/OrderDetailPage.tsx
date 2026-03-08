@@ -15,6 +15,7 @@ import { ServiceBookingActions } from '@/components/order/ServiceBookingActions'
 import { BookingAddonsSummary } from '@/components/booking/BookingAddonsSummary';
 import { SessionFeedbackPrompt } from '@/components/booking/SessionFeedbackPrompt';
 import { BuyerCancelBooking } from '@/components/booking/BuyerCancelBooking';
+import { CalendarExportButton } from '@/components/booking/CalendarExportButton';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
@@ -26,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -33,6 +35,22 @@ export default function OrderDetailPage() {
   const o = useOrderDetail(id);
   const { data: serviceBooking } = useServiceBookingForOrder(id);
   const [deliveryAssignmentId, setDeliveryAssignmentId] = useState<string | null>(null);
+
+  // Fetch preparation instructions for the service
+  const productId = serviceBooking?.product_id;
+  const { data: prepInstructions } = useQuery({
+    queryKey: ['prep-instructions', productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data } = await supabase
+        .from('service_listings')
+        .select('preparation_instructions')
+        .eq('product_id', productId)
+        .maybeSingle();
+      return (data as any)?.preparation_instructions || null;
+    },
+    enabled: !!productId,
+  });
 
   const order = o.order;
   const orderId = order?.id;
@@ -207,6 +225,29 @@ export default function OrderDetailPage() {
                   <span>Assigned technician: <span className="font-medium text-foreground">{(serviceBooking as any).staff_name || 'Staff member'}</span></span>
                 </div>
               )}
+
+              {/* Add to Calendar button for confirmed/scheduled appointments */}
+              {o.isBuyerView && isUpcoming && serviceBooking.booking_date && serviceBooking.start_time && serviceBooking.end_time && (
+                <div className="pt-1">
+                  <CalendarExportButton
+                    title={items?.[0]?.product_name || 'Appointment'}
+                    date={serviceBooking.booking_date}
+                    startTime={serviceBooking.start_time}
+                    endTime={serviceBooking.end_time}
+                    location={serviceBooking.buyer_address || serviceBooking.location_type?.replace('_', ' ')}
+                    description={prepInstructions ? `Preparation: ${prepInstructions}` : undefined}
+                  />
+                </div>
+              )}
+
+              {/* Preparation instructions */}
+              {prepInstructions && (
+                <div className="bg-muted/50 rounded-lg px-3 py-2 mt-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">📋 How to prepare</p>
+                  <p className="text-xs text-foreground whitespace-pre-line">{prepInstructions}</p>
+                </div>
+              )}
+
               {/* Booking add-ons */}
               <BookingAddonsSummary bookingId={serviceBooking.id} />
 
