@@ -1,134 +1,135 @@
-## Category Configuration & Attribute Blocks — COMPLETED
 
-### What Was Done
 
-**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
-- Food & Beverages → `cart_purchase`
-- Education → `book_slot` (with recurring, staff, addons as appropriate)
-- Home Services → `request_service` / `request_quote` / `book_slot`
-- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
-- Domestic Help → `contact_only` (with recurring)
-- Events → `request_quote` / `book_slot`
-- Professional → `book_slot` / `request_service` / `request_quote`
-- Pets → `cart_purchase` / `book_slot`
-- Rentals → `contact_only` / `cart_purchase`
-- Shopping → `cart_purchase` / `buy_now`
-- Real Estate → `schedule_visit` / `contact_only`
+# UI/UX Reorganization Plan — Seller, Buyer, and Admin Flows
 
-**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
-food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
+## Problem Summary
 
-### No Code Changes Needed
-Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
+The application has three major personas — **Seller**, **Buyer/Resident**, and **Admin** — but the navigation and information architecture treats them as afterthoughts to each other:
+
+1. **Seller flow is buried**: Profile → Seller Dashboard → Products (separate page) → Settings (separate page) → Earnings (separate page). Five navigation hops to perform basic actions.
+2. **Buyer home page lacks hierarchy**: The home page stacks 7+ sections vertically with no visual grouping, making it hard to scan.
+3. **Admin panel is a single mega-page**: All 16+ tabs are behind a single Sheet nav on mobile, with no persistent structure.
+
+## Guiding Principles
+
+- **Zero functionality removed or added** — only visual/structural reorganization
+- **Every existing route continues to work** — no route changes
+- **All current data flows preserved** — hooks, queries, mutations untouched
+- **Progressive enhancement** — improve layout/grouping without rewriting components
 
 ---
 
-## Listing Type Behavior Fix — COMPLETED
+## Phase 1: Seller Dashboard Consolidation
 
-### Root Cause
-- DB trigger `propagate_category_transaction_type` was never installed
-- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
-- DB default was `'buy'` instead of `'add_to_cart'`
-- No INSERT-time trigger to derive action_type from category
+**Current state**: SellerDashboardPage is a ~375-line vertical scroll with Store Status, Performance stats, Service Bookings, Slot Management, Tools & Promotions, Analytics, and Orders all stacked.
 
-### Database Fixes Applied
-1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
-2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
-3. **Default changed** to `'add_to_cart'`
-4. **Backfilled** all existing products with correct action_type values
-5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+**Proposed change**: Introduce a **tabbed layout** inside SellerDashboardPage using existing Radix `Tabs` component, grouping the existing sections:
 
-### Frontend Fixes Applied
-1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
-2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
-3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
-4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
-5. **useProductDetail** — uses `deriveActionType`
-6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
-7. **useBulkUpload** — sets `action_type` from category config on bulk create
-8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+```text
+┌────────────────────────────────────────┐
+│  Store Status Card  (always visible)   │
+│  Visibility Checklist (always visible) │
+├────────┬──────────┬─────────┬──────────┤
+│ Orders │ Schedule │  Tools  │  Stats   │
+├────────┴──────────┴─────────┴──────────┤
+│                                        │
+│  [Tab content — existing components]   │
+│                                        │
+└────────────────────────────────────────┘
+```
 
-### Mapping Reference
-| transaction_type | action_type | Button |
-|-----------------|-------------|--------|
-| cart_purchase | add_to_cart | ADD |
-| buy_now | buy_now | BUY |
-| book_slot | book | Book |
-| request_service | request_service | Request |
-| request_quote | request_quote | Quote |
-| contact_only | contact_seller | Contact |
-| schedule_visit | schedule_visit | Visit |
+- **Orders tab**: OrderFilters + SellerOrderCard list (current bottom section)
+- **Schedule tab**: SellerDayAgenda + ServiceBookingsCalendar + SlotCalendarManager (only if `hasServiceLayout`)
+- **Tools tab**: QuickActions + CouponManager + DemandInsights
+- **Stats tab**: Performance Card + EarningsSummary + DashboardStats + SellerAnalytics
+
+**QuickActions enhancement**: Add **Earnings** and **Store Preview** as quick action cards alongside existing Manage Products / Store Settings / Add Business — all links already exist, just not surfaced prominently.
+
+**Key safety guarantee**: Every component is simply moved into a TabsContent wrapper. No props change. No data flow changes. Components are rendered identically.
+
+### Files changed:
+- `src/pages/SellerDashboardPage.tsx` — Wrap existing sections in `<Tabs>` / `<TabsContent>`, keep StoreStatusCard and SellerVisibilityChecklist above tabs
+- `src/components/seller/QuickActions.tsx` — Add Earnings link card and Preview link card (both routes already exist)
 
 ---
 
-## Buyer & Seller Service Booking Experience — COMPLETED
+## Phase 2: Buyer Home Page — Visual Grouping
 
-### What Was Done
+**Current state**: HomePage renders 7 components sequentially with inconsistent spacing and no section headers for some.
 
-**1. Database: `session_feedback` table**
-- New table with RLS for per-session ratings (1-5 stars + comment)
-- Buyer can insert/read own; seller can read for their bookings
-- Validation trigger ensures rating 1-5
+**Proposed change**: Group related sections with subtle section dividers and consistent spacing:
 
-**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
-- Fetches upcoming bookings for buyer joined with product + seller info
-- Also added `useSessionFeedback` hook for checking existing feedback
+```text
+┌────────────────────────────────┐
+│ Incomplete Profile Banner      │
+│ Society Trust Strip            │
+├────────────────────────────────┤
+│ 🔍 Search Suggestions         │
+│ 📅 Upcoming Appointment       │
+├────────────────────────────────┤
+│ 🔄 Reorder / Buy Again        │  ← Group these two
+├────────────────────────────────┤
+│ 🏘️ Society Quick Links        │
+├────────────────────────────────┤
+│ 🛒 Marketplace                 │
+│ 👥 Community Teaser            │
+└────────────────────────────────┘
+```
 
-**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
-- Week strip day selector with dot indicators
-- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
-- Each booking card shows: service name, seller, time, location type, status badge
-- Tap navigates to order detail
-- Self-hides if no upcoming bookings
+Changes:
+- Wrap ReorderLastOrder + BuyAgainRow in a single `<section>` with a "Your Recent Orders" label (only renders if either has content — the components already handle empty state)
+- Add consistent `<section>` wrappers with lightweight dividers between groups
+- No component logic changes whatsoever — purely wrapper divs and spacing
 
-**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
-- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
-
-**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
-- Location type with icon (home visit / at seller / online)
-- Duration display (e.g., "60 min")
-- Buyer address when present (home visits)
-
-**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
-- Inline 1-5 star rating with optional comment
-- Shows after booking is completed on order detail page
-- Shows "rated X/5" summary if already submitted
-
-**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
-- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
-- Session feedback prompt integrated below booking add-ons
+### Files changed:
+- `src/pages/HomePage.tsx` — Add section wrapper divs with consistent spacing classes
 
 ---
 
-## Service Marketplace Tier 1 Enhancements — COMPLETED
+## Phase 3: Admin Panel — Sticky Section Header + Breadcrumb
 
-### What Was Done
+**Current state**: AdminPage uses AdminSidebarNav (a Sheet on mobile) to switch between 16 tabs. Once you select a tab, there's no persistent indication of which section you're in — you have to re-open the Sheet.
 
-**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
-- Client-side .ics file generation with event title, date, time, location, description
-- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
-- Works with Google Calendar, Apple Calendar, Outlook
+**Proposed change**: 
+- Add a **sticky breadcrumb bar** below the stats grid that shows the currently active section name with its icon, acting as both a label and a tap target to re-open the Sheet nav
+- This replaces the current `AdminSidebarNav` trigger button that just says the section name — make it sticky so it persists while scrolling through long content sections
 
-**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
-- Vertical timeline showing today's bookings with time, service, buyer, status
-- Quick "View" action navigates to order detail
-- Integrated at top of Service Bookings section in SellerDashboardPage
-- Auto-hides if no bookings today
+### Files changed:
+- `src/pages/AdminPage.tsx` — Make the AdminSidebarNav wrapper div `sticky top-[var(--header-height)]` with `z-30`
 
-**3. Preparation Instructions** (`service_listings.preparation_instructions`)
-- New column on `service_listings` table
-- Seller can edit in ServiceFieldsSection form during product creation/editing
-- Displayed on OrderDetailPage as "How to prepare" card
-- Included in iCal export description
+---
 
-**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
-- New `slot_holds` table with 5-minute expiry
-- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
-- `release_slot_hold` RPC: releases hold on checkout or navigation away
-- RLS policies for authenticated users on own holds
+## Phase 4: Profile Page — Cleaner Seller Access
 
-**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
-- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
-- RLS: buyers can join/view/leave their own waitlist entries
-- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
-- Unique constraint prevents duplicate waitlist entries
+**Current state**: Profile page has a single "Seller Dashboard" link buried in the menu list among 10+ other items.
+
+**Proposed change**: For sellers, promote the Seller Dashboard link into the **quick actions grid** (the 3-column grid at top that currently has Orders, Favorites, Order Again). Add a 4th card "My Store" that links to `/seller`.
+
+This is not a new feature — it's just moving an existing link to a more prominent position.
+
+### Files changed:
+- `src/pages/ProfilePage.tsx` — Conditionally add a 4th quick action card for sellers; change grid from `grid-cols-3` to `grid-cols-2 sm:grid-cols-4` when 4 items present
+
+---
+
+## Risk Assessment
+
+| Change | Risk | Why Safe |
+|--------|------|----------|
+| Seller tabs | **Very low** | Components moved into TabsContent wrappers, zero prop/data changes |
+| Home sections | **Zero** | Adding wrapper `<div>`s and CSS classes only |
+| Admin sticky nav | **Zero** | Adding `sticky` class to existing div |
+| Profile quick action | **Very low** | Adding one `<Link>` card using existing pattern |
+
+**⚠️ Potential risk areas I will watch**:
+- Seller Dashboard: The `hasServiceLayout` conditional sections must remain inside the correct tab — I'll ensure the flag check stays intact
+- Seller Dashboard: Order infinite scroll (`fetchNextPage`) must work within a TabsContent — Radix Tabs uses display:none for inactive panels which preserves DOM state
+- Profile grid: Moving from 3 to 4 columns on mobile could crowd — using `grid-cols-2` for 4 items ensures it wraps to 2 rows of 2
+
+**What I will NOT change**:
+- No route changes
+- No hook/query changes  
+- No database changes
+- No new components (except wrapper divs)
+- No removal of any existing UI element
+
