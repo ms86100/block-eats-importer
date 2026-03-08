@@ -222,6 +222,23 @@ export function BookingSheet({
             </div>
           )}
 
+          {/* Service Add-ons */}
+          {isServiceLayout && supportsAddons && (
+            <ServiceAddonPicker
+              productId={listing.id}
+              selectedAddons={selectedAddons}
+              onAddonsChange={setSelectedAddons}
+            />
+          )}
+
+          {/* Recurring Booking */}
+          {isServiceLayout && supportsRecurring && selectedDate && selectedTime && (
+            <RecurringBookingSelector
+              config={recurringConfig}
+              onChange={setRecurringConfig}
+            />
+          )}
+
           {/* Notes/Message */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
