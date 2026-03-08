@@ -188,6 +188,11 @@ export default function OrderDetailPage() {
               {/* Booking add-ons */}
               <BookingAddonsSummary bookingId={serviceBooking.id} />
 
+              {/* Session-level feedback for completed bookings */}
+              {o.isBuyerView && (
+                <SessionFeedbackPrompt bookingId={serviceBooking.id} bookingStatus={serviceBooking.status} />
+              )}
+
               {/* Reschedule / Cancel actions for buyer */}
               {o.isBuyerView && !['completed', 'cancelled', 'no_show'].includes(order.status) && serviceBooking.booking_date && serviceBooking.start_time && (
                 <div className="pt-2 border-t border-border mt-2 flex gap-2 flex-wrap">

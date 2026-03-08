@@ -226,6 +226,7 @@ export default function OrdersPage() {
             </Tabs>
           ) : (
             <>
+              <BuyerBookingsCalendar />
               <RecurringBookingsList />
               <OrderList type="buyer" userId={user.id} />
             </>

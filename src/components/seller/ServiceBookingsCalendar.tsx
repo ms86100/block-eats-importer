@@ -284,6 +284,32 @@ export function ServiceBookingsCalendar({ sellerId, supportsStaffAssignment = fa
                         <User size={10} />
                         {booking.buyer_name || 'Customer'}
                       </p>
+                      {/* Location + Duration row */}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {booking.location_type && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            {booking.location_type === 'home_visit' && <Home size={9} />}
+                            {booking.location_type === 'at_seller' && <Store size={9} />}
+                            {booking.location_type === 'online' && <Video size={9} />}
+                            <span className="capitalize">{booking.location_type.replace('_', ' ')}</span>
+                          </span>
+                        )}
+                        {booking.start_time && booking.end_time && (() => {
+                          const [sh, sm] = booking.start_time.split(':').map(Number);
+                          const [eh, em] = booking.end_time.split(':').map(Number);
+                          const dur = (eh * 60 + em) - (sh * 60 + sm);
+                          return dur > 0 ? (
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                              <Timer size={9} /> {dur} min
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                      {booking.buyer_address && (
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                          <MapPin size={9} /> {booking.buyer_address}
+                        </p>
+                      )}
                       {/* Only show staff assignment when category supports it and for non-terminal statuses */}
                       {supportsStaffAssignment && staffList.length > 0 && !['cancelled', 'completed', 'no_show'].includes(booking.status) && (
                         <div className="mt-1">
