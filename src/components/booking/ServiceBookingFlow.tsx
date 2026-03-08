@@ -113,8 +113,15 @@ export function ServiceBookingFlow({
         return;
       }
 
-      // BUG FIX: Prevent self-booking (buyer is the seller)
-      if (user.id === sellerId) {
+      // BUG FIX: Prevent self-booking — sellerId is seller_profiles.id, NOT user_id
+      // Must check against seller_profiles.user_id to correctly identify self-booking
+      const { data: sellerProfile } = await supabase
+        .from('seller_profiles')
+        .select('user_id')
+        .eq('id', sellerId)
+        .single();
+
+      if (sellerProfile?.user_id === user.id) {
         toast.error('You cannot book your own service');
         setIsLoading(false);
         return;

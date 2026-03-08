@@ -81,39 +81,9 @@ export function ServiceBookingActions({
         return;
       }
 
-      // BUG FIX: Notify seller about buyer reschedule
-      const { data: booking } = await supabase
-        .from('service_bookings')
-        .select('seller_id, product_id')
-        .eq('id', bookingId)
-        .maybeSingle();
-
-      if (booking?.seller_id) {
-        const { data: sellerProfile } = await supabase
-          .from('seller_profiles')
-          .select('user_id')
-          .eq('id', booking.seller_id)
-          .single();
-
-        if (sellerProfile?.user_id) {
-          const { data: product } = await supabase
-            .from('products')
-            .select('name')
-            .eq('id', booking.product_id)
-            .single();
-
-          await supabase.from('notification_queue').insert({
-            user_id: sellerProfile.user_id,
-            type: 'order',
-            title: '🔄 Booking Rescheduled by Buyer',
-            body: `${product?.name || 'A service'} has been rescheduled to ${newDateStr} at ${slot.start_time.slice(0, 5)}`,
-            reference_path: `/orders/${orderId}`,
-            payload: { orderId, status: 'rescheduled', type: 'order' },
-          });
-        }
-      }
-
-      // Trigger notification processing
+      // BUG FIX: The reschedule_service_booking RPC already enqueues a notification
+      // to the other party. Sending another one here caused DUPLICATE notifications.
+      // Only trigger the notification processor.
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
       // Invalidate relevant queries

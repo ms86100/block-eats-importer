@@ -187,16 +187,16 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+          <AlertDialogCancel disabled={isCancelling}>Keep Booking</AlertDialogCancel>
           {policyInfo?.can_cancel && (
-            <AlertDialogAction
+            <Button
               onClick={handleCancel}
               disabled={isCancelling}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isCancelling && <Loader2 className="animate-spin mr-1" size={14} />}
               Confirm Cancellation
-            </AlertDialogAction>
+            </Button>
           )}
         </AlertDialogFooter>
       </AlertDialogContent>
