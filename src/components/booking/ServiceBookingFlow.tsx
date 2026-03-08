@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ export function ServiceBookingFlow({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
+  const queryClient = useQueryClient();
   const { config } = useCategoryBehavior(category as ServiceCategory);
 
   const { data: serviceSlots = [] } = useServiceSlots(open ? productId : undefined);
@@ -170,6 +172,10 @@ export function ServiceBookingFlow({
 
       // Trigger notification processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
+
+      // Invalidate slot queries so other buyers see updated availability
+      queryClient.invalidateQueries({ queryKey: ['service-slots', productId] });
+      queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
 
       toast.success('Booking request sent!');
       onOpenChange(false);
