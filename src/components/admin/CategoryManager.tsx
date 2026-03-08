@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { TransactionTypeConfirmSave } from './TransactionTypeConfirmSave';
 import { supabase } from '@/integrations/supabase/client';
 import { DynamicIcon, resolveColorProps } from '@/components/ui/DynamicIcon';
@@ -150,8 +150,35 @@ function SortableCategoryItem({ cat, groupIsActive, onToggle, onEdit, onDelete, 
   );
 }
 
-export function CategoryManager() {
+export function CategoryManager({ searchQuery = '' }: { searchQuery?: string }) {
   const cm = useCategoryManagerData();
+  const query = searchQuery.trim().toLowerCase();
+  const isSearching = query.length > 0;
+
+  // Filter grouped categories by search query
+  const filteredGroupedCategories = useMemo(() => {
+    if (!isSearching) return cm.groupedCategories;
+    const result: Record<string, typeof cm.categories> = {};
+    for (const [group, cats] of Object.entries(cm.groupedCategories)) {
+      const filtered = cats.filter(cat =>
+        cat.display_name.toLowerCase().includes(query) ||
+        cat.category.toLowerCase().includes(query) ||
+        (cat.transaction_type || '').toLowerCase().includes(query) ||
+        group.toLowerCase().includes(query)
+      );
+      if (filtered.length > 0) result[group] = filtered;
+    }
+    return result;
+  }, [cm.groupedCategories, query, isSearching]);
+
+  const filteredGroups = useMemo(() => {
+    if (!isSearching) return cm.filteredGroups;
+    return cm.filteredGroups.filter(g =>
+      g.name.toLowerCase().includes(query) ||
+      g.slug.toLowerCase().includes(query) ||
+      (filteredGroupedCategories[g.slug] || []).length > 0
+    );
+  }, [cm.filteredGroups, filteredGroupedCategories, query, isSearching]);
 
   const openSubcategoryCreate = (category: CategoryConfigRow) => {
     if (typeof window === 'undefined') return;
@@ -199,9 +226,9 @@ export function CategoryManager() {
           <ScrollArea className="h-[500px]">
             <div className="space-y-5 pr-4">
               <DndContext sensors={cm.sensors} collisionDetection={closestCenter} onDragEnd={cm.handleGroupDragEnd}>
-                <SortableContext items={cm.filteredGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-                  {cm.filteredGroups.map((group, idx) => {
-                    const groupCats = (cm.groupedCategories[group.slug] || []).sort((a, b) => a.display_order - b.display_order);
+                <SortableContext items={filteredGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+                  {filteredGroups.map((group, idx) => {
+                    const groupCats = (filteredGroupedCategories[group.slug] || []).sort((a, b) => a.display_order - b.display_order);
                     return (
                       <motion.div key={group.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
                         <SortableSectionItem group={group} groupCats={groupCats} onToggle={cm.toggleGroup} onEdit={cm.openGroupDialog} onDelete={cm.setDeleteGroup} onAddCategory={cm.openAddDialog}>
