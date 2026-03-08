@@ -313,7 +313,7 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
         </DrawerContent>
       </Drawer>
 
-      {d.actionType === 'contact_seller' && <ContactSellerModal open={d.contactOpen} onOpenChange={d.setContactOpen} sellerName={product.seller_name} phone={product.contact_phone || ''} />}
+      {d.actionType === 'contact_seller' && <ContactSellerModal open={d.contactOpen} onOpenChange={d.setContactOpen} sellerName={product.seller_name} phone={product.contact_phone || ''} sellerId={product.seller_id} productId={product.product_id} productName={product.product_name} productImage={product.image_url} productPrice={d.formatPrice(product.price)} />}
       {!d.isCartAction && d.actionType !== 'contact_seller' && !isServiceBookingAction && <ProductEnquirySheet open={d.enquiryOpen} onOpenChange={d.setEnquiryOpen} productId={product.product_id} productName={product.product_name} sellerId={product.seller_id} sellerName={product.seller_name} actionType={d.actionType} price={product.price} />}
       {isServiceBookingAction && product && (
         <ServiceBookingFlow
