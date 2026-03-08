@@ -36,8 +36,8 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
   const { items, addItem, updateQuantity } = useCart();
   const { formatPrice } = useCurrency();
 
-  const actionType: ProductActionType = (product.action_type as ProductActionType) || 'add_to_cart';
-  const actionConfig = ACTION_CONFIG[actionType] || ACTION_CONFIG.add_to_cart;
+  const actionType: ProductActionType = deriveActionType(product.action_type as string, null);
+  const actionConfig = ACTION_CONFIG[actionType];
   const isCartAction = actionConfig.isCart;
 
   const cartItem = isCartAction ? items.find((item) => item.product_id === product.id) : null;

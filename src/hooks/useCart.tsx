@@ -137,6 +137,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Guard: reject non-cart action types
+    const pActionType = (product as any).action_type;
+    if (pActionType && !['add_to_cart', 'buy_now'].includes(pActionType)) {
+      toast.error('This item cannot be added to cart');
+      return;
+    }
+
     const inlineAvailability = getInlineSellerAvailability(product);
     let availability = computeStoreStatus(
       inlineAvailability.availabilityStart,

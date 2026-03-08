@@ -286,7 +286,7 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
               </div>
             ) : d.isCartAction ? (
               d.quantity === 0 ? (
-                <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => { hapticImpact('medium'); d.handleAdd(); }}>Add to cart · {d.formatPrice(product.price)}</Button>
+                <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => { hapticImpact('medium'); d.handleAdd(); }}>{d.actionType === 'buy_now' ? 'Buy Now' : 'Add to cart'} · {d.formatPrice(product.price)}</Button>
               ) : (
                 <div className="flex items-center justify-between">
                   <div><span className="text-lg font-bold text-foreground">{d.formatPrice(product.price * d.quantity)}</span><span className="text-xs text-muted-foreground ml-1.5">{d.quantity} item{d.quantity > 1 ? 's' : ''}</span></div>

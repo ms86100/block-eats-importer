@@ -16,6 +16,37 @@ export const ACTION_CONFIG: Record<ProductActionType, { label: string; shortLabe
   make_offer: { label: 'Make an Offer', shortLabel: 'Offer', icon: Handshake, isCart: false },
 };
 
+/**
+ * Maps category_config.transaction_type → product action_type.
+ * Used as a safety net when product.action_type is missing or invalid.
+ */
+export const TRANSACTION_TO_ACTION: Record<string, ProductActionType> = {
+  cart_purchase: 'add_to_cart',
+  buy_now: 'buy_now',
+  book_slot: 'book',
+  request_service: 'request_service',
+  request_quote: 'request_quote',
+  contact_only: 'contact_seller',
+  schedule_visit: 'schedule_visit',
+};
+
+/**
+ * Derives the effective action type for a product.
+ * Priority: valid product.action_type > category transaction_type > fallback
+ */
+export function deriveActionType(
+  productActionType: string | null | undefined,
+  transactionType: string | null | undefined
+): ProductActionType {
+  if (productActionType && ACTION_CONFIG[productActionType as ProductActionType]) {
+    return productActionType as ProductActionType;
+  }
+  if (transactionType && TRANSACTION_TO_ACTION[transactionType]) {
+    return TRANSACTION_TO_ACTION[transactionType];
+  }
+  return 'add_to_cart';
+}
+
 /** Shared sort options used across CategoryPage, CategoryGroupPage, and SearchPage */
 export const SORT_OPTIONS = [
   { key: 'relevance' as const, label: 'Relevance' },
