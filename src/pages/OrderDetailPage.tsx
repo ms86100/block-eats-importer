@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
