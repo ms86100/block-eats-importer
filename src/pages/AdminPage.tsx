@@ -429,6 +429,7 @@ export default function AdminPage() {
             <div className="space-y-5">
               <NotificationDiagnostics />
               <PlatformSettingsManager />
+              <OtpSettings />
               <ApiKeySettings />
               <PurgeDataButton />
               <ResetAndSeedButton />

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/auth/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { Phone, CheckCircle2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
