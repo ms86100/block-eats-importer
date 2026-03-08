@@ -32,6 +32,7 @@ export interface SystemSettings {
   supportedCountryCodes: string[];
   refundPromiseText: string;
   refundSlaHours: number;
+  sellerResponseTimeoutMinutes: number;
 }
 
 const DEFAULTS: SystemSettings = {
@@ -64,6 +65,7 @@ const DEFAULTS: SystemSettings = {
   supportedCountryCodes: ['+91', '+1', '+44', '+971', '+65', '+61'],
   refundPromiseText: 'If anything goes wrong, refund within 24 hours',
   refundSlaHours: 24,
+  sellerResponseTimeoutMinutes: 3,
 };
 
 export function useSystemSettings(): SystemSettings {
@@ -85,6 +87,7 @@ export function useSystemSettings(): SystemSettings {
           'max_price_filter', 'locale', 'upi_provider_label',
           'default_country_code', 'supported_country_codes',
           'refund_promise_text', 'refund_sla_hours',
+          'seller_response_timeout_minutes',
         ]);
 
       const map: Record<string, string> = {};
@@ -124,6 +127,7 @@ export function useSystemSettings(): SystemSettings {
           : DEFAULTS.supportedCountryCodes,
         refundPromiseText: map.refund_promise_text || DEFAULTS.refundPromiseText,
         refundSlaHours: parseInt(map.refund_sla_hours || '24', 10) || 24,
+        sellerResponseTimeoutMinutes: parseInt(map.seller_response_timeout_minutes || '3', 10) || 3,
       };
     },
     staleTime: jitteredStaleTime(15 * 60 * 1000),

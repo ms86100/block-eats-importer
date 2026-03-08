@@ -331,8 +331,7 @@ export default function SellerDetailPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl font-bold">{seller.business_name}</h1>
                     <SellerTrustBadge
-                      completedOrders={(seller as any).completed_order_count || 0}
-                      rating={seller.rating}
+                      sellerId={seller.id}
                       size="sm"
                     />
                   </div>
@@ -428,8 +427,7 @@ export default function SellerDetailPage() {
           {/* Row 4b: Delivery reliability & Growth tier */}
           <DeliveryReliabilityScore sellerId={seller.id} />
           <SellerGrowthTier
-            completedOrders={(seller as any).completed_order_count || 0}
-            rating={seller.rating}
+            sellerId={seller.id}
           />
 
           {/* Row 5: Operating days */}

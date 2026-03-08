@@ -17,7 +17,8 @@ import { toast } from 'sonner';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { AlertCircle } from 'lucide-react';
 import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
-import { DeliveryReliabilityScore } from '@/components/trust/DeliveryReliabilityScore';
+import { useDeliveryScoresBatch } from '@/components/trust/DeliveryReliabilityScore';
+import { DeliveryScoreBadge } from '@/components/trust/DeliveryScoreBadge';
 import { FirstOrderBadge } from '@/components/trust/FirstOrderBadge';
 import { RefundTierBadge } from '@/components/trust/RefundTierBadge';
 import { useMemo } from 'react';
@@ -30,6 +31,7 @@ export default function CartPage() {
 
   const sellerIds = useMemo(() => c.sellerGroups.map(g => g.sellerId), [c.sellerGroups]);
   const firstOrderSellerIds = useFirstOrderCheck(c.user?.id, sellerIds);
+  const deliveryScores = useDeliveryScoresBatch(sellerIds);
 
   // Calculate total savings for value reinforcement
   const deliverySavings = c.fulfillmentType === 'delivery' && c.totalAmount >= c.settings.freeDeliveryThreshold ? c.settings.baseDeliveryFee : 0;
@@ -46,20 +48,9 @@ export default function CartPage() {
 
   // Trust summary for confirm dialog
   const trustSummaryText = useMemo(() => {
-    const badges: string[] = [];
-    for (const group of c.sellerGroups) {
-      const seller = group.items[0]?.product?.seller as any;
-      const orders = seller?.completed_order_count || seller?.total_orders || 0;
-      if (orders >= 100) badges.push('Community Favorite');
-      else if (orders >= 50) badges.push('Community Trusted');
-    }
-    if (badges.length > 0) {
-      const unique = [...new Set(badges)];
-      return `Ordering from ${unique.join(' & ')} seller${c.sellerGroups.length > 1 ? 's' : ''}`;
-    }
     if (firstOrderSellerIds.size > 0) return '🛡 First Order Protected — instant refund if something goes wrong';
     return null;
-  }, [c.sellerGroups, firstOrderSellerIds]);
+  }, [firstOrderSellerIds]);
 
   if (c.isLoading) {
     return (
@@ -133,7 +124,7 @@ export default function CartPage() {
         {c.hasUrgentItem && (
           <div className="mx-4 mt-3 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-start gap-3">
             <Bell className="text-warning shrink-0 mt-0.5" size={16} />
-            <div className="text-xs"><p className="font-medium text-warning-foreground">Time-sensitive order</p><p className="text-muted-foreground mt-0.5">Seller must respond within 3 min or auto-cancelled</p></div>
+            <div className="text-xs"><p className="font-medium text-warning-foreground">Time-sensitive order</p><p className="text-muted-foreground mt-0.5">Seller must respond within {c.settings.sellerResponseTimeoutMinutes} min or auto-cancelled</p></div>
           </div>
         )}
 
@@ -172,10 +163,8 @@ export default function CartPage() {
         {/* Cart Items by Seller */}
         <div className="mt-4 space-y-3 px-4">
           {c.sellerGroups.map((group, groupIndex) => {
-            const seller = group.items[0]?.product?.seller as any;
-            const completedOrders = seller?.completed_order_count || seller?.total_orders || 0;
-            const rating = seller?.rating || 0;
             const isFirstOrder = firstOrderSellerIds.has(group.sellerId);
+            const deliveryScore = deliveryScores.get(group.sellerId);
 
             return (
               <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
@@ -191,8 +180,10 @@ export default function CartPage() {
                   </div>
                   {/* Trust signals row */}
                   <div className="flex items-center gap-2 mt-1.5 ml-8 flex-wrap">
-                    <SellerTrustBadge completedOrders={completedOrders} rating={rating} size="sm" />
-                    <DeliveryReliabilityScore sellerId={group.sellerId} compact />
+                    <SellerTrustBadge sellerId={group.sellerId} size="sm" />
+                    {deliveryScore && deliveryScore.on_time_pct > 0 && (
+                      <DeliveryScoreBadge onTimePct={deliveryScore.on_time_pct} compact />
+                    )}
                   </div>
                 </div>
 
@@ -203,7 +194,7 @@ export default function CartPage() {
                   </div>
                 )}
 
-                {c.profile?.society_id && seller?.society_id && seller.society_id !== c.profile.society_id && (
+                {c.profile?.society_id && (group.items[0]?.product?.seller as any)?.society_id && (group.items[0]?.product?.seller as any).society_id !== c.profile.society_id && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground bg-muted"><MapPin size={11} /><span>Seller from another community</span></div>
                 )}
                 <div className="divide-y divide-border">
@@ -287,7 +278,7 @@ export default function CartPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Platform Fee</span>
-              <span className="font-medium text-primary">₹0 <span className="text-[10px] text-muted-foreground">(always free)</span></span>
+              <span className="font-medium text-primary">{c.settings.platformFeePercent > 0 ? `${c.settings.platformFeePercent}%` : `${c.settings.currencySymbol}0`} <span className="text-[10px] text-muted-foreground">{c.settings.platformFeePercent === 0 ? '(always free)' : ''}</span></span>
             </div>
             <div className="border-t border-border pt-2 mt-1 flex justify-between font-bold"><span>To Pay</span><span>{c.formatPrice(c.finalAmount)}</span></div>
           </div>
