@@ -36,6 +36,22 @@ export default function OrderDetailPage() {
   const { data: serviceBooking } = useServiceBookingForOrder(id);
   const [deliveryAssignmentId, setDeliveryAssignmentId] = useState<string | null>(null);
 
+  // Fetch preparation instructions for the service
+  const productId = serviceBooking?.product_id;
+  const { data: prepInstructions } = useQuery({
+    queryKey: ['prep-instructions', productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data } = await supabase
+        .from('service_listings')
+        .select('preparation_instructions')
+        .eq('product_id', productId)
+        .maybeSingle();
+      return (data as any)?.preparation_instructions || null;
+    },
+    enabled: !!productId,
+  });
+
   const order = o.order;
   const orderId = order?.id;
   const fulfillmentType = o.orderFulfillmentType;
