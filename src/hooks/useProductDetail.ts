@@ -86,6 +86,10 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
       image_url: product.image_url, is_veg: product.is_veg ?? true,
       is_available: true, category: product.category as any,
       description: product.description || null,
+      seller_availability_start: (product as any).seller_availability_start ?? null,
+      seller_availability_end: (product as any).seller_availability_end ?? null,
+      seller_operating_days: (product as any).seller_operating_days ?? null,
+      seller_is_available: (product as any).seller_is_available ?? true,
       is_bestseller: false, is_recommended: false, is_urgent: false,
       created_at: '', updated_at: '',
     });
