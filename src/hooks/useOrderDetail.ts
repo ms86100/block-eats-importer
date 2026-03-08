@@ -103,8 +103,14 @@ export function useOrderDetail(id: string | undefined) {
   // A5 FIX: Include fetchOrder and fetchUnreadCount in deps via eslint-disable
   // These functions use `id` from closure which is stable per hook call
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // [BUG FIX] Add cleanup flag to prevent state updates on unmounted component
   useEffect(() => {
-    if (id) { fetchOrder(); fetchUnreadCount(); }
+    let cancelled = false;
+    if (id) {
+      fetchOrder(cancelled);
+      fetchUnreadCount();
+    }
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
