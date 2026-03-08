@@ -85,17 +85,26 @@ export function useSellerApplication() {
   const [licenseStatus, setLicenseStatus] = useState<string | null>(null);
 
   // In-progress product form state (persists across step navigation)
-  const getInitialProductForm = useCallback((): DraftProductFormState => ({
+  const [draftProductForm, setDraftProductForm] = useState<DraftProductFormState>({
     isAdding: false,
     product: {
       name: '', price: 0, mrp: null, discount_percentage: null,
-      description: '', category: formData.categories[0] || '', is_veg: true,
+      description: '', category: '', is_veg: true,
       image_url: '', prep_time_minutes: null,
     },
     attributeBlocks: [],
     serviceFields: INITIAL_SERVICE_FIELDS,
-  }), []);
-  const [draftProductForm, setDraftProductForm] = useState<DraftProductFormState>(getInitialProductForm);
+  });
+
+  // Sync default category when formData.categories changes and form isn't actively being filled
+  useEffect(() => {
+    if (formData.categories.length > 0 && !draftProductForm.isAdding && !draftProductForm.product.name) {
+      setDraftProductForm(prev => ({
+        ...prev,
+        product: { ...prev.product, category: prev.product.category || formData.categories[0] },
+      }));
+    }
+  }, [formData.categories]);
 
   // Reload products from DB
   const reloadProducts = useCallback(async (sellerId: string) => {

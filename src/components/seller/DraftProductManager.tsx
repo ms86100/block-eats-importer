@@ -460,7 +460,18 @@ export function DraftProductManager({
         <Button
           variant="outline"
           className="w-full border-dashed"
-          onClick={() => setIsAdding(true)}
+          onClick={() => {
+            // Ensure category is set when opening add form
+            if (!formState.product.category && categories.length > 0) {
+              onFormStateChange({
+                ...formState,
+                isAdding: true,
+                product: { ...formState.product, category: categories[0] },
+              });
+            } else {
+              setIsAdding(true);
+            }
+          }}
         >
           <Plus size={16} className="mr-2" />
           Add Product / Service
