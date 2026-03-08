@@ -27,7 +27,7 @@ export function UpcomingAppointmentBanner() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data } = await supabase
         .from('service_bookings')
-        .select('id, order_id, booking_date, start_time, end_time, status, product_id')
+        .select('id, order_id, booking_date, start_time, end_time, status, product:products!service_bookings_product_id_fkey(name, seller_id)')
         .eq('buyer_id', user.id)
         .gte('booking_date', today)
         .not('status', 'in', '("cancelled","completed","no_show")')
@@ -38,13 +38,7 @@ export function UpcomingAppointmentBanner() {
 
       if (!data) return;
 
-      // Get product name
-      const { data: product } = await supabase
-        .from('products')
-        .select('name, seller_id')
-        .eq('id', data.product_id)
-        .single();
-
+      const product = (data as any).product;
       let sellerName = '';
       if (product?.seller_id) {
         const { data: seller } = await supabase
@@ -56,10 +50,15 @@ export function UpcomingAppointmentBanner() {
       }
 
       setBooking({
-        ...data,
+        id: data.id,
+        order_id: data.order_id,
+        booking_date: data.booking_date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        status: data.status,
         product_name: product?.name || 'Service',
         seller_name: sellerName,
-      } as UpcomingBooking);
+      });
     })();
   }, [user?.id]);
 

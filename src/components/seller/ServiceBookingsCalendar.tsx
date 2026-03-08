@@ -119,6 +119,34 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
         await supabase.rpc('release_service_slot', { _slot_id: booking.slot_id });
       }
 
+      // Notify buyer about status change
+      const notifTitles: Record<string, string> = {
+        confirmed: '✅ Booking Confirmed',
+        cancelled: '❌ Booking Rejected',
+        no_show: '⚠️ Marked as No-Show',
+        in_progress: '🔧 Service Started',
+        completed: '🎉 Service Completed',
+      };
+      const notifBodies: Record<string, string> = {
+        confirmed: `Your ${booking.product_name || 'appointment'} on ${booking.booking_date} has been confirmed!`,
+        cancelled: `Your ${booking.product_name || 'appointment'} on ${booking.booking_date} was not accepted by the seller.`,
+        no_show: `You were marked as a no-show for ${booking.product_name || 'your appointment'}.`,
+        in_progress: `Your ${booking.product_name || 'service'} has started!`,
+        completed: `Your ${booking.product_name || 'service'} is complete. We hope you enjoyed it!`,
+      };
+
+      if (notifTitles[newStatus] && booking.buyer_id) {
+        await supabase.from('notification_queue').insert({
+          user_id: booking.buyer_id,
+          type: 'order',
+          title: notifTitles[newStatus],
+          body: notifBodies[newStatus] || 'Your booking has been updated.',
+          reference_path: `/orders/${booking.order_id}`,
+          payload: { orderId: booking.order_id, status: newStatus, type: 'order' },
+        });
+        supabase.functions.invoke('process-notification-queue').catch(() => {});
+      }
+
       refetch();
       queryClient.invalidateQueries({ queryKey: ['service-slots'] });
       queryClient.invalidateQueries({ queryKey: ['service-booking-order'] });
