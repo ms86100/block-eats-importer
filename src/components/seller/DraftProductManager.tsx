@@ -70,6 +70,7 @@ export function DraftProductManager({
 
   const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
   const showDurationField = activeConfig?.formHints.showDurationField ?? false;
+  const isServiceCategory = activeConfig?.layoutType === 'service';
 
   const requiresPrice = useMemo(() => {
     if (!activeConfig) return true;
