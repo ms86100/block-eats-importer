@@ -200,15 +200,34 @@ Deno.serve(async (req) => {
         }
 
         // Override status to confirmed (book_service_slot sets it to 'requested')
+        const newBookingId = (bookResult as any).booking_id;
         await supabase
           .from("service_bookings")
           .update({ status: "confirmed" })
-          .eq("id", (bookResult as any).booking_id);
+          .eq("id", newBookingId);
 
         await supabase
           .from("orders")
           .update({ status: "confirmed" })
           .eq("id", order.id);
+
+        // Carry over add-ons from the original booking to the new recurring booking
+        if (config.booking_id && newBookingId) {
+          const { data: originalAddons } = await supabase
+            .from("service_booking_addons")
+            .select("addon_id, price_at_booking")
+            .eq("booking_id", config.booking_id);
+
+          if (originalAddons && originalAddons.length > 0) {
+            await supabase.from("service_booking_addons").insert(
+              originalAddons.map((a: any) => ({
+                booking_id: newBookingId,
+                addon_id: a.addon_id,
+                price_at_booking: a.price_at_booking,
+              }))
+            );
+          }
+        }
 
         // Update last generated date
         await supabase
