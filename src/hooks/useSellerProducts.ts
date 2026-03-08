@@ -192,14 +192,18 @@ export function useSellerProducts() {
           ? {
               approval_status: (() => {
                 const ep = editingProduct as any;
-                const contentChanged =
+                 // PA-10 fix: Expanded content-change detection to include MRP, specs, stock
+                 const ep2 = editingProduct as any;
+                 const contentChanged =
                   formData.name.trim() !== ep.name ||
                   (formData.description.trim() || null) !== (ep.description || null) ||
                   parseFloat(formData.price) !== ep.price ||
                   formData.category !== ep.category ||
                   formData.image_url !== ep.image_url ||
                   formData.action_type !== (ep.action_type || 'add_to_cart') ||
-                  formData.subcategory_id !== (ep.subcategory_id || '');
+                  formData.subcategory_id !== (ep.subcategory_id || '') ||
+                  (parseFloat(formData.mrp) || null) !== (ep2.mrp || null) ||
+                  JSON.stringify(attributeBlocks) !== JSON.stringify(ep2.specifications?.blocks || []);
                 // If content changed on an approved/rejected product, require re-approval
                 if (contentChanged && ['approved', 'rejected'].includes(ep.approval_status)) return 'pending';
                 return ep.approval_status;
