@@ -11,6 +11,8 @@ import { ReportSheet } from '@/components/report/ReportSheet';
 import { ServiceBookingFlow } from '@/components/booking/ServiceBookingFlow';
 import { ProductAttributeBlocks } from './ProductAttributeBlocks';
 import { PriceHistoryChart } from './PriceHistoryChart';
+import { PriceStabilityBadge } from '@/components/trust/PriceStabilityBadge';
+import { RefundTierBadge } from '@/components/trust/RefundTierBadge';
 import { Plus, Minus, Store, MapPin, Home, Clock, Truck, Users, Zap, RotateCcw, ChevronRight, ChevronDown, Shield, Flag, X } from 'lucide-react';
 import { useProductDetail, ProductDetail } from '@/hooks/useProductDetail';
 import { hapticImpact } from '@/lib/haptics';
