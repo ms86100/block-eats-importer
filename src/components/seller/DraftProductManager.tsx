@@ -125,6 +125,23 @@ export function DraftProductManager({
 
       if (error) throw error;
 
+      // Upsert service_listings if this is a service category
+      if (isServiceCategory && data.id) {
+        const { error: slError } = await supabase
+          .from('service_listings')
+          .upsert({
+            product_id: data.id,
+            service_type: serviceFields.service_type,
+            location_type: serviceFields.location_type,
+            duration_minutes: parseInt(serviceFields.duration_minutes) || 60,
+            buffer_minutes: parseInt(serviceFields.buffer_minutes) || 15,
+            max_bookings_per_slot: parseInt(serviceFields.max_bookings_per_slot) || 1,
+            cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
+            rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
+          } as any, { onConflict: 'product_id' });
+        if (slError) console.error('Service listing upsert error:', slError);
+      }
+
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
       setNewProduct({
         name: '',
