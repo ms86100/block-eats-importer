@@ -156,13 +156,24 @@ export function useOrderDetail(id: string | undefined) {
   };
 
   const updateOrderStatus = async (newStatus: OrderStatus, rejectionReason?: string) => {
-    if (!order) return;
+    if (!order || !user) return;
     setIsUpdating(true);
     try {
       const updateData: any = { status: newStatus, auto_cancel_at: null };
       if (rejectionReason) updateData.rejection_reason = rejectionReason;
-      const { error } = await supabase.from('orders').update(updateData).eq('id', order.id);
+
+      // [BUG FIX] Add ownership check: seller can only update their own orders
+      let query = supabase.from('orders').update(updateData).eq('id', order.id);
+      if (isSellerView) {
+        query = query.eq('seller_id', seller?.id);
+      } else {
+        // Buyer can only cancel their own orders
+        query = query.eq('buyer_id', user.id);
+      }
+
+      const { error, count } = await query;
       if (error) throw error;
+
       setOrder({ ...order, ...updateData });
       toast.success(`Order ${getOrderStatus(newStatus).label.toLowerCase()}`);
       supabase.functions.invoke('process-notification-queue').catch(() => {});
