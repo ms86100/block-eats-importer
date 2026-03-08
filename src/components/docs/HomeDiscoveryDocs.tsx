@@ -140,7 +140,7 @@ export function HomeDiscoveryDocs() {
         <p><strong>Filter Bar:</strong> A horizontal scrollable row below the search with quick-access filter buttons:</p>
         <p>• <strong>Filters</strong> — Opens a bottom sheet with advanced options (see below). Shows a badge with active filter count.</p>
         <p>• <strong>Veg / Non-Veg</strong> — Toggle buttons with color-coded indicators (green for veg, red for non-veg).</p>
-        <p>• <strong>Sort buttons</strong> — Top Rated, Price ↑ (low to high), Price ↓ (high to low).</p>
+        <p>• <strong>Sort buttons</strong> — Top Rated, Price Low to High, Price High to Low.</p>
         
         <p><strong>Advanced Filters (Bottom Sheet):</strong> Opens from the Filters button and includes:</p>
         <p>• <strong>Sort By</strong> — Top Rated, Newest, Price Low to High, Price High to Low.</p>
