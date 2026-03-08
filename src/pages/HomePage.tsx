@@ -8,6 +8,7 @@ import { ReorderLastOrder } from '@/components/home/ReorderLastOrder';
 import { SocietyQuickLinks } from '@/components/home/SocietyQuickLinks';
 // FeaturedBanners rendered inside MarketplaceSection
 import { CommunityTeaser } from '@/components/home/CommunityTeaser';
+import { UpcomingAppointmentBanner } from '@/components/home/UpcomingAppointmentBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -60,6 +61,11 @@ export default function HomePage() {
         )}
 
         {/* FeaturedBanners rendered inside MarketplaceSection — removed here to avoid duplicates (#5) */}
+
+        {/* ═══ UPCOMING APPOINTMENT ═══ */}
+        <div className="px-4 mt-3">
+          <UpcomingAppointmentBanner />
+        </div>
 
         {/* ═══ REORDER LAST ORDER ═══ */}
         <ReorderLastOrder />
