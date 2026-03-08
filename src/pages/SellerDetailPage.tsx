@@ -425,6 +425,13 @@ export default function SellerDetailPage() {
             </div>
           )}
 
+          {/* Row 4b: Delivery reliability & Growth tier */}
+          <DeliveryReliabilityScore sellerId={seller.id} />
+          <SellerGrowthTier
+            completedOrders={(seller as any).completed_order_count || 0}
+            rating={seller.rating}
+          />
+
           {/* Row 5: Operating days */}
           <div className="flex items-center gap-2">
             <Calendar size={14} className="text-muted-foreground shrink-0" />
