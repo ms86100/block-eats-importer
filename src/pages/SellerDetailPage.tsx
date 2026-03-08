@@ -427,8 +427,7 @@ export default function SellerDetailPage() {
           {/* Row 4b: Delivery reliability & Growth tier */}
           <DeliveryReliabilityScore sellerId={seller.id} />
           <SellerGrowthTier
-            completedOrders={(seller as any).completed_order_count || 0}
-            rating={seller.rating}
+            sellerId={seller.id}
           />
 
           {/* Row 5: Operating days */}

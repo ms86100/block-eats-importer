@@ -278,7 +278,7 @@ export default function CartPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Platform Fee</span>
-              <span className="font-medium text-primary">₹0 <span className="text-[10px] text-muted-foreground">(always free)</span></span>
+              <span className="font-medium text-primary">{c.settings.platformFeePercent > 0 ? `${c.settings.platformFeePercent}%` : `${c.settings.currencySymbol}0`} <span className="text-[10px] text-muted-foreground">{c.settings.platformFeePercent === 0 ? '(always free)' : ''}</span></span>
             </div>
             <div className="border-t border-border pt-2 mt-1 flex justify-between font-bold"><span>To Pay</span><span>{c.formatPrice(c.finalAmount)}</span></div>
           </div>
