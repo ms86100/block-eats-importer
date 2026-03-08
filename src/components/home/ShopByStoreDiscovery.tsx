@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import {
   useLocalSellers,
   useNearbySocietySellers,
   type LocalSeller,
@@ -8,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
   type DistanceBand,
   type SocietyGroup,
 } from '@/hooks/queries/useStoreDiscovery';
-import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Store, Star, MapPin, ChevronDown, Building2, Circle } from 'lucide-react';
