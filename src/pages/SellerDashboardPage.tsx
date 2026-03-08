@@ -50,6 +50,21 @@ export default function SellerDashboardPage() {
   const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
   const sellerFlags = useSellerCategoryFlags(sellerCategories);
 
+  // Check if seller has configured availability schedules
+  const { data: hasSchedules } = useQuery({
+    queryKey: ['seller-has-schedules', activeSellerId],
+    queryFn: async () => {
+      if (!activeSellerId) return true;
+      const { count } = await supabase
+        .from('service_availability_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('seller_id', activeSellerId)
+        .eq('is_active', true);
+      return (count ?? 0) > 0;
+    },
+    enabled: !!activeSellerId && sellerFlags.hasServiceLayout,
+  });
+
   // Debug: log auth state for seller dashboard
   useEffect(() => {
     console.log('[SellerDashboard] Auth state:', { userId: user?.id, sellerProfilesCount: sellerProfiles?.length, activeSellerId, currentSellerId });
