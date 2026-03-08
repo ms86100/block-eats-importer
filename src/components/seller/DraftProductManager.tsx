@@ -144,7 +144,10 @@ export function DraftProductManager({
             cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
             rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
           } as any, { onConflict: 'product_id' });
-        if (slError) console.error('Service listing upsert error:', slError);
+        if (slError) {
+          console.error('Service listing upsert error:', slError);
+          toast.error('Service details could not be saved. Please try editing the product later.');
+        }
       }
 
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);

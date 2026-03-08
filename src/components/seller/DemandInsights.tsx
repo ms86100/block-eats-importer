@@ -21,7 +21,7 @@ export function DemandInsights({ societyId }: DemandInsightsProps) {
         _society_id: societyId,
       });
       if (error) throw error;
-      return (data || []) as { search_term: string; search_count: number; last_searched: string }[];
+      return (data || []) as { search_term: string; search_count: number; last_searched: string | null }[];
     },
     enabled: !!societyId,
     staleTime: 10 * 60 * 1000,
