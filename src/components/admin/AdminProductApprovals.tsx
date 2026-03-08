@@ -146,6 +146,7 @@ export function AdminProductApprovals() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-bold text-sm truncate">{product.name}</h4>
                       <Badge variant="outline" className="text-[10px] rounded-md">{product.category}</Badge>
+                      {product.approval_status === 'draft' && <Badge variant="outline" className="text-[10px] rounded-md text-muted-foreground border-muted-foreground/40">Draft</Badge>}
                     </div>
                     <p className="text-sm font-extrabold text-primary mt-0.5">{formatPrice(product.price)}</p>
                     {product.seller && (
