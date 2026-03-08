@@ -8141,6 +8141,10 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      map_transaction_type_to_action_type: {
+        Args: { _transaction_type: string }
+        Returns: string
+      }
       notify_upcoming_maintenance_dues: { Args: never; Returns: undefined }
       rate_worker_job: {
         Args: { _job_id: string; _rating: number; _review?: string }
