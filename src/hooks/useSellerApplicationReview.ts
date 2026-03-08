@@ -154,7 +154,8 @@ export function useSellerApplicationReview() {
 
       if (status === 'approved') {
         await supabase.from('user_roles').insert({ user_id: seller.user_id, role: 'seller' });
-        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', seller.id).in('approval_status', ['pending', 'draft']);
+        // PA-06 fix: Set to 'pending' so admin must individually review each product
+        await supabase.from('products').update({ approval_status: 'pending' } as any).eq('seller_id', seller.id).eq('approval_status', 'draft');
         await supabase.from('user_notifications').insert({
           user_id: seller.user_id,
           title: '🎉 Congratulations! Your store is approved!',
@@ -234,6 +235,20 @@ export function useSellerApplicationReview() {
       const { error } = await supabase.from('products').update(updateData).eq('id', productId);
       if (error) { toast.error(`Failed to ${status} product`); return; }
       await logAudit(`product_${status}`, 'product', productId, '', { reason: productRejectionNote || undefined });
+      // PA-09 fix: Notify seller on product approval/rejection
+      const { data: productData } = await supabase.from('products').select('name, seller_id').eq('id', productId).single();
+      if (productData) {
+        const { data: sellerData } = await supabase.from('seller_profiles').select('user_id').eq('id', productData.seller_id).single();
+        if (sellerData) {
+          await supabase.from('user_notifications').insert({
+            user_id: sellerData.user_id,
+            title: status === 'approved' ? `✅ "${productData.name}" is now live!` : `❌ "${productData.name}" was not approved`,
+            body: status === 'approved' ? 'Your product has been approved and is now visible to buyers.' : `Reason: ${productRejectionNote || 'No reason provided'}. You can edit and resubmit.`,
+            type: `product_${status}`,
+            is_read: false,
+          });
+        }
+      }
       toast.success(`Product ${status}`);
       setProductRejectingId(null);
       setProductRejectionNote('');

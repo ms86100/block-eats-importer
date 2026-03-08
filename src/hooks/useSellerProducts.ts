@@ -192,19 +192,35 @@ export function useSellerProducts() {
           ? {
               approval_status: (() => {
                 const ep = editingProduct as any;
-                const contentChanged =
+                 // PA-10 fix: Expanded content-change detection to include MRP, specs, stock
+                 const ep2 = editingProduct as any;
+                 const contentChanged =
                   formData.name.trim() !== ep.name ||
                   (formData.description.trim() || null) !== (ep.description || null) ||
                   parseFloat(formData.price) !== ep.price ||
                   formData.category !== ep.category ||
                   formData.image_url !== ep.image_url ||
                   formData.action_type !== (ep.action_type || 'add_to_cart') ||
-                  formData.subcategory_id !== (ep.subcategory_id || '');
+                  formData.subcategory_id !== (ep.subcategory_id || '') ||
+                  (parseFloat(formData.mrp) || null) !== (ep2.mrp || null) ||
+                  JSON.stringify(attributeBlocks) !== JSON.stringify(ep2.specifications?.blocks || []);
                 // If content changed on an approved/rejected product, require re-approval
                 if (contentChanged && ['approved', 'rejected'].includes(ep.approval_status)) return 'pending';
                 return ep.approval_status;
               })(),
-              rejection_note: null, // Clear rejection note on edit
+              // PA-07 fix: Only clear rejection_note when status is being reset to pending
+              ...((() => {
+                const ep = editingProduct as any;
+                const contentChanged =
+                  formData.name.trim() !== ep.name ||
+                  (formData.description.trim() || null) !== (ep.description || null) ||
+                  parseFloat(formData.price) !== ep.price ||
+                  formData.category !== ep.category ||
+                  formData.image_url !== ep.image_url;
+                return contentChanged && ['approved', 'rejected'].includes(ep.approval_status)
+                  ? { rejection_note: null }
+                  : {};
+              })()),
             }
           : {
               approval_status: 'pending' as const,
@@ -279,6 +295,12 @@ export function useSellerProducts() {
   };
 
   const toggleAvailability = async (product: Product) => {
+    // PA-02 fix: Block availability toggle for non-approved products
+    const status = (product as any).approval_status || 'draft';
+    if (status !== 'approved') {
+      toast.error('Submit for review first — only approved products can be toggled.');
+      return;
+    }
     try {
       const { error } = await supabase.from('products').update({ is_available: !product.is_available }).eq('id', product.id);
       if (error) throw error;

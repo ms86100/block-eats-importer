@@ -35,19 +35,27 @@ export function AdminProductApprovals() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
 
   useEffect(() => {
     fetchPending();
-  }, []);
+  }, [showDrafts]);
 
   const fetchPending = async () => {
     setIsLoading(true);
+    const statuses = showDrafts ? ['pending', 'draft'] : ['pending'];
     const { data } = await supabase
       .from('products')
       .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
-      .eq('approval_status', 'pending')
+      .in('approval_status', statuses)
       .order('created_at', { ascending: true });
     setProducts((data as any) || []);
+    // PA-05: Always fetch draft count for badge
+    if (!showDrafts) {
+      const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('approval_status', 'draft');
+      setDraftCount(count || 0);
+    }
     setIsLoading(false);
   };
 
@@ -56,6 +64,14 @@ export function AdminProductApprovals() {
     const { error } = await supabase.from('products').update({ approval_status: 'approved' } as any).eq('id', id);
     if (error) { toast.error('Failed to approve'); setActionId(null); return; }
     await logAudit('product_approved', 'product', id, '', {});
+    // PA-09: Notify seller
+    const { data: prod } = await supabase.from('products').select('name, seller_id').eq('id', id).single();
+    if (prod) {
+      const { data: seller } = await supabase.from('seller_profiles').select('user_id').eq('id', prod.seller_id).single();
+      if (seller) {
+        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `✅ "${prod.name}" is now live!`, body: 'Your product has been approved and is visible to buyers.', type: 'product_approved', is_read: false });
+      }
+    }
     toast.success('Product approved');
     setActionId(null);
     fetchPending();
@@ -66,6 +82,14 @@ export function AdminProductApprovals() {
     const { error } = await supabase.from('products').update({ approval_status: 'rejected', rejection_note: rejectionNote.trim() || null } as any).eq('id', id);
     if (error) { toast.error('Failed to reject'); setActionId(null); return; }
     await logAudit('product_rejected', 'product', id, '', { reason: rejectionNote });
+    // PA-09: Notify seller
+    const { data: prod } = await supabase.from('products').select('name, seller_id').eq('id', id).single();
+    if (prod) {
+      const { data: seller } = await supabase.from('seller_profiles').select('user_id').eq('id', prod.seller_id).single();
+      if (seller) {
+        await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: `❌ "${prod.name}" was not approved`, body: `Reason: ${rejectionNote || 'No reason provided'}. Edit and resubmit from your Products page.`, type: 'product_rejected', is_read: false });
+      }
+    }
     toast.success('Product rejected');
     setActionId(null);
     setRejectingId(null);
@@ -79,13 +103,23 @@ export function AdminProductApprovals() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center">
-          <Package size={15} className="text-amber-600" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Package size={15} className="text-amber-600" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground">
+            {showDrafts ? 'Pending & Draft' : 'Pending'} Products <span className="text-muted-foreground font-normal text-xs">({products.length})</span>
+          </h3>
         </div>
-        <h3 className="text-sm font-bold text-foreground">
-          Pending Products <span className="text-muted-foreground font-normal text-xs">({products.length})</span>
-        </h3>
+        <div className="flex items-center gap-2">
+          {!showDrafts && draftCount > 0 && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">{draftCount} drafts</Badge>
+          )}
+          <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setShowDrafts(!showDrafts)}>
+            {showDrafts ? 'Pending only' : 'Show drafts'}
+          </Button>
+        </div>
       </div>
 
       {products.length === 0 ? (
