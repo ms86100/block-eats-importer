@@ -149,6 +149,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // [BUG FIX] Trigger notification queue processor to actually deliver enqueued reminders
+    if (sent24h > 0 || sent1h > 0) {
+      try {
+        await supabase.functions.invoke("process-notification-queue");
+      } catch (triggerErr) {
+        console.warn("Failed to trigger notification queue processing:", triggerErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, sent_24h: sent24h, sent_1h: sent1h, skipped, total_checked: bookings.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

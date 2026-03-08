@@ -61,6 +61,9 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from(table).delete().eq(column, userId);
     }
 
+    // Cancel active bookings where user is buyer (don't delete — seller needs records)
+    await supabaseAdmin.from('service_bookings').update({ status: 'cancelled' }).eq('buyer_id', userId).not('status', 'in', '("cancelled","completed","no_show")');
+
     // Clean up seller data if exists
     const { data: sellerProfile } = await supabaseAdmin
       .from('seller_profiles')
@@ -69,6 +72,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (sellerProfile) {
+      // Cancel active bookings where user is seller
+      await supabaseAdmin.from('service_bookings').update({ status: 'cancelled' }).eq('seller_id', sellerProfile.id).not('status', 'in', '("cancelled","completed","no_show")');
+      await supabaseAdmin.from('service_slots').delete().eq('product_id', sellerProfile.id);
+      await supabaseAdmin.from('coupons').delete().eq('seller_id', sellerProfile.id);
       await supabaseAdmin.from('products').delete().eq('seller_id', sellerProfile.id);
       await supabaseAdmin.from('reviews').delete().eq('seller_id', sellerProfile.id);
       await supabaseAdmin.from('favorites').delete().eq('seller_id', sellerProfile.id);

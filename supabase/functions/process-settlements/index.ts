@@ -53,11 +53,14 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fetch eligible settlements where cooldown has passed
+    // [BUG FIX] Add limit to prevent unbounded query and timeout
     const { data: eligibleSettlements, error: fetchErr } = await supabase
       .from("seller_settlements")
       .select("id, order_id, seller_id, net_amount, settlement_status")
       .eq("settlement_status", "pending")
-      .lte("eligible_at", new Date().toISOString());
+      .lte("eligible_at", new Date().toISOString())
+      .order("eligible_at", { ascending: true })
+      .limit(200);
 
     if (fetchErr) throw fetchErr;
 
