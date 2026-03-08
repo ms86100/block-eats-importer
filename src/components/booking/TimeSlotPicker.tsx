@@ -131,9 +131,10 @@ export function TimeSlotPicker({
           <span className="text-sm font-medium">Select Date</span>
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
-          {quickDates.map(({ date, label, dateLabel }) => {
+      {quickDates.map(({ date, label, dateLabel }) => {
             const isSelected = selectedDate && isSameDay(date, selectedDate);
-            const isDisabled = isDateDisabled(date);
+            const hasSlots = availableSlots?.some(s => s.date === format(date, 'yyyy-MM-dd'));
+            const isDisabled = isDateDisabled(date) || (availableSlots !== undefined && !hasSlots);
             return (
               <button
                 key={date.toISOString()}
