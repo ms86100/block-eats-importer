@@ -13,6 +13,7 @@ interface BuyAgainProduct {
   name: string;
   price: number;
   image_url: string | null;
+  seller_id: string;
   seller_name: string;
   order_count: number;
 }
@@ -25,8 +26,29 @@ export function BuyAgainRow() {
 
   const { data: products = [] } = useQuery({
     queryKey: ['buy-again', user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<BuyAgainProduct[]> => {
       if (!user) return [];
+
+      // Try server-side RPC first
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_frequent_products', {
+        _user_id: user.id,
+        _limit: 12,
+      });
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        return rpcData.map((r: any) => ({
+          id: r.product_id,
+          name: r.product_name,
+          price: r.price,
+          image_url: r.image_url,
+          seller_id: r.seller_id || '',
+          seller_name: r.seller_name || 'Seller',
+          order_count: Number(r.order_count) || 0,
+        }));
+      }
+
+      // Fallback to client-side aggregation
+      if (rpcError) console.warn('[BuyAgain] RPC error, using fallback:', rpcError.message);
 
       const { data, error } = await supabase
         .from('order_items')
@@ -44,7 +66,6 @@ export function BuyAgainRow() {
 
       if (error || !data) return [];
 
-      // Group by product_id and count frequency
       const freq: Record<string, BuyAgainProduct & { count: number }> = {};
       for (const item of data) {
         const p = (item as any).product;
@@ -56,6 +77,7 @@ export function BuyAgainRow() {
             name: p.name,
             price: p.price,
             image_url: p.image_url,
+            seller_id: p.seller_id || '',
             seller_name: p.seller?.business_name || 'Seller',
             order_count: 0,
             count: 0,
@@ -79,10 +101,15 @@ export function BuyAgainRow() {
 
   const handleQuickAdd = (product: BuyAgainProduct) => {
     if (isInCart(product.id)) return;
+    if (!product.seller_id) {
+      console.error('[BuyAgain] Missing seller_id for product:', product.id);
+      toast.error('Cannot add this item — missing seller info');
+      return;
+    }
     impact('medium');
     addItem({
       id: product.id,
-      seller_id: '',
+      seller_id: product.seller_id,
       name: product.name,
       price: product.price,
       image_url: product.image_url,
@@ -128,7 +155,6 @@ export function BuyAgainRow() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl">🛒</div>
                 )}
-                {/* Quick add overlay */}
                 <div className={cn(
                   'absolute bottom-1 right-1 w-5 h-5 rounded-full flex items-center justify-center shadow-sm',
                   inCart ? 'bg-primary' : 'bg-primary'

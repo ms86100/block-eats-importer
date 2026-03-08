@@ -41,43 +41,44 @@ export function SocietyLeaderboard() {
 
   const fetchLeaderboard = async () => {
     setLoading(true);
-    const [sellersRes, productsRes] = await Promise.all([
-      supabase
-        .from('seller_profiles')
-        .select('id, business_name, profile_image_url, rating, completed_order_count')
-        .eq('society_id', effectiveSocietyId!)
-        .eq('verification_status', 'approved')
-        .gt('completed_order_count', 0)
-        .order('completed_order_count', { ascending: false })
-        .limit(5),
-      supabase
-        .from('order_items')
-        .select('product_id, product_name, quantity, product:products(image_url, price, seller_id, seller:seller_profiles(business_name))')
-        .limit(200),
-    ]);
+
+    // Fetch sellers (already society-scoped)
+    const sellersPromise = supabase
+      .from('seller_profiles')
+      .select('id, business_name, profile_image_url, rating, completed_order_count')
+      .eq('society_id', effectiveSocietyId!)
+      .eq('verification_status', 'approved')
+      .gt('completed_order_count', 0)
+      .order('completed_order_count', { ascending: false })
+      .limit(5);
+
+    // Fetch products using society-scoped RPC
+    const productsPromise = supabase.rpc('get_society_top_products', {
+      _society_id: effectiveSocietyId!,
+      _limit: 5,
+    });
+
+    const [sellersRes, productsRes] = await Promise.all([sellersPromise, productsPromise]);
 
     setTopSellers((sellersRes.data || []) as TopSeller[]);
 
-    // Aggregate top products manually
-    const productMap = new Map<string, TopProduct>();
-    for (const item of (productsRes.data || []) as any[]) {
-      if (!item.product_id) continue;
-      const existing = productMap.get(item.product_id);
-      if (existing) {
-        existing.order_count += item.quantity || 1;
-      } else {
-        productMap.set(item.product_id, {
-          product_id: item.product_id,
-          product_name: item.product_name,
-          image_url: item.product?.image_url || null,
-          order_count: item.quantity || 1,
-          seller_name: item.product?.seller?.business_name || '',
-          seller_id: item.product?.seller_id || '',
-          price: item.product?.price || 0,
-        });
-      }
+    if (productsRes.error) {
+      console.warn('[Leaderboard] RPC error:', productsRes.error.message);
+      setTopProducts([]);
+    } else {
+      setTopProducts(
+        (productsRes.data || []).map((p: any) => ({
+          product_id: p.product_id,
+          product_name: p.product_name,
+          image_url: p.image_url,
+          order_count: Number(p.order_count) || 0,
+          seller_name: p.seller_name || '',
+          seller_id: p.seller_id || '',
+          price: p.price || 0,
+        }))
+      );
     }
-    setTopProducts([...productMap.values()].sort((a, b) => b.order_count - a.order_count).slice(0, 5));
+
     setLoading(false);
   };
 

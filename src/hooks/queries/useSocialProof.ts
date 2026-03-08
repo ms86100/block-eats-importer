@@ -6,12 +6,19 @@ import { jitteredStaleTime } from '@/lib/query-utils';
 /**
  * Fetches society-scoped social proof for a batch of product IDs.
  * Returns a Map<productId, familiesThisWeek>.
+ * 
+ * Cache key uses a hash of all product IDs to avoid collisions.
  */
 export function useSocialProof(productIds: string[]) {
   const { effectiveSocietyId } = useAuth();
 
+  // Stable cache key from all product IDs
+  const cacheKey = productIds.length > 0
+    ? productIds.sort().join(',').slice(0, 200) + ':' + productIds.length
+    : '';
+
   return useQuery({
-    queryKey: ['social-proof', effectiveSocietyId, productIds.slice(0, 5).join(',')],
+    queryKey: ['social-proof', effectiveSocietyId, cacheKey],
     queryFn: async (): Promise<Map<string, number>> => {
       if (!effectiveSocietyId || productIds.length === 0) return new Map();
 

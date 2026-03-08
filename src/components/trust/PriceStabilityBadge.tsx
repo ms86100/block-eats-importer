@@ -16,7 +16,11 @@ export function PriceStabilityBadge({ productId }: Props) {
   const [stability, setStability] = useState<Stability | null>(null);
 
   useEffect(() => {
-    supabase.rpc('get_price_stability', { _product_id: productId }).then(({ data }) => {
+    supabase.rpc('get_price_stability', { _product_id: productId }).then(({ data, error }) => {
+      if (error) {
+        console.warn('[PriceStability] RPC error:', error.message);
+        return;
+      }
       if (data && data.length > 0) setStability(data[0] as any);
     });
   }, [productId]);
