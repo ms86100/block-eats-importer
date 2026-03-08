@@ -4,19 +4,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { PaymentRecord, Order, PaymentStatus, SellerProfile } from '@/types/database';
 import { useStatusLabels } from '@/hooks/useStatusLabels';
-import { ArrowLeft, TrendingUp, DollarSign, Calendar, CreditCard } from 'lucide-react';
+import { ArrowLeft, TrendingUp, DollarSign, CreditCard, CheckCircle, Clock as ClockIcon } from 'lucide-react';
 import { format, startOfDay, startOfWeek, startOfMonth, isAfter, parseISO } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
+import { Badge } from '@/components/ui/badge';
+
+interface Settlement {
+  id: string;
+  order_id: string;
+  gross_amount: number;
+  platform_fee: number;
+  net_amount: number;
+  settlement_status: string;
+  created_at: string;
+}
 
 export default function SellerEarningsPage() {
   const { user, currentSellerId, sellerProfiles } = useAuth();
-  const { getPaymentStatus } = useStatusLabels();
   const { formatPrice } = useCurrency();
-  const [payments, setPayments] = useState<(PaymentRecord & { order?: Order })[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     today: 0,
@@ -40,44 +48,33 @@ export default function SellerEarningsPage() {
     if (!user) return;
 
     try {
-      // Fetch payment records for the active seller
       const { data, error } = await supabase
-        .from('payment_records')
-        .select(`
-          *,
-          order:orders(id, status, created_at, buyer:profiles!orders_buyer_id_fkey(name))
-        `)
+        .from('payment_settlements')
+        .select('*')
         .eq('seller_id', sellerId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      const paymentList = (data as any) || [];
-      setPayments(paymentList);
 
-      // Calculate stats
+      const list = (data as Settlement[]) || [];
+      setSettlements(list);
+
       const today = startOfDay(new Date());
       const weekStart = startOfWeek(new Date());
       const monthStart = startOfMonth(new Date());
 
-      const paidPayments = paymentList.filter((p: PaymentRecord) => p.payment_status === 'paid' || (p.payment_status === 'pending' && (p as any).order?.status === 'completed'));
-      const todayPayments = paidPayments.filter((p: PaymentRecord) => 
-        isAfter(parseISO(p.created_at), today)
-      );
-      const weekPayments = paidPayments.filter((p: PaymentRecord) =>
-        isAfter(parseISO(p.created_at), weekStart)
-      );
-      const monthPayments = paidPayments.filter((p: PaymentRecord) =>
-        isAfter(parseISO(p.created_at), monthStart)
-      );
-      const pendingPayments = paymentList.filter((p: PaymentRecord) => p.payment_status === 'pending');
+      const settled = list.filter(s => s.settlement_status === 'settled' || s.settlement_status === 'pending');
+      const todaySettled = settled.filter(s => isAfter(parseISO(s.created_at), today));
+      const weekSettled = settled.filter(s => isAfter(parseISO(s.created_at), weekStart));
+      const monthSettled = settled.filter(s => isAfter(parseISO(s.created_at), monthStart));
+      const pending = list.filter(s => s.settlement_status === 'pending');
 
       setStats({
-        today: todayPayments.reduce((sum: number, p: PaymentRecord) => sum + Number(p.net_amount), 0),
-        thisWeek: weekPayments.reduce((sum: number, p: PaymentRecord) => sum + Number(p.net_amount), 0),
-        thisMonth: monthPayments.reduce((sum: number, p: PaymentRecord) => sum + Number(p.net_amount), 0),
-        allTime: paidPayments.reduce((sum: number, p: PaymentRecord) => sum + Number(p.net_amount), 0),
-        pendingPayout: pendingPayments.reduce((sum: number, p: PaymentRecord) => sum + Number(p.net_amount), 0),
+        today: todaySettled.reduce((sum, s) => sum + Number(s.net_amount), 0),
+        thisWeek: weekSettled.reduce((sum, s) => sum + Number(s.net_amount), 0),
+        thisMonth: monthSettled.reduce((sum, s) => sum + Number(s.net_amount), 0),
+        allTime: settled.reduce((sum, s) => sum + Number(s.net_amount), 0),
+        pendingPayout: pending.reduce((sum, s) => sum + Number(s.net_amount), 0),
       });
     } catch (error) {
       console.error('Error fetching earnings:', error);
@@ -97,6 +94,12 @@ export default function SellerEarningsPage() {
       </AppLayout>
     );
   }
+
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: 'Pending', color: 'bg-warning/10 text-warning' },
+    settled: { label: 'Settled', color: 'bg-success/10 text-success' },
+    failed: { label: 'Failed', color: 'bg-destructive/10 text-destructive' },
+  };
 
   return (
     <AppLayout showHeader={false}>
@@ -141,52 +144,54 @@ export default function SellerEarningsPage() {
                 <DollarSign className="text-warning" size={24} />
               </div>
               <div className="flex-1">
-                <p className="font-semibold">Pending Collection</p>
-                <p className="text-sm text-muted-foreground">COD payments to collect</p>
+                <p className="font-semibold">Pending Settlement</p>
+                <p className="text-sm text-muted-foreground">Awaiting payout</p>
               </div>
               <p className="text-xl font-bold text-warning tabular-nums">{formatPrice(stats.pendingPayout)}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Transaction History */}
+        {/* Settlement History */}
         <div>
-          <h3 className="font-semibold mb-3">Transaction History</h3>
-          
-          {payments.length > 0 ? (
+          <h3 className="font-semibold mb-3">Settlement History</h3>
+
+          {settlements.length > 0 ? (
             <div className="space-y-3">
-              {payments.map((payment) => {
-                const order = payment.order as any;
-                const statusInfo = getPaymentStatus(payment.payment_status as PaymentStatus);
-                
+              {settlements.map((settlement) => {
+                const status = statusConfig[settlement.settlement_status] || statusConfig.pending;
+
                 return (
-                  <Card key={payment.id}>
+                  <Card key={settlement.id}>
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                            <CreditCard size={18} className="text-muted-foreground" />
+                            {settlement.settlement_status === 'settled' ? (
+                              <CheckCircle size={18} className="text-success" />
+                            ) : (
+                              <ClockIcon size={18} className="text-muted-foreground" />
+                            )}
                           </div>
                           <div>
                             <p className="font-medium text-sm">
-                              Order #{payment.order_id.slice(0, 8)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {order?.buyer?.name || 'Customer'}
+                              Order #{settlement.order_id.slice(0, 8)}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              {format(new Date(payment.created_at), 'MMM d, h:mm a')}
+                              {format(new Date(settlement.created_at), 'MMM d, h:mm a')}
                             </p>
+                            {settlement.platform_fee > 0 && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                Fee: {formatPrice(settlement.platform_fee)}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold tabular-nums">{formatPrice(payment.amount)}</p>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusInfo.color}`}>
-                            {statusInfo.label}
-                          </span>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {payment.payment_method.toUpperCase()}
-                          </p>
+                          <p className="font-semibold tabular-nums">{formatPrice(settlement.net_amount)}</p>
+                          <Badge variant="secondary" className={`text-[9px] mt-1 ${status.color} border-0`}>
+                            {status.label}
+                          </Badge>
                         </div>
                       </div>
                     </CardContent>
@@ -197,7 +202,8 @@ export default function SellerEarningsPage() {
           ) : (
             <div className="text-center py-12 bg-muted rounded-xl">
               <DollarSign className="mx-auto text-muted-foreground mb-2" size={32} />
-              <p className="text-sm text-muted-foreground">No transactions yet</p>
+              <p className="text-sm text-muted-foreground">No settlements yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Settlements are created when orders are delivered</p>
             </div>
           )}
         </div>

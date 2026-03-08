@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
-import { SellerTrustBadge, getSellerTrustTier } from '@/components/trust/SellerTrustBadge';
+import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
 
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
