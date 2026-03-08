@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { type ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
+import { type DayScheduleData, INITIAL_AVAILABILITY_SCHEDULE } from '@/components/seller/InlineAvailabilitySchedule';
 
 export interface DraftProductInProgress {
   name: string;
