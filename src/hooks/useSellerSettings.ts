@@ -162,6 +162,7 @@ export function useSellerSettings() {
     setIsSaving(true);
     try {
       const minOrder = formData.minimum_order_amount ? parseFloat(formData.minimum_order_amount) : null;
+      const dailyLimit = formData.daily_order_limit ? parseInt(formData.daily_order_limit) : null;
       const { error } = await supabase.from('seller_profiles').update({
         business_name: formData.business_name.trim(),
         description: formData.description.trim() || null,
@@ -183,6 +184,7 @@ export function useSellerSettings() {
         fulfillment_mode: formData.fulfillment_mode,
         delivery_note: formData.delivery_note.trim() || null,
         minimum_order_amount: (minOrder !== null && !isNaN(minOrder) && minOrder > 0) ? minOrder : null,
+        daily_order_limit: (dailyLimit !== null && !isNaN(dailyLimit) && dailyLimit > 0) ? dailyLimit : null,
       } as any).eq('id', sellerProfile.id);
 
       if (error) throw error;
