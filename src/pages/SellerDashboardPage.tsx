@@ -27,6 +27,7 @@ import { SellerAnalytics } from '@/components/seller/SellerAnalytics';
 import { DemandInsights } from '@/components/seller/DemandInsights';
 import { NewOrderAlertOverlay } from '@/components/seller/NewOrderAlertOverlay';
 import { useSellerOrderStats, useSellerOrdersInfinite, useSellerOrderFilterCounts } from '@/hooks/queries/useSellerOrders';
+import { useSellerAnalytics } from '@/hooks/queries/useSellerAnalytics';
 import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
 import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
