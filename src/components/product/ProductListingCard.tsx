@@ -172,6 +172,13 @@ function ProductListingCardInner({
   /* ── Derived values ── */
   const isOutOfStock = !product.is_available;
 
+  /* ── Seller inactive check (>7 days) ── */
+  const isSellerInactive = useMemo(() => {
+    if (!(product as any).last_active_at) return false;
+    const diffMs = Date.now() - new Date((product as any).last_active_at).getTime();
+    return diffMs > 7 * 24 * 60 * 60 * 1000;
+  }, [(product as any).last_active_at]);
+
   /* ── Store availability ── */
   const storeAvailability = useMemo((): StoreAvailability => {
     return computeStoreStatus(
