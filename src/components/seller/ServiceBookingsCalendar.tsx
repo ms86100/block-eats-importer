@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
