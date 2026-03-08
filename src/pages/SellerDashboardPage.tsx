@@ -195,6 +195,22 @@ export default function SellerDashboardPage() {
     <AppLayout headerTitle="Seller Dashboard" showLocation={false}>
       <NewOrderAlertOverlay orders={pendingAlerts} onDismiss={dismissAlert} onSnooze={snoozeAlert} />
       <div className="p-4 space-y-5">
+        {/* Service Schedule Setup Warning */}
+        {sellerFlags.hasServiceLayout && hasSchedules === false && (
+          <Alert className="border-warning bg-warning/10">
+            <CalendarClock className="h-4 w-4 text-warning" />
+            <AlertTitle className="text-warning">Set up your service hours</AlertTitle>
+            <AlertDescription className="text-sm">
+              You haven't configured your availability schedule. Buyers can't book your services until you set your working hours.
+              <Link to="/seller/settings#availability" className="block mt-2">
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <CalendarClock size={14} />
+                  Configure Schedule
+                </Button>
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
         <StoreStatusCard
           sellerProfile={sellerProfile}
           sellerProfiles={sellerProfiles}
