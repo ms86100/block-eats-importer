@@ -55,17 +55,74 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
   // Check if this product's category is service-type by checking the action
   const isServiceBookingAction = d.actionType === 'book' || d.actionType === 'request_service';
 
-  // Compute store availability from product's seller data
+  const inlineAvailability = useMemo(() => {
+    const p = product as any;
+    const seller = p?.seller as any;
+    const hasInlineAvailability = !!p && (
+      'seller_availability_start' in p ||
+      'seller_availability_end' in p ||
+      'seller_operating_days' in p ||
+      'seller_is_available' in p ||
+      (seller && ('availability_start' in seller || 'availability_end' in seller || 'operating_days' in seller || 'is_available' in seller))
+    );
+
+    return {
+      hasInlineAvailability,
+      availabilityStart: p?.seller_availability_start ?? seller?.availability_start ?? null,
+      availabilityEnd: p?.seller_availability_end ?? seller?.availability_end ?? null,
+      operatingDays: p?.seller_operating_days ?? seller?.operating_days ?? null,
+      isAvailable: p?.seller_is_available ?? seller?.is_available ?? true,
+    };
+  }, [product]);
+
+  const {
+    data: fetchedSellerAvailability,
+    isLoading: isLoadingSellerAvailability,
+  } = useQuery({
+    queryKey: ['product-detail-seller-availability', product?.seller_id],
+    queryFn: async () => {
+      if (!product?.seller_id) return null;
+      const { data } = await supabase
+        .from('seller_profiles')
+        .select('availability_start, availability_end, operating_days, is_available')
+        .eq('id', product.seller_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!product?.seller_id && !inlineAvailability.hasInlineAvailability,
+    staleTime: 60 * 1000,
+  });
+
+  const effectiveAvailability = inlineAvailability.hasInlineAvailability
+    ? inlineAvailability
+    : {
+        availabilityStart: fetchedSellerAvailability?.availability_start ?? null,
+        availabilityEnd: fetchedSellerAvailability?.availability_end ?? null,
+        operatingDays: fetchedSellerAvailability?.operating_days ?? null,
+        isAvailable: fetchedSellerAvailability?.is_available ?? true,
+      };
+
+  const hasAvailabilityData = inlineAvailability.hasInlineAvailability || !!fetchedSellerAvailability;
+  const isStoreCheckPending = !!product && !hasAvailabilityData && isLoadingSellerAvailability;
+  const isStoreUnknown = !!product && !hasAvailabilityData && !isLoadingSellerAvailability;
+
   const storeAvailability: StoreAvailability = product
     ? computeStoreStatus(
-        (product as any).seller_availability_start,
-        (product as any).seller_availability_end,
-        (product as any).seller_operating_days,
-        (product as any).seller_is_available ?? true
+        effectiveAvailability.availabilityStart,
+        effectiveAvailability.availabilityEnd,
+        effectiveAvailability.operatingDays,
+        effectiveAvailability.isAvailable
       )
     : { status: 'open', nextOpenAt: null, minutesUntilOpen: 0 };
-  const isStoreClosed = storeAvailability.status !== 'open';
-  const storeClosedMsg = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
+
+  const isStoreClosed = isStoreCheckPending || isStoreUnknown || storeAvailability.status !== 'open';
+  const storeClosedMsg = isStoreCheckPending
+    ? 'Checking store availability…'
+    : isStoreUnknown
+      ? 'Store unavailable right now'
+      : isStoreClosed
+        ? formatStoreClosedMessage(storeAvailability)
+        : '';
 
   if (!product) return null;
 
