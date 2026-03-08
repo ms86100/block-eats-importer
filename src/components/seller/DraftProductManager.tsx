@@ -73,6 +73,9 @@ export function DraftProductManager({
   const showVegToggle = activeConfig?.formHints.showVegToggle ?? false;
   const showDurationField = activeConfig?.formHints.showDurationField ?? false;
   const isServiceCategory = activeConfig?.layoutType === 'service';
+  const supportsAddons = activeConfig?.supportsAddons ?? false;
+  const supportsRecurring = activeConfig?.supportsRecurring ?? false;
+  const supportsStaffAssignment = activeConfig?.supportsStaffAssignment ?? false;
 
   const requiresPrice = useMemo(() => {
     if (!activeConfig) return true;
