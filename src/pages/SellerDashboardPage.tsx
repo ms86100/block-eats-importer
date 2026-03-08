@@ -245,6 +245,8 @@ export default function SellerDashboardPage() {
             todayEarnings={stats?.todayEarnings || 0}
             weekEarnings={stats?.weekEarnings || 0}
             totalEarnings={stats?.totalEarnings || 0}
+            repeatBuyerPct={analytics?.totalCustomers ? Math.round((analytics.repeatCustomers / analytics.totalCustomers) * 100) : undefined}
+            uniqueCustomers={analytics?.totalCustomers}
           />
 
           <DashboardStats
