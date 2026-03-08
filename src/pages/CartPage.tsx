@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Clock, Store, MapPin, Bell, ChevronRight, Trash2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Clock, Store, MapPin, Bell, ChevronRight, Trash2, ShieldCheck, Sparkles } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { VegBadge } from '@/components/ui/veg-badge';
@@ -11,15 +11,55 @@ import { CouponInput } from '@/components/cart/CouponInput';
 import { FulfillmentSelector } from '@/components/delivery/FulfillmentSelector';
 import { OrderProgressOverlay } from '@/components/checkout/OrderProgressOverlay';
 import { useCartPage } from '@/hooks/useCartPage';
+import { useFirstOrderCheck } from '@/hooks/useFirstOrderCheck';
 import { hapticImpact } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { AlertCircle } from 'lucide-react';
+import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
+import { DeliveryReliabilityScore } from '@/components/trust/DeliveryReliabilityScore';
+import { FirstOrderBadge } from '@/components/trust/FirstOrderBadge';
+import { RefundTierBadge } from '@/components/trust/RefundTierBadge';
+import { useMemo } from 'react';
+import { addMinutes, format } from 'date-fns';
 
 export default function CartPage() {
   const c = useCartPage();
   const ml = useMarketplaceLabels();
   const navigate = useNavigate();
+
+  const sellerIds = useMemo(() => c.sellerGroups.map(g => g.sellerId), [c.sellerGroups]);
+  const firstOrderSellerIds = useFirstOrderCheck(c.user?.id, sellerIds);
+
+  // Calculate total savings for value reinforcement
+  const deliverySavings = c.fulfillmentType === 'delivery' && c.totalAmount >= c.settings.freeDeliveryThreshold ? c.settings.baseDeliveryFee : 0;
+  const totalSavings = c.effectiveCouponDiscount + deliverySavings;
+
+  // Estimated delivery window
+  const deliveryWindow = useMemo(() => {
+    if (c.fulfillmentType !== 'delivery' || c.maxPrepTime === 0) return null;
+    const now = new Date();
+    const start = addMinutes(now, c.maxPrepTime + 15);
+    const end = addMinutes(start, 30);
+    return `Today, ${format(start, 'h:mm a')} – ${format(end, 'h:mm a')}`;
+  }, [c.fulfillmentType, c.maxPrepTime]);
+
+  // Trust summary for confirm dialog
+  const trustSummaryText = useMemo(() => {
+    const badges: string[] = [];
+    for (const group of c.sellerGroups) {
+      const seller = group.items[0]?.product?.seller as any;
+      const orders = seller?.completed_order_count || seller?.total_orders || 0;
+      if (orders >= 100) badges.push('Community Favorite');
+      else if (orders >= 50) badges.push('Community Trusted');
+    }
+    if (badges.length > 0) {
+      const unique = [...new Set(badges)];
+      return `Ordering from ${unique.join(' & ')} seller${c.sellerGroups.length > 1 ? 's' : ''}`;
+    }
+    if (firstOrderSellerIds.size > 0) return '🛡 First Order Protected — instant refund if something goes wrong';
+    return null;
+  }, [c.sellerGroups, firstOrderSellerIds]);
 
   if (c.isLoading) {
     return (
@@ -74,11 +114,18 @@ export default function CartPage() {
           </AlertDialog>
         </div>
 
-        {/* Delivery Time */}
+        {/* Delivery Time + Estimated Window */}
         {c.maxPrepTime > 0 && (
           <div className="mx-4 mt-3 flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl p-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Clock size={18} className="text-primary" /></div>
-            <div><p className="text-sm font-semibold">Ready in ~{c.maxPrepTime} minutes</p><p className="text-xs text-muted-foreground">Estimated preparation time</p></div>
+            <div>
+              <p className="text-sm font-semibold">Ready in ~{c.maxPrepTime} minutes</p>
+              {deliveryWindow ? (
+                <p className="text-xs text-muted-foreground">Expected delivery: {deliveryWindow}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Estimated preparation time</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -124,48 +171,71 @@ export default function CartPage() {
 
         {/* Cart Items by Seller */}
         <div className="mt-4 space-y-3 px-4">
-          {c.sellerGroups.map((group, groupIndex) => (
-            <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-border flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-bold text-primary">{groupIndex + 1}</span>
-                </div>
-                <Store size={14} className="text-primary" />
-                <span className="text-sm font-semibold flex-1 truncate">{group.sellerName}</span>
-                <span className="text-xs text-muted-foreground">{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
-              </div>
-              {c.profile?.society_id && (group.items[0]?.product?.seller as any)?.society_id && (group.items[0]?.product?.seller as any)?.society_id !== c.profile.society_id && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground bg-muted"><MapPin size={11} /><span>Seller from another community</span></div>
-              )}
-              <div className="divide-y divide-border">
-                {group.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 px-3 py-3">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-muted">
-                      {item.product?.image_url ? <img src={item.product.image_url} alt={item.product.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-lg">🛍️</div>}
+          {c.sellerGroups.map((group, groupIndex) => {
+            const seller = group.items[0]?.product?.seller as any;
+            const completedOrders = seller?.completed_order_count || seller?.total_orders || 0;
+            const rating = seller?.rating || 0;
+            const isFirstOrder = firstOrderSellerIds.has(group.sellerId);
+
+            return (
+              <div key={group.sellerId} className="bg-card rounded-xl border border-border overflow-hidden">
+                {/* Seller Group Header with Trust Badges */}
+                <div className="px-3 py-2.5 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-primary">{groupIndex + 1}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5"><VegBadge isVeg={item.product?.is_veg ?? true} size="sm" /><h4 className="text-sm font-medium truncate">{item.product?.name}</h4></div>
-                      <p className="text-sm font-bold mt-0.5">{c.formatPrice((item.product?.price || 0) * item.quantity)}</p>
-                      <p className="text-[11px] text-muted-foreground">{c.formatPrice(item.product?.price || 0)} × {item.quantity}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="inline-flex items-center bg-accent rounded-lg overflow-hidden">
-                        <button className="h-8 w-8 flex items-center justify-center active:scale-95 transition-transform" onClick={() => { hapticImpact('medium'); c.updateQuantity(item.product_id, item.quantity - 1); }}><Minus size={14} className="text-accent-foreground" /></button>
-                        <span className="w-6 text-center text-sm font-bold text-accent-foreground tabular-nums">{item.quantity}</span>
-                        <button className="h-8 w-8 flex items-center justify-center active:scale-95 transition-transform" onClick={() => { hapticImpact('medium'); c.updateQuantity(item.product_id, item.quantity + 1); }}><Plus size={14} className="text-accent-foreground" /></button>
-                      </div>
-                      <button className="h-8 w-8 flex items-center justify-center text-muted-foreground" onClick={() => { hapticImpact('medium'); const name = item.product?.name || 'Item'; c.removeItem(item.product_id); toast(`${name} removed`, { action: { label: 'Undo', onClick: () => c.addItem(item.product as any, item.quantity, true) }, duration: 4000 }); }}><Trash2 size={15} /></button>
-                    </div>
+                    <Store size={14} className="text-primary" />
+                    <span className="text-sm font-semibold flex-1 truncate">{group.sellerName}</span>
+                    <span className="text-xs text-muted-foreground">{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
                   </div>
-                ))}
+                  {/* Trust signals row */}
+                  <div className="flex items-center gap-2 mt-1.5 ml-8 flex-wrap">
+                    <SellerTrustBadge completedOrders={completedOrders} rating={rating} size="sm" />
+                    <DeliveryReliabilityScore sellerId={group.sellerId} compact />
+                  </div>
+                </div>
+
+                {/* First Order Protection */}
+                {isFirstOrder && (
+                  <div className="px-3 py-2 border-b border-border">
+                    <FirstOrderBadge variant="card" />
+                  </div>
+                )}
+
+                {c.profile?.society_id && seller?.society_id && seller.society_id !== c.profile.society_id && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground bg-muted"><MapPin size={11} /><span>Seller from another community</span></div>
+                )}
+                <div className="divide-y divide-border">
+                  {group.items.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 px-3 py-3">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-muted">
+                        {item.product?.image_url ? <img src={item.product.image_url} alt={item.product.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-lg">🛍️</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5"><VegBadge isVeg={item.product?.is_veg ?? true} size="sm" /><h4 className="text-sm font-medium truncate">{item.product?.name}</h4></div>
+                        <p className="text-sm font-bold mt-0.5">{c.formatPrice((item.product?.price || 0) * item.quantity)}</p>
+                        <p className="text-[11px] text-muted-foreground">{c.formatPrice(item.product?.price || 0)} × {item.quantity}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="inline-flex items-center bg-accent rounded-lg overflow-hidden">
+                          <button className="h-8 w-8 flex items-center justify-center active:scale-95 transition-transform" onClick={() => { hapticImpact('medium'); c.updateQuantity(item.product_id, item.quantity - 1); }}><Minus size={14} className="text-accent-foreground" /></button>
+                          <span className="w-6 text-center text-sm font-bold text-accent-foreground tabular-nums">{item.quantity}</span>
+                          <button className="h-8 w-8 flex items-center justify-center active:scale-95 transition-transform" onClick={() => { hapticImpact('medium'); c.updateQuantity(item.product_id, item.quantity + 1); }}><Plus size={14} className="text-accent-foreground" /></button>
+                        </div>
+                        <button className="h-8 w-8 flex items-center justify-center text-muted-foreground" onClick={() => { hapticImpact('medium'); const name = item.product?.name || 'Item'; c.removeItem(item.product_id); toast(`${name} removed`, { action: { label: 'Undo', onClick: () => c.addItem(item.product as any, item.quantity, true) }, duration: 4000 }); }}><Trash2 size={15} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Per-seller subtotal */}
+                <div className="px-3 py-2 bg-muted/50 border-t border-border flex justify-between items-center">
+                  <span className="text-[11px] text-muted-foreground">Subtotal</span>
+                  <span className="text-xs font-bold">{c.formatPrice(group.subtotal)}</span>
+                </div>
               </div>
-              {/* Per-seller subtotal */}
-              <div className="px-3 py-2 bg-muted/50 border-t border-border flex justify-between items-center">
-                <span className="text-[11px] text-muted-foreground">Subtotal</span>
-                <span className="text-xs font-bold">{c.formatPrice(group.subtotal)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Notes */}
@@ -221,6 +291,10 @@ export default function CartPage() {
             </div>
             <div className="border-t border-border pt-2 mt-1 flex justify-between font-bold"><span>To Pay</span><span>{c.formatPrice(c.finalAmount)}</span></div>
           </div>
+          {/* Refund Tier Badge */}
+          <div className="mt-3 pt-2 border-t border-border">
+            <RefundTierBadge amount={c.finalAmount} />
+          </div>
         </div>
 
         {/* Address */}
@@ -233,10 +307,7 @@ export default function CartPage() {
               <><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Deliver to</p><p className="text-sm font-medium mt-0.5">{c.profile?.name} — {[c.profile?.block, c.profile?.flat_number].filter(Boolean).join(', ')}</p><p className="text-xs text-muted-foreground">{c.society?.name || 'Your Society'}</p></>
             )}
           </div>
-          {/* #7: Removed misleading ChevronRight — address card is not interactive */}
         </div>
-
-        
 
         {/* Refund Promise */}
         <div className="mx-4 mt-4 flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl p-3">
@@ -266,6 +337,22 @@ export default function CartPage() {
             <p className="text-xs text-destructive font-medium">No payment method available for this cart. Try ordering from each seller separately.</p>
           </div>
         )}
+
+        {/* Savings Reinforcement */}
+        {totalSavings > 0 && (
+          <div className="flex items-center justify-center gap-1.5 pt-2 px-4">
+            <Sparkles size={12} className="text-primary" />
+            <p className="text-[11px] font-semibold text-primary">
+              You're saving {c.formatPrice(totalSavings)} on this order
+              {c.effectiveCouponDiscount > 0 && deliverySavings > 0
+                ? ` (${c.formatPrice(c.effectiveCouponDiscount)} coupon + ${c.formatPrice(deliverySavings)} free delivery)`
+                : c.effectiveCouponDiscount > 0
+                  ? ' with coupon'
+                  : ' with free delivery'}
+            </p>
+          </div>
+        )}
+
         {c.sellerGroups.length > 0 && (
           <p className="text-[11px] text-primary font-medium text-center pt-2.5 px-4 flex items-center justify-center gap-1.5">
             <span className="text-base">{ml.label('label_checkout_community_emoji')}</span>
@@ -279,7 +366,7 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Confirm Dialog */}
+      {/* Confirm Dialog with Trust Reinforcement */}
       <AlertDialog open={c.showConfirmDialog} onOpenChange={c.setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -289,8 +376,18 @@ export default function CartPage() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Items</span><span className="font-medium">{c.itemCount} item{c.itemCount !== 1 ? 's' : ''}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="font-medium">{c.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI'}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">{c.fulfillmentType === 'self_pickup' ? 'Pickup from' : 'Deliver to'}</span><span className="font-medium text-right">{c.fulfillmentType === 'self_pickup' ? c.sellerGroups[0]?.sellerName || 'Seller' : [c.profile?.block, c.profile?.flat_number].filter(Boolean).join(', ') || 'Not set'}</span></div>
+                {deliveryWindow && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Expected</span><span className="font-medium text-right">{deliveryWindow}</span></div>
+                )}
                 {c.sellerGroups.length > 1 && <p className="text-xs text-muted-foreground">{c.sellerGroups.length} separate orders will be created.</p>}
                 <div className="flex justify-between border-t border-border pt-2 font-bold"><span>Total</span><span>{c.formatPrice(c.finalAmount)}</span></div>
+                {/* Trust reinforcement line */}
+                {trustSummaryText && (
+                  <div className="flex items-center gap-1.5 bg-primary/5 rounded-lg px-3 py-2 border border-primary/10">
+                    <ShieldCheck size={14} className="text-primary shrink-0" />
+                    <p className="text-xs text-muted-foreground">{trustSummaryText}</p>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
