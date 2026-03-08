@@ -214,16 +214,16 @@ Contrast with seller approval which sends a notification (line 158-164).
 |----|----------|------|--------|
 | PA-01 | CRITICAL | Dual approval paths diverge | ✅ Fixed |
 | PA-02 | CRITICAL | is_available toggle misleads sellers | ✅ Fixed |
-| PA-03 | HIGH | Bulk upload has no submit path | Open |
-| PA-04 | HIGH | Edits during review not flagged | Open |
+| PA-03 | HIGH | Bulk upload has no submit path | ✅ Fixed |
+| PA-04 | HIGH | Edits during review not flagged | Open (needs `updated_while_pending` column) |
 | PA-05 | HIGH | Admins can't see draft pipeline | ✅ Fixed |
 | PA-06 | HIGH | Seller approval auto-approves all products | ✅ Fixed |
 | PA-07 | MEDIUM | rejection_note cleared on non-content edits | ✅ Fixed |
 | PA-08 | MEDIUM | Admin statusBadge missing 'draft' case | ✅ Fixed |
 | PA-09 | MEDIUM | No notification on product approval/rejection | ✅ Fixed |
 | PA-10 | MEDIUM | Specs/MRP changes bypass re-approval | ✅ Fixed |
-| PA-11 | MEDIUM | Silent failure on onboarding product transition | Open |
-| PA-12 | LOW | Missing contextual hints for non-approved states | Open |
-| PA-13 | LOW | Shared rejection note state in admin | Open |
-| PA-14 | LOW | No admin view for rejected product history | Open |
-| PA-15 | LOW | No DB constraint on approval_status values | Open |
+| PA-11 | MEDIUM | Silent failure on onboarding product transition | ✅ Fixed |
+| PA-12 | LOW | Missing contextual hints for non-approved states | ✅ Fixed |
+| PA-13 | LOW | Shared rejection note state in admin | Open (minor UX) |
+| PA-14 | LOW | No admin view for rejected product history | ✅ Fixed |
+| PA-15 | LOW | No DB constraint on approval_status values | ✅ Fixed |
