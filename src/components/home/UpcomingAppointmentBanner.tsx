@@ -20,17 +20,23 @@ export function UpcomingAppointmentBanner() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<UpcomingBooking | null>(null);
+  // [FIX] Add a refresh key so external invalidation (cancel/book) forces re-fetch
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Listen for custom event to refresh banner (fired after booking/cancel)
+  useEffect(() => {
+    const handler = () => setRefreshKey(k => k + 1);
+    window.addEventListener('booking-changed', handler);
+    return () => window.removeEventListener('booking-changed', handler);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
-    let cancelled = false; // [BUG FIX #M6] Prevent state update on unmount
+    let cancelled = false;
 
     (async () => {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      // [BUG FIX #H10] Also exclude 'rescheduled' from showing stale data —
-      // rescheduled bookings should show with their NEW date, which they do since
-      // the reschedule RPC updates booking_date. But we should also filter out past-time
-      // bookings for today.
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
       const { data } = await supabase
         .from('service_bookings')
         .select('id, order_id, booking_date, start_time, end_time, status, product:products!service_bookings_product_id_fkey(name, seller_id)')
@@ -39,12 +45,13 @@ export function UpcomingAppointmentBanner() {
         .not('status', 'in', '("cancelled","completed","no_show")')
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true })
-        .limit(5); // [BUG FIX #M7] Fetch a few to filter past-time today slots
+        .limit(5);
 
-      if (cancelled || !data || data.length === 0) return;
+      if (cancelled || !data || data.length === 0) {
+        if (!cancelled) setBooking(null);
+        return;
+      }
 
-      // [BUG FIX #M7] Filter out today's bookings where the time has already passed
-      const now = new Date();
       const currentTimeStr = format(now, 'HH:mm:ss');
       const todayStr = format(now, 'yyyy-MM-dd');
       const validBooking = data.find((b: any) => {
@@ -52,7 +59,10 @@ export function UpcomingAppointmentBanner() {
         return true;
       });
 
-      if (!validBooking) return;
+      if (!validBooking) {
+        if (!cancelled) setBooking(null);
+        return;
+      }
 
       const product = (validBooking as any).product;
       let sellerName = '';
@@ -79,7 +89,7 @@ export function UpcomingAppointmentBanner() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   if (!booking) return null;
 
