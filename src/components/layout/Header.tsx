@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store } from 'lucide-react';
+import { ArrowLeft, Bell, Building, Building2, ShieldCheck, Store, Users, Verified } from 'lucide-react';
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { TypewriterPlaceholder } from '@/components/search/TypewriterPlaceholder';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { useUnreadNotificationCount } from '@/hooks/useUnreadNotificationCount';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   showCart?: boolean;
@@ -38,13 +40,28 @@ function HeaderInner({
       navigate('/society');
     }
   }, [navigate]);
-  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, setViewAsSociety, isAdmin, isBuilderMember, isSeller } = useAuth();
+  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, effectiveSocietyId, setViewAsSociety, isAdmin, isBuilderMember, isSeller } = useAuth();
   const { itemCount } = useCart();
   const { selectionChanged } = useHaptics();
   const unreadCount = useUnreadNotificationCount();
 
   const displaySociety = effectiveSociety || society;
   const isViewingAs = viewAsSocietyId && (isAdmin || isBuilderMember);
+
+  // Inline society stats (replaces standalone SocietyTrustStrip)
+  const { data: societyStats } = useQuery({
+    queryKey: ['society-trust-strip', effectiveSocietyId],
+    queryFn: async () => {
+      if (!effectiveSocietyId) return null;
+      const [{ count: sellerCount }, { data: soc }] = await Promise.all([
+        supabase.from('seller_profiles').select('id', { count: 'exact', head: true }).eq('society_id', effectiveSocietyId).eq('verification_status', 'approved'),
+        supabase.from('societies').select('member_count, is_verified').eq('id', effectiveSocietyId).maybeSingle(),
+      ]);
+      return { families: soc?.member_count || 0, sellers: sellerCount || 0, isVerified: soc?.is_verified || false };
+    },
+    enabled: !!isApproved && !!effectiveSocietyId,
+    staleTime: 5 * 60_000,
+  });
 
   // Get initials for avatar
   const initials = profile?.name
@@ -71,11 +88,28 @@ function HeaderInner({
                 {settings.headerTagline}
               </p>
               {displaySociety && (
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <Building size={12} className="text-muted-foreground shrink-0" />
-                  <span className="text-[11px] font-semibold text-foreground truncate max-w-[65vw]">
+                  <span className="text-[11px] font-semibold text-foreground truncate max-w-[45vw]">
                     {displaySociety.name}
                   </span>
+                  {societyStats?.isVerified && (
+                    <Verified size={12} className="text-primary shrink-0" />
+                  )}
+                  {societyStats && (
+                    <>
+                      <span className="w-[3px] h-[3px] rounded-full bg-border shrink-0" />
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                        <Users size={10} className="text-primary/70" />
+                        <span className="font-semibold">{societyStats.families}</span> families
+                      </span>
+                      <span className="w-[3px] h-[3px] rounded-full bg-border shrink-0" />
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                        <Store size={10} className="text-primary/70" />
+                        <span className="font-semibold">{societyStats.sellers}</span> sellers
+                      </span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
