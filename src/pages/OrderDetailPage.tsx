@@ -248,6 +248,9 @@ export default function OrderDetailPage() {
                 </div>
               )}
 
+              {/* Booking add-ons */}
+              <BookingAddonsSummary bookingId={serviceBooking.id} />
+
               {/* Session-level feedback for completed bookings */}
               {o.isBuyerView && (
                 <SessionFeedbackPrompt bookingId={serviceBooking.id} bookingStatus={serviceBooking.status} />
