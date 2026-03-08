@@ -13,6 +13,7 @@ import { LiveDeliveryTracker } from '@/components/delivery/LiveDeliveryTracker';
 import { OrderItemCard } from '@/components/order/OrderItemCard';
 import { ServiceBookingActions } from '@/components/order/ServiceBookingActions';
 import { BookingAddonsSummary } from '@/components/booking/BookingAddonsSummary';
+import { SessionFeedbackPrompt } from '@/components/booking/SessionFeedbackPrompt';
 import { BuyerCancelBooking } from '@/components/booking/BuyerCancelBooking';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
