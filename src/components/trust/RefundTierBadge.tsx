@@ -1,4 +1,4 @@
-import { Shield, Zap, Clock, Scale } from 'lucide-react';
+import { Zap, Clock, Scale } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,6 +12,20 @@ interface RefundTier {
   description: string;
 }
 
+function validateRefundTier(data: unknown): RefundTier | null {
+  if (data == null || typeof data !== 'object') return null;
+  const d = data as Record<string, unknown>;
+  if (typeof d.tier !== 'string' || typeof d.label !== 'string' || typeof d.description !== 'string') return null;
+  if (!['instant', '24h', 'mediation'].includes(d.tier)) return null;
+  return { tier: d.tier, label: d.label, description: d.description };
+}
+
+function getFallbackTier(amount: number): RefundTier {
+  if (amount < 200) return { tier: 'instant', label: 'Instant Refund', description: 'Processed immediately' };
+  if (amount <= 1000) return { tier: '24h', label: '24h Review', description: 'Reviewed within 24 hours' };
+  return { tier: 'mediation', label: 'Dispute Mediation', description: 'Handled by community committee' };
+}
+
 export function RefundTierBadge({ amount }: Props) {
   const [tier, setTier] = useState<RefundTier | null>(null);
 
@@ -19,13 +33,11 @@ export function RefundTierBadge({ amount }: Props) {
     supabase.rpc('get_refund_tier', { _amount: amount }).then(({ data, error }) => {
       if (error) {
         console.warn('[RefundTierBadge] RPC error, using fallback:', error.message);
-        // Fallback to local logic
-        if (amount < 200) setTier({ tier: 'instant', label: 'Instant Refund', description: 'Processed immediately' });
-        else if (amount <= 1000) setTier({ tier: '24h', label: '24h Review', description: 'Reviewed within 24 hours' });
-        else setTier({ tier: 'mediation', label: 'Dispute Mediation', description: 'Handled by community committee' });
+        setTier(getFallbackTier(amount));
         return;
       }
-      if (data) setTier(data as unknown as RefundTier);
+      const validated = validateRefundTier(data);
+      setTier(validated || getFallbackTier(amount));
     });
   }, [amount]);
 

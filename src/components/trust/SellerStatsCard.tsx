@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Users, TrendingUp, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Clock, Users, TrendingUp, ShieldCheck, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSellerTrustSnapshot, type SellerTrustSnapshot } from '@/hooks/queries/useProductTrustMetrics';
@@ -16,17 +16,16 @@ export function SellerStatsCard({ sellerId }: SellerStatsCardProps) {
 
   if (!trust || trust.completed_orders === 0) return null;
 
-  const fulfillmentRate = trust.completed_orders > 0
-    ? Math.round(((trust.completed_orders) / (trust.completed_orders + (trust as any).cancelled_count || 0)) * 100) || 100
-    : 100;
+  const denom = trust.completed_orders + trust.cancelled_orders;
+  const fulfillmentRate = denom > 0 ? Math.round((trust.completed_orders / denom) * 100) : null;
 
   const stats = [
-    {
+    ...(fulfillmentRate !== null ? [{
       icon: CheckCircle,
       label: 'Fulfillment',
       value: `${fulfillmentRate}%`,
       color: 'text-success',
-    },
+    }] : []),
     {
       icon: Users,
       label: 'Repeat Buyers',
