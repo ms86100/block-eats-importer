@@ -68,7 +68,17 @@ export default function SellerProductsPage() {
                   <div className="p-3 bg-muted rounded-lg space-y-3"><div className="flex items-center justify-between"><div><span className="text-sm font-medium block">Track Stock Quantity</span><span className="text-xs text-muted-foreground">Auto-marks unavailable when stock hits zero</span></div><Switch checked={sp.formData.stock_quantity !== ''} onCheckedChange={(checked) => sp.setFormData({ ...sp.formData, stock_quantity: checked ? '10' : '' })} /></div>{sp.formData.stock_quantity !== '' && <div className="grid grid-cols-2 gap-3 pt-2 border-t"><div className="space-y-1"><Label className="text-xs">Current Stock</Label><Input type="number" min="0" value={sp.formData.stock_quantity} onChange={(e) => sp.setFormData({ ...sp.formData, stock_quantity: e.target.value })} /></div><div className="space-y-1"><Label className="text-xs">Low Stock Alert</Label><Input type="number" min="1" value={sp.formData.low_stock_threshold} onChange={(e) => sp.setFormData({ ...sp.formData, low_stock_threshold: e.target.value })} /></div></div>}</div>
                   <AttributeBlockBuilder category={sp.formData.category || null} value={sp.attributeBlocks} onChange={sp.setAttributeBlocks} />
                   {sp.isCurrentCategoryService && (
-                    <ServiceFieldsSection data={sp.serviceFields} onChange={sp.setServiceFields} />
+                    <>
+                      <ServiceFieldsSection data={sp.serviceFields} onChange={sp.setServiceFields} />
+                      <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+                        <p className="text-xs font-medium">Enabled for this category</p>
+                        <div className="grid gap-1 text-xs text-muted-foreground">
+                          <p>• Service Add-ons: {sp.currentCategorySupportsAddons ? 'enabled' : 'not enabled'}</p>
+                          <p>• Recurring Bookings: {sp.currentCategorySupportsRecurring ? 'enabled' : 'not enabled'}</p>
+                          <p>• Staff Assignment: {sp.currentCategorySupportsStaffAssignment ? 'enabled' : 'not enabled'}</p>
+                        </div>
+                      </div>
+                    </>
                   )}
                   {sp.editingProduct && sp.currentCategorySupportsAddons && (
                     <ServiceAddonsManager productId={sp.editingProduct.id} />
