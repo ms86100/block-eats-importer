@@ -315,6 +315,29 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                     </div>
                   )}
 
+                  {/* BUG FIX: Added rescheduled status — seller needs to re-confirm or take action */}
+                  {booking.status === 'rescheduled' && (
+                    <div className="flex gap-2 pt-1 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'confirmed')}
+                      >
+                        {isActionLoading && actionLoading?.action === 'confirmed' ? <Loader2 className="animate-spin" size={12} /> : <Check size={12} />} Confirm
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                        disabled={isActionLoading}
+                        onClick={() => updateBookingStatus(booking.id, booking.order_id, 'cancelled')}
+                      >
+                        {isActionLoading && actionLoading?.action === 'cancelled' ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />} Reject
+                      </Button>
+                    </div>
+                  )}
+
                   {['confirmed', 'scheduled'].includes(booking.status) && (
                     <div className="flex gap-2 pt-1 border-t border-border">
                       <Button
