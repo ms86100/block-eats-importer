@@ -47,7 +47,9 @@ export default function SellerDashboardPage() {
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0 ? sellerProfiles[0].id : null);
+  const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0
+    ? (sellerProfiles.find(sp => sp.verification_status === 'approved') || sellerProfiles[0]).id
+    : null);
   const { pendingAlerts, dismiss: dismissAlert, snooze: snoozeAlert } = useNewOrderAlert(activeSellerId);
   const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
   const sellerFlags = useSellerCategoryFlags(sellerCategories);
@@ -60,8 +62,7 @@ export default function SellerDashboardPage() {
       const { count } = await supabase
         .from('service_availability_schedules')
         .select('*', { count: 'exact', head: true })
-        .eq('seller_id', activeSellerId)
-        .eq('is_active', true);
+        .eq('seller_id', activeSellerId);
       return (count ?? 0) > 0;
     },
     enabled: !!activeSellerId && sellerFlags.hasServiceLayout,

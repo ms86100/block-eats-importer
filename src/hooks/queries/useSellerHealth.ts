@@ -70,15 +70,17 @@ export function useSellerHealth(sellerId: string | null) {
         checks.push({ key: 'store_verified', label: 'Store approval pending', status: 'warn', message: 'Your store is under admin review. Buyers cannot see it yet.', group: 'critical' });
       } else if (verStatus === 'rejected') {
         checks.push({ key: 'store_verified', label: 'Store rejected', status: 'fail', message: 'Your store was rejected. Edit and resubmit for review.', actionLabel: 'Edit Store', actionRoute: '/seller/settings', group: 'critical' });
+      } else if (verStatus === 'draft') {
+        checks.push({ key: 'store_verified', label: 'Store is in draft', status: 'fail', message: 'This store hasn\'t been submitted yet. Complete setup or switch to your approved store.', actionLabel: 'Complete Setup', actionRoute: '/become-seller', group: 'critical' });
       } else {
-        checks.push({ key: 'store_verified', label: 'Store in draft', status: 'fail', message: 'Your store hasn\'t been submitted yet.', actionLabel: 'Complete Setup', actionRoute: '/become-seller', group: 'critical' });
+        checks.push({ key: 'store_verified', label: 'Store status unknown', status: 'warn', message: `Current status: "${verStatus}". Contact support if this seems incorrect.`, group: 'critical' });
       }
 
       // C2: Store availability toggle
       if (profile.is_available) {
         checks.push({ key: 'store_available', label: 'Store is open', status: 'pass', message: 'Buyers can see your store.', group: 'critical' });
       } else {
-        checks.push({ key: 'store_available', label: 'Store is closed', status: 'fail', message: 'Your store is marked as closed. Toggle it open to become visible.', group: 'critical' });
+        checks.push({ key: 'store_available', label: 'Store is paused', status: 'warn', message: 'Your store is approved but currently paused. Toggle it open to become visible to buyers.', group: 'critical' });
       }
 
       // C3: At least one approved & available product

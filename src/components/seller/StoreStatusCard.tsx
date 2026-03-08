@@ -50,10 +50,10 @@ export function StoreStatusCard({ sellerProfile, sellerProfiles, onToggleAvailab
             <div className="flex items-center gap-2 mt-0.5">
               <span className="inline-flex items-center gap-1 text-xs font-medium text-accent">
                 <CheckCircle2 size={12} />
-                Store is live
+                Approved
               </span>
               <span className="text-xs text-muted-foreground">
-                •{' '}{sellerProfile.is_available ? '🟢 Open' : '🔴 Closed'}
+                •{' '}{sellerProfile.is_available ? '🟢 Open' : '🟡 Paused'}
               </span>
             </div>
           </div>

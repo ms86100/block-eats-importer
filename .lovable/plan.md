@@ -1,71 +1,134 @@
+## Category Configuration & Attribute Blocks — COMPLETED
 
+### What Was Done
 
-# Seller Dashboard Audit — Findings & Fix Plan
+**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
+- Food & Beverages → `cart_purchase`
+- Education → `book_slot` (with recurring, staff, addons as appropriate)
+- Home Services → `request_service` / `request_quote` / `book_slot`
+- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
+- Domestic Help → `contact_only` (with recurring)
+- Events → `request_quote` / `book_slot`
+- Professional → `book_slot` / `request_service` / `request_quote`
+- Pets → `cart_purchase` / `book_slot`
+- Rentals → `contact_only` / `cart_purchase`
+- Shopping → `cart_purchase` / `buy_now`
+- Real Estate → `schedule_visit` / `contact_only`
 
-## Issue 1: "Set up your service hours" banner shows even after configuration
+**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
+food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
 
-**Root Cause**: The query on line 56-68 of `SellerDashboardPage.tsx` checks `service_availability_schedules` where `is_active = true`. If the seller saved schedules but they were saved with `is_active = false` (or the column defaults to false), the count returns 0 and the banner persists. Additionally, `hasSchedules` starts as `undefined` before the query resolves — the condition `hasSchedules === false` doesn't distinguish "not loaded yet" from "truly none."
-
-**Fix**:
-- In the query, also count rows where `is_active` might be null (i.e., remove or relax the `is_active` filter — count any schedule rows for this seller).
-- Guard the banner render: only show when `hasSchedules === false` (strict false, not undefined), which is already done — but the real bug is the `is_active` filter being too strict.
-
-**File**: `src/pages/SellerDashboardPage.tsx` lines 56-68
-
----
-
-## Issue 2: Status indicator shows red (🔴 Closed) despite admin approval
-
-**Root Cause**: The `StoreStatusCard` shows "Store is live" (from `verification_status === 'approved'` implied by not being pending) but then shows `🔴 Closed` because `is_available` is `false`. These are two separate states: admin approval vs. operational open/closed toggle. The card conflates them — it says "Store is live" (approved) but shows a red dot (closed operationally).
-
-The `SellerVisibilityChecklist` similarly shows a red `fail` status for "Store is closed" (line 81) when `is_available` is false, even though the store is approved.
-
-**Fix**:
-- In `StoreStatusCard`, when `is_available` is false but store is approved, show an amber/info indicator instead of red — clarify "Store is approved but currently paused" vs implying it's broken.
-- Improve the status line to distinguish approval status from operational status: e.g., "✅ Approved • ⏸ Paused" vs "✅ Approved • 🟢 Open".
-
-**File**: `src/components/seller/StoreStatusCard.tsx` lines 50-57
+### No Code Changes Needed
+Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
 
 ---
 
-## Issue 3: "Store in draft" appears for an approved seller
+## Listing Type Behavior Fix — COMPLETED
 
-**Root Cause**: In `useSellerHealth.ts` line 66-75, the verification_status check has an `else` branch (line 73-74) that catches any status that isn't `approved`, `pending`, or `rejected` — and labels it "Store in draft." 
+### Root Cause
+- DB trigger `propagate_category_transaction_type` was never installed
+- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
+- DB default was `'buy'` instead of `'add_to_cart'`
+- No INSERT-time trigger to derive action_type from category
 
-The user has **multiple seller profiles** (the code supports this via `sellerProfiles` array and `SellerSwitcher`). The dashboard passes the `activeSellerId` to the checklist. If the active seller ID accidentally points to a **draft profile** (e.g., the user started creating a second business but didn't finish), the checklist correctly shows "Store in draft."
+### Database Fixes Applied
+1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
+2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
+3. **Default changed** to `'add_to_cart'`
+4. **Backfilled** all existing products with correct action_type values
+5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
 
-**Fix**:
-- The `SellerVisibilityChecklist` receives the correct `sellerProfile.id` from the dashboard, so this should match. But verify: if `currentSellerId` in AuthContext points to a draft profile, the entire dashboard renders for that draft profile.
-- Add a safeguard: in the health check, if `verification_status` is `'draft'`, show a more specific message like "This store is a draft. Switch to your approved store or complete setup." with a switcher prompt.
-- Also ensure that the `activeSellerId` defaults to the first **non-draft** seller profile.
+### Frontend Fixes Applied
+1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
+2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
+3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
+4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
+5. **useProductDetail** — uses `deriveActionType`
+6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
+7. **useBulkUpload** — sets `action_type` from category config on bulk create
+8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
 
-**File**: `src/pages/SellerDashboardPage.tsx` line 50 — prefer non-draft profile in fallback selection.
-**File**: `src/hooks/queries/useSellerHealth.ts` line 73-75 — improve draft messaging.
+### Mapping Reference
+| transaction_type | action_type | Button |
+|-----------------|-------------|--------|
+| cart_purchase | add_to_cart | ADD |
+| buy_now | buy_now | BUY |
+| book_slot | book | Book |
+| request_service | request_service | Request |
+| request_quote | request_quote | Quote |
+| contact_only | contact_seller | Contact |
+| schedule_visit | schedule_visit | Visit |
 
 ---
 
-## Issue 4: Feedback has no admin visibility
+## Buyer & Seller Service Booking Experience — COMPLETED
 
-**Root Cause**: The `FeedbackSheet` inserts into `user_feedback` table, but there is **no admin panel component** that reads from this table. The data is saved to the database but has no retrieval UI anywhere.
+### What Was Done
 
-**Fix**:
-- Create an `AdminFeedbackViewer` component that queries `user_feedback` (joined with `profiles` for user name) and displays it in a sortable table.
-- Add it as a new sub-section in the admin panel (e.g., under the existing admin tabs or as part of the Settings/System area).
+**1. Database: `session_feedback` table**
+- New table with RLS for per-session ratings (1-5 stars + comment)
+- Buyer can insert/read own; seller can read for their bookings
+- Validation trigger ensures rating 1-5
 
-**File**: New `src/components/admin/AdminFeedbackViewer.tsx`
-**File**: `src/pages/AdminPage.tsx` — add rendering for the feedback viewer.
+**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
+- Fetches upcoming bookings for buyer joined with product + seller info
+- Also added `useSessionFeedback` hook for checking existing feedback
+
+**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
+- Week strip day selector with dot indicators
+- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
+- Each booking card shows: service name, seller, time, location type, status badge
+- Tap navigates to order detail
+- Self-hides if no upcoming bookings
+
+**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
+- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
+
+**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
+- Location type with icon (home visit / at seller / online)
+- Duration display (e.g., "60 min")
+- Buyer address when present (home visits)
+
+**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
+- Inline 1-5 star rating with optional comment
+- Shows after booking is completed on order detail page
+- Shows "rated X/5" summary if already submitted
+
+**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
+- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
+- Session feedback prompt integrated below booking add-ons
 
 ---
 
-## Summary of Changes
+## Service Marketplace Tier 1 Enhancements — COMPLETED
 
-| File | Change |
-|------|--------|
-| `src/pages/SellerDashboardPage.tsx` | Remove `is_active` filter from schedule query; prefer non-draft seller in fallback |
-| `src/components/seller/StoreStatusCard.tsx` | Distinguish approved+paused from approved+open visually |
-| `src/hooks/queries/useSellerHealth.ts` | Improve draft status messaging and action label |
-| `src/components/admin/AdminFeedbackViewer.tsx` | New component — table showing user feedback with ratings, messages, timestamps |
-| `src/pages/AdminPage.tsx` | Add Feedback tab/section to admin panel |
+### What Was Done
 
-All existing functionality preserved. No hooks, mutations, or routes are modified — only UI rendering logic and one new read-only admin component.
+**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
+- Client-side .ics file generation with event title, date, time, location, description
+- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
+- Works with Google Calendar, Apple Calendar, Outlook
 
+**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
+- Vertical timeline showing today's bookings with time, service, buyer, status
+- Quick "View" action navigates to order detail
+- Integrated at top of Service Bookings section in SellerDashboardPage
+- Auto-hides if no bookings today
+
+**3. Preparation Instructions** (`service_listings.preparation_instructions`)
+- New column on `service_listings` table
+- Seller can edit in ServiceFieldsSection form during product creation/editing
+- Displayed on OrderDetailPage as "How to prepare" card
+- Included in iCal export description
+
+**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
+- New `slot_holds` table with 5-minute expiry
+- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
+- `release_slot_hold` RPC: releases hold on checkout or navigation away
+- RLS policies for authenticated users on own holds
+
+**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
+- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
+- RLS: buyers can join/view/leave their own waitlist entries
+- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
+- Unique constraint prevents duplicate waitlist entries
