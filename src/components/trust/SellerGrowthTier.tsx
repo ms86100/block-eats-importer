@@ -14,8 +14,10 @@ const TIERS = [
   { min: 100, max: Infinity, key: 'top', label: 'Top Seller', icon: Crown, color: 'bg-amber-100 text-amber-700' },
 ] as const;
 
+type Tier = typeof TIERS[number];
+
 export function SellerGrowthTier({ completedOrders, rating, isRegistered }: Props) {
-  let tier = TIERS[0];
+  let tier: Tier = TIERS[0];
   for (const t of TIERS) {
     if (completedOrders >= t.min && completedOrders <= t.max) {
       tier = t;
