@@ -181,6 +181,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       console.error('Update booking error:', err);
       toast.error('Failed to update booking');
     } finally {
+      actionLoadingRef.current = null;
       setActionLoading(null);
     }
   }, [bookings, sellerId, actionLoading, refetch, queryClient]);
