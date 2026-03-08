@@ -13,8 +13,10 @@ import { LiveDeliveryTracker } from '@/components/delivery/LiveDeliveryTracker';
 import { OrderItemCard } from '@/components/order/OrderItemCard';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
+import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
 import { OrderItem, OrderStatus, PaymentStatus, ItemStatus } from '@/types/database';
-import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck } from 'lucide-react';
+import { SERVICE_STATUS_LABELS } from '@/types/service';
+import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
@@ -25,6 +27,7 @@ export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const o = useOrderDetail(id);
+  const { data: serviceBooking } = useServiceBookingForOrder(id);
   const [deliveryAssignmentId, setDeliveryAssignmentId] = useState<string | null>(null);
 
   const order = o.order;
