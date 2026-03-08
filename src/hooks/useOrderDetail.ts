@@ -127,7 +127,7 @@ export function useOrderDetail(id: string | undefined) {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (cancelled = false) => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -135,18 +135,19 @@ export function useOrderDetail(id: string | undefined) {
         .eq('id', id)
         .single();
       if (error) throw error;
+      if (cancelled) return;
       setOrder(data as any);
       // C8: Only fetch review status for terminal statuses where reviews are possible
       if (data?.status === 'completed' || data?.status === 'delivered') {
         const { data: reviewData } = await supabase.from('reviews').select('id').eq('order_id', id).single();
-        setHasReview(!!reviewData);
+        if (!cancelled) setHasReview(!!reviewData);
       } else {
-        setHasReview(false);
+        if (!cancelled) setHasReview(false);
       }
     } catch (error) {
       console.error('Error fetching order:', error);
     } finally {
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     }
   };
 

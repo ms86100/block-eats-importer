@@ -27,11 +27,12 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "") || "";
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const isAllowed = !authHeader || token === supabaseServiceKey || token === anonKey;
-    if (authHeader && !isAllowed) {
+    const isServiceOrAnon = !authHeader || token === supabaseServiceKey || token === anonKey;
+    if (authHeader && !isServiceOrAnon) {
+      // [BUG FIX] Use getUser() instead of non-existent getClaims()
       const authClient = createClient(supabaseUrl, anonKey!, { global: { headers: { Authorization: authHeader } } });
-      const { data, error: authErr } = await authClient.auth.getClaims(token);
-      if (authErr || !data?.claims) {
+      const { data: userData, error: authErr } = await authClient.auth.getUser(token);
+      if (authErr || !userData?.user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }

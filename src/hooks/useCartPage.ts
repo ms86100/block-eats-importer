@@ -108,13 +108,30 @@ export function useCartPage() {
       })),
     }));
 
+    // [BUG FIX] Validate prices match server before placing order (prevent stale price exploit)
+    const { data: freshPrices } = await supabase
+      .from('products')
+      .select('id, price')
+      .in('id', items.map(i => i.product_id));
+
+    const priceMismatch = items.find(item => {
+      const fresh = freshPrices?.find(p => p.id === item.product_id);
+      return fresh && Math.abs(fresh.price - (item.product?.price || 0)) > 0.01;
+    });
+
+    if (priceMismatch) {
+      toast.error('Some item prices have changed. Refreshing your cart...');
+      await refresh();
+      throw new Error('Price mismatch detected');
+    }
+
     const { data, error } = await supabase.rpc('create_multi_vendor_orders', {
       _buyer_id: user.id,
       _delivery_address: [profile.block, profile.flat_number].filter(Boolean).join(', '),
       _notes: notes || null,
       _payment_method: paymentMethod,
       _payment_status: paymentStatus,
-      _coupon_id: appliedCoupon?.id || null,
+      _coupon_id: appliedCoupon?.id || null,  // [BUG FIX] Pass null instead of empty string
       _coupon_code: appliedCoupon?.code || null,
       _coupon_discount: effectiveCouponDiscount,
       _cart_total: totalAmount,

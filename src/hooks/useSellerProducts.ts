@@ -258,6 +258,20 @@ export function useSellerProducts() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
+      // [BUG FIX] Check for active bookings before deleting
+      const { data: activeBookings } = await supabase
+        .from('service_bookings')
+        .select('id')
+        .eq('product_id', deleteTarget.id)
+        .not('status', 'in', '("cancelled","completed","no_show")')
+        .limit(1);
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error('Cannot delete: this product has active bookings. Cancel or complete them first.');
+        setDeleteTarget(null);
+        return;
+      }
+
       const { error } = await supabase.from('products').delete().eq('id', deleteTarget.id);
       if (error) throw error;
       toast.success('Product deleted');
