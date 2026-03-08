@@ -229,9 +229,10 @@ export function DraftProductManager({
       {products.map((product, index) => {
         const prodConfig = configs.find(c => c.category === product.category);
         const showVeg = prodConfig?.formHints.showVegToggle ?? false;
+        const prodSupportsAddons = prodConfig?.supportsAddons ?? false;
         return (
           <Card key={product.id || index} className="bg-muted/30">
-            <CardContent className="p-3">
+            <CardContent className="p-3 space-y-2">
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {product.image_url ? (
@@ -262,7 +263,7 @@ export function DraftProductManager({
                       </>
                     )}
                   </div>
-                {product.description && (
+                  {product.description && (
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                       {product.description}
                     </p>
@@ -277,6 +278,10 @@ export function DraftProductManager({
                   <Trash2 size={14} />
                 </Button>
               </div>
+              {/* Service Add-ons inline manager for saved service products */}
+              {product.id && prodSupportsAddons && (
+                <ServiceAddonsManager productId={product.id} />
+              )}
             </CardContent>
           </Card>
         );
