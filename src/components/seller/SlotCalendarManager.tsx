@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
-import { format, addDays, startOfToday, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
+import { useState, useMemo, useEffect } from 'react';
+import { format, addDays, startOfToday, isSameDay, startOfWeek } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { useServiceSlots, ServiceSlot } from '@/hooks/useServiceSlots';
+import { ServiceSlot } from '@/hooks/useServiceSlots';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Calendar, ChevronLeft, ChevronRight, Lock, Unlock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -14,16 +13,13 @@ interface SlotCalendarManagerProps {
   sellerId: string;
 }
 
-export function SlotCalendarManager({ productId, sellerId }: SlotCalendarManagerProps) {
+export function SlotCalendarManager({ productId }: SlotCalendarManagerProps) {
   const [selectedDate, setSelectedDate] = useState(startOfToday());
-  const { data: allSlots = [], refetch } = useServiceSlots(productId, 30);
   const [blockingSlots, setBlockingSlots] = useState<Set<string>>(new Set());
-
-  // Fetch ALL slots (including blocked) for management
   const [managementSlots, setManagementSlots] = useState<ServiceSlot[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     (async () => {
       const today = startOfToday();
       const endDate = addDays(today, 30);
@@ -38,7 +34,7 @@ export function SlotCalendarManager({ productId, sellerId }: SlotCalendarManager
       setManagementSlots((data || []) as ServiceSlot[]);
       setIsLoadingSlots(false);
     })();
-  });
+  }, [productId]);
 
   const weekStart = startOfWeek(selectedDate);
   const weekDates = useMemo(() => 
