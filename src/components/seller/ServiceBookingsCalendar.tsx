@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck, Check, X, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck, Check, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,10 +51,14 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
   }, [sellerId]);
 
   const assignStaff = async (bookingId: string, staffId: string | null) => {
-    await supabase
+    const { error } = await supabase
       .from('service_bookings')
       .update({ staff_id: staffId })
       .eq('id', bookingId);
+    if (error) {
+      toast.error('Failed to assign staff');
+      return;
+    }
     refetch();
     toast.success(staffId ? 'Staff assigned' : 'Staff unassigned');
   };
@@ -62,39 +66,73 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
   const updateBookingStatus = async (bookingId: string, orderId: string, newStatus: string) => {
     setActionLoading({ id: bookingId, action: newStatus });
     try {
-      await supabase
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) {
+        toast.error('Booking not found');
+        return;
+      }
+
+      // Prevent invalid transitions
+      const validTransitions: Record<string, string[]> = {
+        requested: ['confirmed', 'cancelled'],
+        confirmed: ['in_progress', 'no_show', 'cancelled'],
+        scheduled: ['in_progress', 'no_show', 'cancelled'],
+        in_progress: ['completed'],
+      };
+      const allowed = validTransitions[booking.status] || [];
+      if (!allowed.includes(newStatus)) {
+        toast.error(`Cannot transition from "${booking.status}" to "${newStatus}"`);
+        return;
+      }
+
+      // Update booking
+      const { error: bookingErr } = await supabase
         .from('service_bookings')
-        .update({ status: newStatus, ...(newStatus === 'cancelled' ? { cancelled_at: new Date().toISOString(), cancellation_reason: 'Rejected by seller' } : {}) })
+        .update({
+          status: newStatus,
+          ...(newStatus === 'cancelled' ? { cancelled_at: new Date().toISOString(), cancellation_reason: 'Rejected by seller' } : {}),
+        })
         .eq('id', bookingId);
 
-      const orderStatus = newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'cancelled' : newStatus === 'no_show' ? 'no_show' : newStatus === 'completed' ? 'completed' : newStatus;
+      if (bookingErr) throw bookingErr;
+
+      // Map booking status to order status
+      const orderStatusMap: Record<string, string> = {
+        confirmed: 'confirmed',
+        cancelled: 'cancelled',
+        no_show: 'no_show',
+        completed: 'completed',
+        in_progress: 'in_progress',
+      };
+      const orderStatus = orderStatusMap[newStatus] || newStatus;
+
       await supabase
         .from('orders')
-        .update({ status: orderStatus, ...(newStatus === 'cancelled' ? { rejection_reason: 'Rejected by seller' } : {}) })
+        .update({
+          status: orderStatus,
+          ...(newStatus === 'cancelled' ? { rejection_reason: 'Rejected by seller' } : {}),
+        })
         .eq('id', orderId);
 
-      // Free slot on cancel/no_show
-      if (newStatus === 'cancelled' || newStatus === 'no_show') {
-        const booking = bookings.find(b => b.id === bookingId);
-        if (booking?.slot_id) {
-          const { data: slotData } = await supabase
-            .from('service_slots')
-            .select('booked_count')
-            .eq('id', booking.slot_id)
-            .single();
-          if (slotData) {
-            await supabase
-              .from('service_slots')
-              .update({ booked_count: Math.max(0, slotData.booked_count - 1) })
-              .eq('id', booking.slot_id);
-          }
-        }
+      // Atomically free slot on cancel/no_show
+      if ((newStatus === 'cancelled' || newStatus === 'no_show') && booking.slot_id) {
+        await supabase.rpc('release_service_slot', { _slot_id: booking.slot_id });
       }
 
       refetch();
       queryClient.invalidateQueries({ queryKey: ['service-slots'] });
-      toast.success(`Booking ${newStatus === 'confirmed' ? 'confirmed' : newStatus === 'cancelled' ? 'rejected' : newStatus === 'no_show' ? 'marked no-show' : 'updated'}`);
+      queryClient.invalidateQueries({ queryKey: ['service-booking-order'] });
+
+      const labels: Record<string, string> = {
+        confirmed: 'Booking confirmed',
+        cancelled: 'Booking rejected',
+        no_show: 'Marked as no-show',
+        in_progress: 'Service started',
+        completed: 'Service completed',
+      };
+      toast.success(labels[newStatus] || 'Booking updated');
     } catch (err: any) {
+      console.error('Update booking error:', err);
       toast.error('Failed to update booking');
     } finally {
       setActionLoading(null);
@@ -111,7 +149,9 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
 
   const filteredBookings = useMemo(() => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return bookings.filter((b) => b.booking_date === dateStr);
+    return bookings
+      .filter((b) => b.booking_date === dateStr)
+      .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
   }, [bookings, selectedDate]);
 
   if (isLoading) {
@@ -231,7 +271,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         disabled={isActionLoading}
                         onClick={() => updateBookingStatus(booking.id, booking.order_id, 'confirmed')}
                       >
-                        <Check size={12} /> Accept
+                        {isActionLoading && actionLoading?.action === 'confirmed' ? <Loader2 className="animate-spin" size={12} /> : <Check size={12} />} Accept
                       </Button>
                       <Button
                         size="sm"
@@ -240,7 +280,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         disabled={isActionLoading}
                         onClick={() => updateBookingStatus(booking.id, booking.order_id, 'cancelled')}
                       >
-                        <X size={12} /> Reject
+                        {isActionLoading && actionLoading?.action === 'cancelled' ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />} Reject
                       </Button>
                     </div>
                   )}
@@ -253,6 +293,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         disabled={isActionLoading}
                         onClick={() => updateBookingStatus(booking.id, booking.order_id, 'in_progress')}
                       >
+                        {isActionLoading && actionLoading?.action === 'in_progress' ? <Loader2 className="animate-spin" size={12} /> : null}
                         Start Service
                       </Button>
                       <Button
@@ -262,7 +303,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         disabled={isActionLoading}
                         onClick={() => updateBookingStatus(booking.id, booking.order_id, 'no_show')}
                       >
-                        <AlertTriangle size={12} /> No Show
+                        {isActionLoading && actionLoading?.action === 'no_show' ? <Loader2 className="animate-spin" size={12} /> : <AlertTriangle size={12} />} No Show
                       </Button>
                     </div>
                   )}
@@ -275,7 +316,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         disabled={isActionLoading}
                         onClick={() => updateBookingStatus(booking.id, booking.order_id, 'completed')}
                       >
-                        <Check size={12} /> Mark Completed
+                        {isActionLoading && actionLoading?.action === 'completed' ? <Loader2 className="animate-spin" size={12} /> : <Check size={12} />} Mark Completed
                       </Button>
                     </div>
                   )}

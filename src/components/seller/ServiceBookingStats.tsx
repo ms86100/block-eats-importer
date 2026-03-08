@@ -1,7 +1,7 @@
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 
 interface ServiceBookingStatsProps {
   sellerId: string;
@@ -10,11 +10,23 @@ interface ServiceBookingStatsProps {
 export function ServiceBookingStats({ sellerId }: ServiceBookingStatsProps) {
   const { data: bookings = [] } = useSellerServiceBookings(sellerId);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfWeek(now);
+
   const todaysBookings = bookings.filter(b => b.booking_date === todayStr);
   const pendingRequests = bookings.filter(b => b.status === 'requested');
-  const upcomingConfirmed = bookings.filter(b => ['confirmed', 'scheduled'].includes(b.status));
-  const completedThisWeek = bookings.filter(b => b.status === 'completed');
+  const upcomingConfirmed = bookings.filter(b =>
+    ['confirmed', 'scheduled'].includes(b.status) && b.booking_date >= todayStr
+  );
+  const completedThisWeek = bookings.filter(b => {
+    if (b.status !== 'completed') return false;
+    try {
+      const d = new Date(b.booking_date);
+      return isWithinInterval(d, { start: weekStart, end: weekEnd });
+    } catch { return false; }
+  });
 
   if (bookings.length === 0) return null;
 
@@ -43,7 +55,7 @@ export function ServiceBookingStats({ sellerId }: ServiceBookingStatsProps) {
     },
     {
       icon: CheckCircle2,
-      label: "Done",
+      label: "This Week",
       value: completedThisWeek.length,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100',

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, addDays, startOfToday, isSameDay, startOfWeek } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceSlot } from '@/hooks/useServiceSlots';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface SlotCalendarManagerProps {
-  productId?: string; // optional — if empty, show product selector
+  productId?: string;
   sellerId: string;
 }
 
@@ -38,7 +38,6 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
         .eq('is_available', true)
         .order('name');
       
-      // Filter to only service products by checking service_listings
       if (data && data.length > 0) {
         const { data: serviceListings } = await supabase
           .from('service_listings')
@@ -55,25 +54,26 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
     })();
   }, [sellerId]);
 
-  // Fetch slots when product selected
-  useEffect(() => {
+  const fetchSlots = useCallback(async () => {
     if (!selectedProductId) return;
     setIsLoadingSlots(true);
-    (async () => {
-      const today = startOfToday();
-      const endDate = addDays(today, 30);
-      const { data } = await supabase
-        .from('service_slots')
-        .select('*')
-        .eq('product_id', selectedProductId)
-        .gte('slot_date', format(today, 'yyyy-MM-dd'))
-        .lte('slot_date', format(endDate, 'yyyy-MM-dd'))
-        .order('slot_date')
-        .order('start_time');
-      setManagementSlots((data || []) as ServiceSlot[]);
-      setIsLoadingSlots(false);
-    })();
+    const today = startOfToday();
+    const endDate = addDays(today, 30);
+    const { data } = await supabase
+      .from('service_slots')
+      .select('*')
+      .eq('product_id', selectedProductId)
+      .gte('slot_date', format(today, 'yyyy-MM-dd'))
+      .lte('slot_date', format(endDate, 'yyyy-MM-dd'))
+      .order('slot_date')
+      .order('start_time');
+    setManagementSlots((data || []) as ServiceSlot[]);
+    setIsLoadingSlots(false);
   }, [selectedProductId]);
+
+  useEffect(() => {
+    fetchSlots();
+  }, [fetchSlots]);
 
   const weekStart = startOfWeek(selectedDate);
   const weekDates = useMemo(() => 
@@ -89,27 +89,36 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
   const toggleBlock = async (slot: ServiceSlot) => {
     setBlockingSlots(prev => new Set(prev).add(slot.id));
     const newBlocked = !slot.is_blocked;
-    await supabase
+    const { error } = await supabase
       .from('service_slots')
       .update({ is_blocked: newBlocked })
       .eq('id', slot.id);
-    setManagementSlots(prev =>
-      prev.map(s => s.id === slot.id ? { ...s, is_blocked: newBlocked } : s)
-    );
+
+    if (error) {
+      toast.error('Failed to update slot');
+    } else {
+      setManagementSlots(prev =>
+        prev.map(s => s.id === slot.id ? { ...s, is_blocked: newBlocked } : s)
+      );
+      toast.success(newBlocked ? 'Slot blocked' : 'Slot unblocked');
+    }
     setBlockingSlots(prev => { const n = new Set(prev); n.delete(slot.id); return n; });
-    toast.success(newBlocked ? 'Slot blocked' : 'Slot unblocked');
   };
 
   const blockAllForDate = async () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const unblockedSlots = slotsForDate.filter(s => !s.is_blocked && s.booked_count === 0);
     if (unblockedSlots.length === 0) { toast.info('No available slots to block'); return; }
-    await supabase
+    const { error } = await supabase
       .from('service_slots')
       .update({ is_blocked: true })
       .eq('product_id', selectedProductId)
       .eq('slot_date', dateStr)
       .eq('booked_count', 0);
+    if (error) {
+      toast.error('Failed to block slots');
+      return;
+    }
     setManagementSlots(prev =>
       prev.map(s => s.slot_date === dateStr && s.booked_count === 0 ? { ...s, is_blocked: true } : s)
     );
@@ -118,11 +127,15 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
 
   const unblockAllForDate = async () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    await supabase
+    const { error } = await supabase
       .from('service_slots')
       .update({ is_blocked: false })
       .eq('product_id', selectedProductId)
       .eq('slot_date', dateStr);
+    if (error) {
+      toast.error('Failed to unblock slots');
+      return;
+    }
     setManagementSlots(prev =>
       prev.map(s => s.slot_date === dateStr ? { ...s, is_blocked: false } : s)
     );
@@ -232,7 +245,9 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
         <div className="space-y-1.5">
           <p className="text-xs font-semibold text-muted-foreground">{format(selectedDate, 'EEEE, MMM d')} — {slotsForDate.length} slots</p>
           {isLoadingSlots ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">Loading slots...</p>
+            <div className="flex items-center justify-center py-3 gap-2 text-xs text-muted-foreground">
+              <Loader2 className="animate-spin" size={14} /> Loading slots...
+            </div>
           ) : slotsForDate.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3 text-center">No slots for this date</p>
           ) : (

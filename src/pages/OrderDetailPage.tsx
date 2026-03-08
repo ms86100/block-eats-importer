@@ -13,6 +13,7 @@ import { LiveDeliveryTracker } from '@/components/delivery/LiveDeliveryTracker';
 import { OrderItemCard } from '@/components/order/OrderItemCard';
 import { ServiceBookingActions } from '@/components/order/ServiceBookingActions';
 import { BookingAddonsSummary } from '@/components/booking/BookingAddonsSummary';
+import { BuyerCancelBooking } from '@/components/booking/BuyerCancelBooking';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
@@ -188,7 +189,7 @@ export default function OrderDetailPage() {
 
               {/* Reschedule / Cancel actions for buyer */}
               {o.isBuyerView && !['completed', 'cancelled', 'no_show'].includes(order.status) && serviceBooking.booking_date && serviceBooking.start_time && (
-                <div className="pt-2 border-t border-border mt-2">
+                <div className="pt-2 border-t border-border mt-2 flex gap-2 flex-wrap">
                   <ServiceBookingActions
                     orderId={order.id}
                     productId={serviceBooking.product_id}
@@ -196,6 +197,12 @@ export default function OrderDetailPage() {
                     bookingDate={serviceBooking.booking_date}
                     startTime={serviceBooking.start_time}
                     onUpdated={() => window.location.reload()}
+                  />
+                  <BuyerCancelBooking
+                    bookingId={serviceBooking.id}
+                    orderId={order.id}
+                    slotId={serviceBooking.slot_id}
+                    status={serviceBooking.status}
                   />
                 </div>
               )}
