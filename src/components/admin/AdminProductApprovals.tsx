@@ -171,38 +171,48 @@ export function AdminProductApprovals() {
                         <ProductAttributeBlocks specifications={product.specifications} />
                       </div>
                     )}
+                    {/* PA-14: Show rejection note for rejected products */}
+                    {product.approval_status === 'rejected' && product.rejection_note && (
+                      <div className="mt-2 p-2 bg-destructive/5 border border-destructive/20 rounded-lg">
+                        <p className="text-[10px] font-semibold text-destructive">Rejection reason:</p>
+                        <p className="text-xs text-muted-foreground">{product.rejection_note}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {rejectingId === product.id ? (
-                  <div className="space-y-2.5">
-                    <Textarea
-                      placeholder="Rejection reason (optional)..."
-                      value={rejectionNote}
-                      onChange={(e) => setRejectionNote(e.target.value)}
-                      rows={2}
-                      className="rounded-xl"
-                    />
+                {/* Hide action buttons for already rejected products */}
+                {product.approval_status !== 'rejected' && (
+                  rejectingId === product.id ? (
+                    <div className="space-y-2.5">
+                      <Textarea
+                        placeholder="Rejection reason (optional)..."
+                        value={rejectionNote}
+                        onChange={(e) => setRejectionNote(e.target.value)}
+                        rows={2}
+                        className="rounded-xl"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNote(''); }}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" variant="destructive" className="rounded-xl font-semibold" disabled={actionId === product.id} onClick={() => handleReject(product.id)}>
+                          {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
+                          Confirm Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNote(''); }}>
-                        Cancel
+                      <Button size="sm" variant="outline" className="text-destructive rounded-xl font-semibold" onClick={() => setRejectingId(product.id)} disabled={!!actionId}>
+                        <X size={14} className="mr-1" /> Reject
                       </Button>
-                      <Button size="sm" variant="destructive" className="rounded-xl font-semibold" disabled={actionId === product.id} onClick={() => handleReject(product.id)}>
+                      <Button size="sm" className="rounded-xl font-semibold shadow-sm" onClick={() => handleApprove(product.id)} disabled={!!actionId}>
                         {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
-                        Confirm Reject
+                        <Check size={14} className="mr-1" /> Approve
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="text-destructive rounded-xl font-semibold" onClick={() => setRejectingId(product.id)} disabled={!!actionId}>
-                      <X size={14} className="mr-1" /> Reject
-                    </Button>
-                    <Button size="sm" className="rounded-xl font-semibold shadow-sm" onClick={() => handleApprove(product.id)} disabled={!!actionId}>
-                      {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
-                      <Check size={14} className="mr-1" /> Approve
-                    </Button>
-                  </div>
+                  )
                 )}
               </CardContent>
             </Card>
