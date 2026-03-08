@@ -285,7 +285,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (qtyDelta !== 0) {
         queryClient.setQueryData(['cart-count', user?.id], (old: number | undefined) => Math.max(0, (old || 0) - qtyDelta));
       }
-      handleApiError(error, 'Failed to update quantity');
+      const availabilityError = parseStoreAvailabilityError(error);
+      if (availabilityError) toast.error(availabilityError);
+      else handleApiError(error, 'Failed to update quantity');
     }
   }, [user, setOptimistic, removeItem, queryClient]);
 
