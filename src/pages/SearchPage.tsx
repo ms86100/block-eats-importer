@@ -118,6 +118,11 @@ export default function SearchPage() {
             </div>
           )}
 
+          {/* Community search suggestions */}
+          {!s.isSearchActive && (
+            <CommunitySuggestions onSuggestionTap={(term) => s.setQuery(term)} />
+          )}
+
           {/* Category Bubbles */}
           <CategoryBubbleRow categories={s.categoryConfigs.filter(c => s.popularProducts.some(p => p.category === c.category))} selectedCategory={s.selectedCategory} onCategoryTap={s.handleCategoryTap} isLoading={s.categoriesLoading || s.isLoadingPopular} />
 

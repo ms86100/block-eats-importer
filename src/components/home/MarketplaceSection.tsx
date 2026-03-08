@@ -115,6 +115,18 @@ export function MarketplaceSection() {
 
       <FeaturedBanners />
 
+      {/* Trending in your society — order velocity based */}
+      {!activeGroup && (
+        <TrendingInSociety
+          onProductTap={handleProductTap}
+          onNavigate={navigate}
+          categoryConfigs={categoryConfigs}
+          marketplaceConfig={mc}
+          badgeConfigs={badgeConfigs}
+          socialProofMap={socialProofMap}
+        />
+      )}
+
       {!activeGroup && popularNearYou.length > (discoveryMinProducts || 3) && (
         <DiscoveryRow
           title={ml.label('label_discovery_popular')}
