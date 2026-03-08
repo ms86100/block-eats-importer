@@ -22,8 +22,29 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { seller_id, product_id, days_ahead = 14 }: SlotGenRequest =
-      await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { seller_id, product_id, days_ahead = 14, batch = false }: SlotGenRequest & { batch?: boolean } = body;
+
+    // Batch mode: generate for all sellers with active service listings
+    if (batch) {
+      const { data: sellers } = await supabase
+        .from('service_listings')
+        .select('products!inner(seller_id)')
+        .limit(500);
+
+      const uniqueSellerIds = [...new Set((sellers || []).map((s: any) => s.products?.seller_id).filter(Boolean))];
+      let totalCreated = 0;
+
+      for (const sid of uniqueSellerIds) {
+        const result = await generateSlotsForSeller(supabase, sid as string, undefined, days_ahead);
+        totalCreated += result;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, sellers_processed: uniqueSellerIds.length, slots_created: totalCreated }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!seller_id) {
       return new Response(
@@ -31,6 +52,23 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const totalCreated = await generateSlotsForSeller(supabase, seller_id, product_id, days_ahead);
+
+    return new Response(
+      JSON.stringify({ success: true, slots_created: totalCreated }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("generate-service-slots error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
+
+async function generateSlotsForSeller(supabase: any, seller_id: string, product_id?: string, days_ahead = 14): Promise<number> {
 
     // Get all service listings for this seller (or specific product)
     let query = supabase
