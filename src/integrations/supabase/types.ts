@@ -3954,6 +3954,7 @@ export type Database = {
           price: number
           price_per_unit: string | null
           price_stable_since: string | null
+          rejection_note: string | null
           rental_period_type: string | null
           secondary_images: string[] | null
           seller_id: string
@@ -4010,6 +4011,7 @@ export type Database = {
           price: number
           price_per_unit?: string | null
           price_stable_since?: string | null
+          rejection_note?: string | null
           rental_period_type?: string | null
           secondary_images?: string[] | null
           seller_id: string
@@ -4066,6 +4068,7 @@ export type Database = {
           price?: number
           price_per_unit?: string | null
           price_stable_since?: string | null
+          rejection_note?: string | null
           rental_period_type?: string | null
           secondary_images?: string[] | null
           seller_id?: string
