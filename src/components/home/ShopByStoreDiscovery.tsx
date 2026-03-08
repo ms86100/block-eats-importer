@@ -220,7 +220,7 @@ function CategorySellerRow({
   compact = false,
 }: {
   groupLabel: string;
-  sellers: { id: string; business_name: string; profile_image_url: string | null; rating: number }[];
+  sellers: { id: string; business_name: string; profile_image_url: string | null; rating: number; lastActiveAt?: string | null }[];
   compact?: boolean;
 }) {
   const navigate = useNavigate();
