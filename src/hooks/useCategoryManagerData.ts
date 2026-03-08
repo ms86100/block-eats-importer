@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { TRANSACTION_TO_ACTION } from '@/lib/marketplace-constants';
 import { useParentGroups, ParentGroupRow } from '@/hooks/useParentGroups';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
@@ -120,8 +121,15 @@ export function useCategoryManagerData() {
       const behaviorFlags = deriveBehaviorFlags(editForm.transaction_type);
       const { error } = await supabase.from('category_config').update({ display_name: editForm.display_name.trim(), icon: editForm.icon.trim(), color: editForm.color.trim(), image_url: editForm.image_url || null, name_placeholder: editForm.name_placeholder.trim() || null, description_placeholder: editForm.description_placeholder.trim() || null, price_label: editForm.price_label.trim() || 'Price', duration_label: editForm.duration_label.trim() || null, show_veg_toggle: editForm.show_veg_toggle, show_duration_field: editForm.show_duration_field, transaction_type: editForm.transaction_type, supports_addons: editForm.supports_addons, supports_recurring: editForm.supports_recurring, supports_staff_assignment: editForm.supports_staff_assignment, ...behaviorFlags }).eq('id', editingCategory.id);
       if (error) throw error;
+      // Backfill action_type on all products in this category
+      const newActionType = TRANSACTION_TO_ACTION[editForm.transaction_type];
+      if (newActionType) {
+        await supabase.from('products').update({ action_type: newActionType }).eq('category', editingCategory.category);
+      }
       setCategories(categories.map(c => c.id === editingCategory.id ? { ...c, ...editForm } : c));
       queryClient.invalidateQueries({ queryKey: ['category-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['category-products'] });
       toast.success('Category updated');
       setEditingCategory(null);
     } catch { toast.error('Failed to update category'); }
