@@ -1,62 +1,145 @@
 
 
-## Category Configuration & Attribute Blocks — COMPLETED
+# Fix: Product Filtering Should Use Category → Parent Group Mapping, Not Seller Primary Group
 
-### What Was Done
+## Problem
 
-**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
-- Food & Beverages → `cart_purchase`
-- Education → `book_slot` (with recurring, staff, addons as appropriate)
-- Home Services → `request_service` / `request_quote` / `book_slot`
-- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
-- Domestic Help → `contact_only` (with recurring)
-- Events → `request_quote` / `book_slot`
-- Professional → `book_slot` / `request_service` / `request_quote`
-- Pets → `cart_purchase` / `book_slot`
-- Rentals → `contact_only` / `cart_purchase`
-- Shopping → `cart_purchase` / `buy_now`
-- Real Estate → `schedule_visit` / `contact_only`
+Products are incorrectly filtered by **seller's `primary_group`** instead of the **product's category → parent_group mapping**.
 
-**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
-food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
+**Evidence:**
+- Guitar product: `category: tutoring` → `parent_group: professional` (from `category_config`)
+- Seller's `primary_group: education_learning` (self-declared when creating seller profile)
+- Query filters: `.eq('seller.primary_group', 'professional')` → product excluded
 
-### No Code Changes Needed
-Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
+**Root cause:** Sellers can sell products across multiple categories, but the query assumes all products match the seller's primary group.
 
 ---
 
-## Listing Type Behavior Fix — COMPLETED
+## Affected Queries
 
-### Root Cause
-- DB trigger `propagate_category_transaction_type` was never installed
-- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
-- DB default was `'buy'` instead of `'add_to_cart'`
-- No INSERT-time trigger to derive action_type from category
+| Location | Issue |
+|----------|-------|
+| `usePopularProducts.ts` line 81 | `.eq('seller.primary_group', parentGroup!)` |
+| `CategoryGroupPage.tsx` line 94 | Top sellers: `.eq('primary_group', category!)` |
 
-### Database Fixes Applied
-1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
-2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
-3. **Default changed** to `'add_to_cart'`
-4. **Backfilled** all existing products with correct action_type values
-5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+---
 
-### Frontend Fixes Applied
-1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
-2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
-3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
-4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
-5. **useProductDetail** — uses `deriveActionType`
-6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
-7. **useBulkUpload** — sets `action_type` from category config on bulk create
-8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+## Fix Strategy
 
-### Mapping Reference
-| transaction_type | action_type | Button |
-|-----------------|-------------|--------|
-| cart_purchase | add_to_cart | ADD |
-| buy_now | buy_now | BUY |
-| book_slot | book | Book |
-| request_service | request_service | Request |
-| request_quote | request_quote | Quote |
-| contact_only | contact_seller | Contact |
-| schedule_visit | schedule_visit | Visit |
+**Replace seller-based filtering with product category-based filtering:**
+
+1. First fetch categories for the target parent group from `category_config`
+2. Filter products using `.in('category', categoryList)`
+
+---
+
+## Implementation
+
+### File: `src/hooks/queries/usePopularProducts.ts`
+
+**Change `useCategoryProducts` query:**
+
+```typescript
+export function useCategoryProducts(parentGroup: string | null, societyId: string | null) {
+  const { data: nearbyProducts } = useNearbyProducts();
+
+  const localQuery = useQuery({
+    queryKey: ['category-products', parentGroup, societyId],
+    queryFn: async (): Promise<ProductWithSeller[]> => {
+      // 1. Get all categories for this parent group
+      const { data: cats } = await supabase
+        .from('category_config')
+        .select('category')
+        .eq('parent_group', parentGroup!);
+      
+      const categoryList = (cats || []).map(c => c.category);
+      if (categoryList.length === 0) return [];
+
+      // 2. Query products by category (not seller.primary_group)
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          seller:seller_profiles!products_seller_id_fkey(
+            id, business_name, rating, society_id, verification_status, 
+            fulfillment_mode, delivery_note, availability_start, 
+            availability_end, operating_days, is_available
+          )
+        `)
+        .eq('is_available', true)
+        .eq('approval_status', 'approved')
+        .in('category', categoryList)  // ← Filter by product category
+        .order('is_bestseller', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (societyId) {
+        query = query.eq('seller.society_id', societyId);
+      }
+
+      // ... rest of mapping unchanged
+    },
+    enabled: !!parentGroup,
+    staleTime: 3 * 60 * 1000,
+  });
+
+  // ... merge with nearby products
+}
+```
+
+### File: `src/pages/CategoryGroupPage.tsx`
+
+**Fix top sellers query (line ~90):**
+
+The top sellers query should also be based on categories, not `seller.primary_group`:
+
+```typescript
+const { data: topSellers = [] } = useQuery({
+  queryKey: ['category-sellers', category, effectiveSocietyId],
+  queryFn: async () => {
+    // Get categories for this parent group
+    const { data: cats } = await supabase
+      .from('category_config')
+      .select('category')
+      .eq('parent_group', category!);
+    
+    const categoryList = (cats || []).map((c: any) => c.category);
+    if (categoryList.length === 0) return [];
+
+    // Get sellers who have products in these categories
+    const { data: sellers, error } = await supabase
+      .from('seller_profiles')
+      .select(`
+        *,
+        profile:profiles!seller_profiles_user_id_fkey(name, block),
+        products!products_seller_id_fkey(category)
+      `)
+      .eq('verification_status', 'approved')
+      .order('rating', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    
+    // Filter to sellers with at least one product in target categories
+    const filtered = (sellers || []).filter((s: any) => 
+      s.products?.some((p: any) => categoryList.includes(p.category))
+    );
+    
+    // Apply society filter
+    return societyId 
+      ? filtered.filter((s: any) => s.society_id === societyId).slice(0, 10)
+      : filtered.slice(0, 10);
+  },
+  enabled: !!category && !!effectiveSocietyId,
+});
+```
+
+---
+
+## Expected Outcome
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Guitar (tutoring → professional) with seller primary_group = education_learning | Not shown on Professional Services | Shown correctly |
+| Seller with products in multiple categories | Products only show in seller's primary_group page | Products show in correct category pages |
+| Top sellers list | Based on seller's self-declared group | Based on actual products in that category |
+
