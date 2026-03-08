@@ -46,27 +46,29 @@ function isChunkError(error: unknown): boolean {
          msg.includes('Loading CSS chunk');
 }
 
+function handleChunkError(): boolean {
+  const lastReload = Number(sessionStorage.getItem('chunk-reload-ts') || '0');
+  const now = Date.now();
+  // Allow reload if last chunk-reload was more than 10 seconds ago (prevents infinite loops)
+  if (now - lastReload > 10_000) {
+    sessionStorage.setItem('chunk-reload-ts', String(now));
+    window.location.reload();
+    return true;
+  }
+  return false;
+}
+
 // Logging-only global guards — they do NOT destroy the React tree.
 window.addEventListener("error", (event) => {
   if (isChunkError(event.error || event.message)) {
-    const reloaded = sessionStorage.getItem('chunk-reload');
-    if (!reloaded) {
-      sessionStorage.setItem('chunk-reload', '1');
-      window.location.reload();
-      return;
-    }
+    if (handleChunkError()) return;
   }
   console.error("[Bootstrap] Unhandled error:", event.error || event.message);
 });
 
 window.addEventListener("unhandledrejection", (event) => {
   if (isChunkError(event.reason)) {
-    const reloaded = sessionStorage.getItem('chunk-reload');
-    if (!reloaded) {
-      sessionStorage.setItem('chunk-reload', '1');
-      window.location.reload();
-      return;
-    }
+    if (handleChunkError()) return;
   }
   console.error("[Bootstrap] Unhandled rejection:", event.reason);
 });
