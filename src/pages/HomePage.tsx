@@ -7,7 +7,7 @@ import { MarketplaceSection } from '@/components/home/MarketplaceSection';
 import { ReorderLastOrder } from '@/components/home/ReorderLastOrder';
 import { BuyAgainRow } from '@/components/home/BuyAgainRow';
 import { SocietyQuickLinks } from '@/components/home/SocietyQuickLinks';
-import { SocietyTrustStrip } from '@/components/home/SocietyTrustStrip';
+
 import { HomeSearchSuggestions } from '@/components/home/HomeSearchSuggestions';
 import { CommunityTeaser } from '@/components/home/CommunityTeaser';
 import { UpcomingAppointmentBanner } from '@/components/home/UpcomingAppointmentBanner';
