@@ -373,14 +373,31 @@ function ProductListingCardInner({
         </h4>
 
         {product.seller_name && (
-          <p className="text-[10px] text-muted-foreground leading-tight line-clamp-1 mb-0.5">
-            by {product.seller_name}
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+            <span className="text-[10px] text-muted-foreground truncate">
+              by {product.seller_name}
+            </span>
+            {/* Seller trust tier badge */}
+            {(product.completed_order_count != null || (product as any).seller_completed_orders != null) && (
+              <SellerTrustBadge
+                completedOrders={(product.completed_order_count || (product as any).seller_completed_orders || 0)}
+                rating={(product.seller_rating || 0)}
+                size="sm"
+              />
+            )}
             {activityLabel && (
-              <span className="ml-1 text-[8px] opacity-70">
+              <span className="text-[8px] opacity-70">
                 · {activityLabel}
               </span>
             )}
-          </p>
+            {/* Inactive seller warning */}
+            {isSellerInactive && (
+              <span className="inline-flex items-center gap-0.5 text-[7px] font-bold text-warning bg-warning/15 rounded-full px-1 py-0.5">
+                <AlertTriangle size={7} />
+                Inactive
+              </span>
+            )}
+          </div>
         )}
 
         {/* On-time delivery badge */}
