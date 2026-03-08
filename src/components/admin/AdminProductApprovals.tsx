@@ -189,13 +189,13 @@ export function AdminProductApprovals() {
                     <div className="space-y-2.5">
                       <Textarea
                         placeholder="Rejection reason (optional)..."
-                        value={rejectionNote}
-                        onChange={(e) => setRejectionNote(e.target.value)}
+                        value={rejectionNotes[product.id] || ''}
+                        onChange={(e) => setRejectionNotes(prev => ({ ...prev, [product.id]: e.target.value }))}
                         rows={2}
                         className="rounded-xl"
                       />
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNote(''); }}>
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNotes(prev => { const next = { ...prev }; delete next[product.id]; return next; }); }}>
                           Cancel
                         </Button>
                         <Button size="sm" variant="destructive" className="rounded-xl font-semibold" disabled={actionId === product.id} onClick={() => handleReject(product.id)}>
