@@ -50,7 +50,7 @@ export function ServiceBookingFlow({
 
   const { data: serviceSlots = [], refetch: refetchSlots } = useServiceSlots(open ? productId : undefined);
   const availableSlots = useMemo(
-    () => (serviceSlots.length > 0 ? slotsToPickerFormat(serviceSlots) : undefined),
+    () => slotsToPickerFormat(serviceSlots),
     [serviceSlots]
   );
 

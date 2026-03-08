@@ -38,7 +38,7 @@ export function ServiceBookingActions({
 
   const { data: serviceSlots = [], refetch: refetchSlots } = useServiceSlots(isRescheduleOpen ? productId : undefined);
   const availableSlots = useMemo(
-    () => (serviceSlots.length > 0 ? slotsToPickerFormat(serviceSlots) : undefined),
+    () => slotsToPickerFormat(serviceSlots),
     [serviceSlots]
   );
 

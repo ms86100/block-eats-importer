@@ -131,9 +131,10 @@ export function TimeSlotPicker({
           <span className="text-sm font-medium">Select Date</span>
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
-          {quickDates.map(({ date, label, dateLabel }) => {
+      {quickDates.map(({ date, label, dateLabel }) => {
             const isSelected = selectedDate && isSameDay(date, selectedDate);
-            const isDisabled = isDateDisabled(date);
+            const hasSlots = availableSlots?.some(s => s.date === format(date, 'yyyy-MM-dd'));
+            const isDisabled = isDateDisabled(date) || (availableSlots !== undefined && !hasSlots);
             return (
               <button
                 key={date.toISOString()}
@@ -156,21 +157,32 @@ export function TimeSlotPicker({
         </div>
       </div>
 
-      {/* Full Calendar (collapsed by default, expandable) */}
-      <details className="group">
-        <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
-          Show full calendar
-        </summary>
-        <div className="mt-2 flex justify-center">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={onDateSelect}
-            disabled={(date) => date < today || date > maxDate || isDateDisabled(date)}
-            className="rounded-md border pointer-events-auto"
-          />
+      {/* No slots available message */}
+      {availableSlots && availableSlots.length === 0 && (
+        <div className="text-center py-6 space-y-2">
+          <CalendarDays size={32} className="mx-auto text-muted-foreground" />
+          <p className="text-sm font-medium text-muted-foreground">No available slots</p>
+          <p className="text-xs text-muted-foreground">The seller hasn't set up their availability schedule yet. Please contact them directly.</p>
         </div>
-      </details>
+      )}
+
+      {/* Full Calendar (collapsed by default, expandable) */}
+      {!(availableSlots && availableSlots.length === 0) && (
+        <details className="group">
+          <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+            Show full calendar
+          </summary>
+          <div className="mt-2 flex justify-center">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={onDateSelect}
+              disabled={(date) => date < today || date > maxDate || isDateDisabled(date) || (availableSlots !== undefined && !availableSlots.some(s => s.date === format(date, 'yyyy-MM-dd')))}
+              className="rounded-md border pointer-events-auto"
+            />
+          </div>
+        </details>
+      )}
 
       {/* Time Slots */}
       {selectedDate && (
