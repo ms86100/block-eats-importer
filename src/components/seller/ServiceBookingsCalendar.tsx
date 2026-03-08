@@ -15,6 +15,7 @@ import { useEffect } from 'react';
 
 interface ServiceBookingsCalendarProps {
   sellerId: string;
+  supportsStaffAssignment?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
