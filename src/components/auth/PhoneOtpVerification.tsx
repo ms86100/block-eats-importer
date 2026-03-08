@@ -42,13 +42,6 @@ export function PhoneOtpVerification({ onVerified, defaultPhone }: PhoneOtpVerif
     setLoading(true);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('otp-verify', {
-        body: { phone_number: fullPhone },
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-
-      // Handle the query param by using the URL approach
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
