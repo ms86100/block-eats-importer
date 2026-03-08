@@ -5,7 +5,7 @@ import { useBuyerServiceBookings, BuyerBooking } from '@/hooks/useServiceBooking
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Calendar, Clock, MapPin, Video, Home, Store, Zap } from 'lucide-react';
