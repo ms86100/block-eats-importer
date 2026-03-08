@@ -284,8 +284,8 @@ export function ServiceBookingsCalendar({ sellerId, supportsStaffAssignment = fa
                         <User size={10} />
                         {booking.buyer_name || 'Customer'}
                       </p>
-                      {/* [BUG FIX #M2] Only show staff assignment for non-terminal statuses */}
-                      {staffList.length > 0 && !['cancelled', 'completed', 'no_show'].includes(booking.status) && (
+                      {/* Only show staff assignment when category supports it and for non-terminal statuses */}
+                      {supportsStaffAssignment && staffList.length > 0 && !['cancelled', 'completed', 'no_show'].includes(booking.status) && (
                         <div className="mt-1">
                           <Select
                             value={(booking as any).staff_id || 'none'}

@@ -262,7 +262,7 @@ export function DraftProductManager({
                       </>
                     )}
                   </div>
-                  {product.description && (
+                {product.description && (
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                       {product.description}
                     </p>

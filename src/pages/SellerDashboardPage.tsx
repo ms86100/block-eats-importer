@@ -266,7 +266,7 @@ export default function SellerDashboardPage() {
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Service Bookings</p>
             <ServiceBookingStats sellerId={sellerProfile.id} />
-            <ServiceBookingsCalendar sellerId={sellerProfile.id} />
+            <ServiceBookingsCalendar sellerId={sellerProfile.id} supportsStaffAssignment={sellerFlags.supportsStaffAssignment} />
           </div>
         )}
 

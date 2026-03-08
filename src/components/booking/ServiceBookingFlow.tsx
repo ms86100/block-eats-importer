@@ -251,6 +251,7 @@ export function ServiceBookingFlow({
           frequency: recurringConfig.frequency,
           preferred_time: slot.start_time,
           start_date: dateStr,
+          end_date: recurringConfig.endDate || null,
         });
         if (recurErr) {
           console.error('Failed to save recurring config:', recurErr);
