@@ -6,8 +6,19 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Edit2, Loader2, Users, Phone } from 'lucide-react';
+import { Plus, Edit2, Loader2, Users, Phone, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StaffMember {
@@ -91,6 +102,28 @@ export function ServiceStaffManager({ sellerId }: ServiceStaffManagerProps) {
     setStaff(staff.map(st => st.id === s.id ? { ...st, is_active: !st.is_active } : st));
   };
 
+  const deleteStaff = async (s: StaffMember) => {
+    // Check if staff has active bookings assigned
+    const { count } = await supabase
+      .from('service_bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('staff_id', s.id)
+      .not('status', 'in', '(cancelled,completed,no_show)');
+
+    if (count && count > 0) {
+      toast.error(`Cannot delete ${s.name} — they have ${count} active booking(s). Reassign or complete them first.`);
+      return;
+    }
+
+    const { error } = await supabase.from('service_staff').delete().eq('id', s.id);
+    if (error) {
+      toast.error('Failed to delete staff member');
+      return;
+    }
+    setStaff(staff.filter(st => st.id !== s.id));
+    toast.success('Staff member deleted');
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -133,6 +166,30 @@ export function ServiceStaffManager({ sellerId }: ServiceStaffManagerProps) {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}>
                   <Edit2 size={12} />
                 </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10">
+                      <Trash2 size={12} />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Staff Member?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete <strong>{s.name}</strong>? This will remove them from available staff for booking assignments.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteStaff(s)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
               </div>
             </div>

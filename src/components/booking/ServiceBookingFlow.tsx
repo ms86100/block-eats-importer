@@ -237,7 +237,7 @@ export function ServiceBookingFlow({
         );
         if (addonErr) {
           console.error('Failed to save addons:', addonErr);
-          // Non-fatal: booking still works, just log it
+          toast.error('Your booking was created, but add-ons could not be saved. Please contact the seller.');
         }
       }
 
