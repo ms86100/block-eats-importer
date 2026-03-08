@@ -3707,6 +3707,67 @@ export type Database = {
           },
         ]
       }
+      payment_settlements: {
+        Row: {
+          created_at: string
+          gross_amount: number
+          id: string
+          net_amount: number
+          order_id: string
+          platform_fee: number
+          seller_id: string
+          settlement_date: string | null
+          settlement_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          order_id: string
+          platform_fee?: number
+          seller_id: string
+          settlement_date?: string | null
+          settlement_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          order_id?: string
+          platform_fee?: number
+          seller_id?: string
+          settlement_date?: string | null
+          settlement_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_audit_trail"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "payment_settlements_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       phone_otp_verifications: {
         Row: {
           attempt_count: number
@@ -6757,6 +6818,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trust_tier_config: {
+        Row: {
+          badge_color: string
+          created_at: string
+          display_order: number
+          icon_name: string
+          id: string
+          is_active: boolean
+          min_orders: number
+          min_rating: number
+          tier_key: string
+          tier_label: string
+        }
+        Insert: {
+          badge_color?: string
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          min_orders?: number
+          min_rating?: number
+          tier_key: string
+          tier_label: string
+        }
+        Update: {
+          badge_color?: string
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          min_orders?: number
+          min_rating?: number
+          tier_key?: string
+          tier_label?: string
+        }
+        Relationships: []
+      }
       user_feedback: {
         Row: {
           created_at: string
@@ -7595,6 +7695,13 @@ export type Database = {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
       }
+      check_first_order_batch: {
+        Args: { _buyer_id: string; _seller_ids: string[] }
+        Returns: {
+          is_first_order: boolean
+          seller_id: string
+        }[]
+      }
       claim_device_token: {
         Args: {
           p_apns_token?: string
@@ -7670,6 +7777,16 @@ export type Database = {
       }
       get_builder_dashboard: { Args: { _builder_id: string }; Returns: Json }
       get_category_parent_group: { Args: { cat: string }; Returns: string }
+      get_delivery_scores_batch: {
+        Args: { _seller_ids: string[] }
+        Returns: {
+          avg_delay_minutes: number
+          completion_rate: number
+          on_time_pct: number
+          seller_id: string
+          total_deliveries: number
+        }[]
+      }
       get_effective_society_features: {
         Args: { _society_id: string }
         Returns: {
@@ -7736,11 +7853,65 @@ export type Database = {
           unique_customers: number
         }[]
       }
+      get_seller_trust_tier: {
+        Args: { _seller_id: string }
+        Returns: {
+          badge_color: string
+          icon_name: string
+          tier_key: string
+          tier_label: string
+        }[]
+      }
       get_society_order_stats: {
         Args: { _product_ids: string[]; _society_id: string }
         Returns: {
           families_this_week: number
           product_id: string
+        }[]
+      }
+      get_society_top_products: {
+        Args: { _limit?: number; _society_id: string }
+        Returns: {
+          image_url: string
+          order_count: number
+          price: number
+          product_id: string
+          product_name: string
+          seller_id: string
+          seller_name: string
+        }[]
+      }
+      get_trending_products_by_society: {
+        Args: { _limit?: number; _society_id: string }
+        Returns: {
+          approval_status: string
+          category: string
+          created_at: string
+          description: string
+          id: string
+          image_url: string
+          is_available: boolean
+          is_bestseller: boolean
+          is_recommended: boolean
+          is_urgent: boolean
+          is_veg: boolean
+          name: string
+          order_count: number
+          price: number
+          seller_availability_end: string
+          seller_availability_start: string
+          seller_business_name: string
+          seller_completed_order_count: number
+          seller_delivery_note: string
+          seller_fulfillment_mode: string
+          seller_id: string
+          seller_is_available: boolean
+          seller_last_active_at: string
+          seller_operating_days: string[]
+          seller_rating: number
+          seller_society_id: string
+          seller_verification_status: string
+          updated_at: string
         }[]
       }
       get_unified_gate_log: {
@@ -7764,6 +7935,18 @@ export type Database = {
         }[]
       }
       get_user_auth_context: { Args: { _user_id: string }; Returns: Json }
+      get_user_frequent_products: {
+        Args: { _limit?: number; _user_id: string }
+        Returns: {
+          image_url: string
+          order_count: number
+          price: number
+          product_id: string
+          product_name: string
+          seller_id: string
+          seller_name: string
+        }[]
+      }
       get_user_society_id: { Args: { _user_id: string }; Returns: string }
       get_visitor_types_for_society: {
         Args: { _society_id: string }
