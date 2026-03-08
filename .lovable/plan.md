@@ -1,81 +1,134 @@
+## Category Configuration & Attribute Blocks — COMPLETED
 
+### What Was Done
 
-# Audit: Database Constraint Violations & Default Value Mismatches
+**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
+- Food & Beverages → `cart_purchase`
+- Education → `book_slot` (with recurring, staff, addons as appropriate)
+- Home Services → `request_service` / `request_quote` / `book_slot`
+- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
+- Domestic Help → `contact_only` (with recurring)
+- Events → `request_quote` / `book_slot`
+- Professional → `book_slot` / `request_service` / `request_quote`
+- Pets → `cart_purchase` / `book_slot`
+- Rentals → `contact_only` / `cart_purchase`
+- Shopping → `cart_purchase` / `buy_now`
+- Real Estate → `schedule_visit` / `contact_only`
 
-## Findings Summary
+**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
+food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
 
-### ISSUE 1 — ALREADY FIXED: `products.action_type` default was `'buy'`
-- **Status**: Fixed in last migration. DB default is now `'add_to_cart'`. Code in `DraftProductManager` now explicitly sets it via `deriveActionType`. No bad rows exist (verified via query: 0 rows with invalid `action_type`).
-- **Remaining gap**: The migration only changed the default but did NOT include the data repair `UPDATE`. Query confirmed 0 bad rows exist currently, so no repair needed — but this was luck, not design.
-
-### ISSUE 2 — NEW BUG (P1): `products.approval_status` default is `'pending'`, should be `'draft'` for onboarding
-
-**Root cause**: Migration `20260306134440` recreated the products table with `approval_status DEFAULT 'pending'`. The original migration (`20260215071215`) had `DEFAULT 'draft'`.
-
-**Impact**:
-- `DraftProductManager.tsx` does NOT explicitly set `approval_status` during insert (line 117-130)
-- Products created during seller onboarding get `'pending'` instead of `'draft'`
-- These products appear in admin review queue **before the seller has finished onboarding**
-- The "Submit All for Approval" button on `SellerProductsPage` looks for `approval_status = 'draft'` — it won't find these products, so sellers see no drafts to submit
-- `useSellerApplication.ts` line 309 does `UPDATE ... SET approval_status = 'pending' WHERE approval_status = 'draft'` — this is a no-op because products are already `'pending'`
-
-**Who is impacted**: Sellers during onboarding, Admins reviewing applications
-
-### ISSUE 3 — LOW RISK: `validate_product_action_type` trigger AND `products_action_type_valid` CHECK constraint are redundant
-
-Both enforce the same allowed values. The trigger additionally validates `contact_phone` and `price` based on action type. The CHECK constraint allows `NULL` but the column is `NOT NULL`. Not a bug, just redundancy.
-
-### NO OTHER CONSTRAINT/DEFAULT MISMATCHES FOUND
-
-All other CHECK constraints verified against their column defaults:
-- `service_listings.service_type`: default `'scheduled'` ∈ `{scheduled, on_demand, group, recurring}` ✅
-- `service_listings.location_type`: default `'at_seller'` ∈ `{home_visit, at_seller, online}` ✅
-- `service_listings.price_model`: default `'fixed'` ∈ `{fixed, hourly, tiered}` ✅
-- `featured_items.type`: no default, CHECK `{seller, category, banner}` ✅
-- `reviews.rating`: no default, CHECK `>= 1 AND <= 5` ✅
-- `society_admins.role`: default `'admin'` ∈ `{admin, moderator}` ✅
-- `builder_members.role`: default `'member'` ∈ `{member, admin}` ✅
-- `project_towers.delay_category`: nullable, CHECK `{weather, material_shortage, ...}` ✅
+### No Code Changes Needed
+Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
 
 ---
 
-## Fix Plan
+## Listing Type Behavior Fix — COMPLETED
 
-### Fix 1: Database — Change `approval_status` default back to `'draft'`
+### Root Cause
+- DB trigger `propagate_category_transaction_type` was never installed
+- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
+- DB default was `'buy'` instead of `'add_to_cart'`
+- No INSERT-time trigger to derive action_type from category
 
-```sql
-ALTER TABLE public.products ALTER COLUMN approval_status SET DEFAULT 'draft';
-```
+### Database Fixes Applied
+1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
+2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
+3. **Default changed** to `'add_to_cart'`
+4. **Backfilled** all existing products with correct action_type values
+5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
 
-This is safe because:
-- `'draft'` is in the CHECK constraint `{draft, pending, approved, rejected}`
-- All existing insert paths that need `'pending'` already set it explicitly (`useSellerProducts` sets it at line 233)
-- `useBulkUpload` already sets `approval_status: 'draft'` explicitly (line 131)
-- Only `DraftProductManager` relies on the default — and it needs `'draft'`
+### Frontend Fixes Applied
+1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
+2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
+3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
+4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
+5. **useProductDetail** — uses `deriveActionType`
+6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
+7. **useBulkUpload** — sets `action_type` from category config on bulk create
+8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
 
-### Fix 2: Code — Explicitly set `approval_status: 'draft'` in `DraftProductManager.tsx`
-
-Belt-and-suspenders: even after fixing the default, explicitly set the field so this can never regress.
-
-```typescript
-// In DraftProductManager.tsx insert call (~line 117)
-approval_status: 'draft',
-```
-
-### Fix 3: Remove redundant CHECK constraint `products_action_type_valid`
-
-The trigger `trg_validate_product_action_type` already enforces the same constraint plus additional business rules. The CHECK constraint is redundant and was the source of the original bug (it was added without considering the trigger already existed). However, removing it has a tiny risk of breaking if someone drops the trigger later.
-
-**Recommendation**: Keep the CHECK constraint as defense-in-depth, but update it to also accept `NULL` (which it already does). No change needed.
+### Mapping Reference
+| transaction_type | action_type | Button |
+|-----------------|-------------|--------|
+| cart_purchase | add_to_cart | ADD |
+| buy_now | buy_now | BUY |
+| book_slot | book | Book |
+| request_service | request_service | Request |
+| request_quote | request_quote | Quote |
+| contact_only | contact_seller | Contact |
+| schedule_visit | schedule_visit | Visit |
 
 ---
 
-## Risk Assessment
+## Buyer & Seller Service Booking Experience — COMPLETED
 
-| Fix | Risk of Breaking | Confidence |
-|-----|-----------------|------------|
-| Change `approval_status` default to `'draft'` | **Zero** — all code paths that need `pending` set it explicitly | 99% |
-| Add `approval_status: 'draft'` to DraftProductManager | **Zero** — makes explicit what was relying on (wrong) default | 100% |
+### What Was Done
 
-**⚠️ What could break if we DON'T fix**: Sellers onboarding now will have products appear in admin queue prematurely. Admin might approve a half-finished application. The "Submit All for Approval" button won't work for onboarding products.
+**1. Database: `session_feedback` table**
+- New table with RLS for per-session ratings (1-5 stars + comment)
+- Buyer can insert/read own; seller can read for their bookings
+- Validation trigger ensures rating 1-5
 
+**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
+- Fetches upcoming bookings for buyer joined with product + seller info
+- Also added `useSessionFeedback` hook for checking existing feedback
+
+**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
+- Week strip day selector with dot indicators
+- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
+- Each booking card shows: service name, seller, time, location type, status badge
+- Tap navigates to order detail
+- Self-hides if no upcoming bookings
+
+**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
+- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
+
+**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
+- Location type with icon (home visit / at seller / online)
+- Duration display (e.g., "60 min")
+- Buyer address when present (home visits)
+
+**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
+- Inline 1-5 star rating with optional comment
+- Shows after booking is completed on order detail page
+- Shows "rated X/5" summary if already submitted
+
+**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
+- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
+- Session feedback prompt integrated below booking add-ons
+
+---
+
+## Service Marketplace Tier 1 Enhancements — COMPLETED
+
+### What Was Done
+
+**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
+- Client-side .ics file generation with event title, date, time, location, description
+- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
+- Works with Google Calendar, Apple Calendar, Outlook
+
+**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
+- Vertical timeline showing today's bookings with time, service, buyer, status
+- Quick "View" action navigates to order detail
+- Integrated at top of Service Bookings section in SellerDashboardPage
+- Auto-hides if no bookings today
+
+**3. Preparation Instructions** (`service_listings.preparation_instructions`)
+- New column on `service_listings` table
+- Seller can edit in ServiceFieldsSection form during product creation/editing
+- Displayed on OrderDetailPage as "How to prepare" card
+- Included in iCal export description
+
+**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
+- New `slot_holds` table with 5-minute expiry
+- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
+- `release_slot_hold` RPC: releases hold on checkout or navigation away
+- RLS policies for authenticated users on own holds
+
+**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
+- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
+- RLS: buyers can join/view/leave their own waitlist entries
+- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
+- Unique constraint prevents duplicate waitlist entries

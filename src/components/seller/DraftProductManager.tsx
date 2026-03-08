@@ -124,6 +124,7 @@ export function DraftProductManager({
           is_veg: newProduct.is_veg,
           image_url: newProduct.image_url.trim() || null,
           is_available: true,
+          approval_status: 'draft',
           prep_time_minutes: newProduct.prep_time_minutes || null,
           specifications: attributeBlocks.length > 0 ? { blocks: attributeBlocks } : null,
           action_type: deriveActionType(null, activeConfig?.transactionType),
