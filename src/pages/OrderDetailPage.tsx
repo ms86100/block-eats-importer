@@ -234,8 +234,9 @@ export default function OrderDetailPage() {
                     slotId={serviceBooking.slot_id}
                     status={serviceBooking.status}
                   />
-                </div>
-              )}
+            </div>
+            );
+          })()}
             </div>
           )}
 
