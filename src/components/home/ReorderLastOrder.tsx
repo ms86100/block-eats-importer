@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { RefreshCw, ChevronRight } from 'lucide-react';
+import { RefreshCw, ChevronRight, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { motion } from 'framer-motion';
 
 interface LastOrder {
   id: string;
@@ -67,7 +68,6 @@ export function ReorderLastOrder() {
     setIsLoading(true);
     
     try {
-      // Check if cart has existing items and ask for confirmation
       const { data: existingCart } = await supabase
         .from('cart_items')
         .select('id')
@@ -136,24 +136,33 @@ export function ReorderLastOrder() {
   const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
 
   return (
-    <div className="mx-4 mt-3">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="mx-4 mt-3"
+    >
       <button
         onClick={handleReorder}
         disabled={isLoading}
-        className="w-full flex items-center gap-3 bg-card border border-border rounded-xl p-3 active:scale-[0.98] transition-all"
+        className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-3.5 active:scale-[0.98] transition-all hover:shadow-md hover:border-primary/20 group"
       >
-        <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-          <RefreshCw size={18} className={`text-accent-foreground ${isLoading ? 'animate-spin' : ''}`} />
+        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+          <RefreshCw size={18} className={`text-primary ${isLoading ? 'animate-spin' : ''}`} />
         </div>
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-semibold text-foreground truncate">
+          <p className="text-[13px] font-bold text-foreground truncate">
             {ml.label('label_reorder_prefix')} {lastOrder.seller_name}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            {lastOrder.item_count} item{lastOrder.item_count !== 1 ? 's' : ''} · {formatPrice(lastOrder.total_amount)} · {timeLabel}
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+            <span>{lastOrder.item_count} item{lastOrder.item_count !== 1 ? 's' : ''}</span>
+            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/50" />
+            <span className="font-semibold text-foreground">{formatPrice(lastOrder.total_amount)}</span>
+            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/50" />
+            <span className="inline-flex items-center gap-0.5"><Clock size={9} />{timeLabel}</span>
           </p>
         </div>
-        <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+        <ChevronRight size={16} className="text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
       </button>
 
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
@@ -168,6 +177,6 @@ export function ReorderLastOrder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

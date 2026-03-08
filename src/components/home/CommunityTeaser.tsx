@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MessageCircle, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { jitteredStaleTime } from '@/lib/query-utils';
+import { motion } from 'framer-motion';
 
 interface RecentPost {
   id: string;
@@ -48,21 +49,23 @@ export function CommunityTeaser() {
 
   if (!effectiveSocietyId) return null;
 
-  // C4: Show empty state instead of disappearing
+  // Empty state
   if (posts.length === 0 && helpCount === 0) {
     return (
       <div className="px-4 mt-6 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-extrabold text-[15px] text-foreground tracking-tight flex items-center gap-1.5">
-            <MessageCircle size={15} className="text-primary" />
+          <h3 className="font-bold text-[14px] text-foreground tracking-tight flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+              <MessageCircle size={13} className="text-primary" />
+            </div>
             Community
           </h3>
         </div>
         <Link to="/community">
-          <div className="bg-primary/5 border border-primary/10 rounded-2xl px-4 py-6 text-center active:scale-[0.98] transition-transform">
-            <MessageCircle size={28} className="text-primary mx-auto mb-2 opacity-60" />
-            <p className="text-sm font-semibold text-foreground">Be the first to post!</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Share updates, ask questions, or help a neighbor</p>
+          <div className="bg-primary/5 border border-primary/10 rounded-2xl px-4 py-8 text-center active:scale-[0.98] transition-transform">
+            <MessageCircle size={28} className="text-primary mx-auto mb-2.5 opacity-60" />
+            <p className="text-sm font-bold text-foreground">Be the first to post!</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">Share updates, ask questions, or help a neighbor</p>
           </div>
         </Link>
       </div>
@@ -72,8 +75,10 @@ export function CommunityTeaser() {
   return (
     <div className="px-4 mt-6 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-extrabold text-[15px] text-foreground tracking-tight flex items-center gap-1.5">
-          <MessageCircle size={15} className="text-primary" />
+        <h3 className="font-bold text-[14px] text-foreground tracking-tight flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+            <MessageCircle size={13} className="text-primary" />
+          </div>
           Community
         </h3>
         <Link to="/community" className="text-[11px] font-bold text-primary flex items-center gap-0.5">
@@ -84,24 +89,33 @@ export function CommunityTeaser() {
       <div className="space-y-2.5">
         {helpCount > 0 && (
           <Link to="/community">
-            <div className="bg-warning/10 border border-warning/20 rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-transform">
-              <div className="w-9 h-9 rounded-xl bg-warning/20 flex items-center justify-center shrink-0">
-                <Heart size={16} className="text-warning" />
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-warning/10 border border-warning/20 rounded-2xl px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform"
+            >
+              <div className="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center shrink-0">
+                <Heart size={18} className="text-warning" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-foreground">
+                <p className="text-[13px] font-bold text-foreground">
                   {helpCount} neighbor{helpCount !== 1 ? 's' : ''} need{helpCount === 1 ? 's' : ''} help
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">See how you can assist</p>
               </div>
               <ArrowRight size={14} className="text-warning shrink-0" />
-            </div>
+            </motion.div>
           </Link>
         )}
         
-        {posts.map((post) => (
+        {posts.map((post, i) => (
           <Link key={post.id} to="/community">
-            <div className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-[0.98] transition-transform hover:border-primary/20">
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08 }}
+              className="bg-card border border-border rounded-2xl px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all hover:border-primary/20 hover:shadow-sm"
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground line-clamp-1">{post.title}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
@@ -109,7 +123,7 @@ export function CommunityTeaser() {
                 </p>
               </div>
               <ChevronRight size={14} className="text-muted-foreground shrink-0" />
-            </div>
+            </motion.div>
           </Link>
         ))}
       </div>

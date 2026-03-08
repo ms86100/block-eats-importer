@@ -214,12 +214,14 @@ function DiscoveryRow({
   socialProofMap?: Map<string, number>;
 }) {
   return (
-    <div className="mt-5">
-      <div className="flex items-center gap-1.5 px-4 mb-3">
-        {icon}
-        <h3 className="font-extrabold text-[15px] text-foreground tracking-tight">{title}</h3>
+    <div className="mt-6">
+      <div className="flex items-center gap-2 px-4 mb-3">
+        <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+          {icon}
+        </div>
+        <h3 className="font-bold text-[14px] text-foreground tracking-tight">{title}</h3>
       </div>
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-1 snap-x snap-mandatory">
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2 snap-x snap-mandatory">
         {products.map(product => (
           <div key={product.id} className="w-[155px] shrink-0 snap-start">
             <ProductListingCard
@@ -291,7 +293,7 @@ function ProductListings({
           transition={{ delay: 0.2, duration: 0.4 }}
           className="space-y-3"
         >
-          <h2 className="text-lg font-extrabold text-foreground tracking-tight">Your marketplace is getting ready!</h2>
+          <h2 className="text-lg font-bold text-foreground tracking-tight">Your marketplace is getting ready!</h2>
           <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
             Sellers from your community are setting up shop. Products, services & more — all coming your way.
           </p>
@@ -311,12 +313,14 @@ function ProductListings({
   }
 
   return (
-    <div className="space-y-8 mt-5">
+    <div className="space-y-8 mt-6">
       {categories.map(cat => (
         <div key={cat.category}>
           <div className="flex items-center justify-between px-4 mb-3">
-            <h3 className="font-extrabold text-[15px] text-foreground tracking-tight flex items-center gap-1.5">
-              <DynamicIcon name={cat.icon} size={16} />
+            <h3 className="font-bold text-[14px] text-foreground tracking-tight flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                <DynamicIcon name={cat.icon} size={14} />
+              </div>
               {cat.displayName}
             </h3>
             <Link
@@ -326,7 +330,7 @@ function ProductListings({
               see all <ChevronRight size={12} />
             </Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-1 snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2 snap-x snap-mandatory">
             {cat.products.slice(0, 8).map(product => (
               <div key={product.id} className="w-[155px] shrink-0 snap-start">
                 <ProductListingCard

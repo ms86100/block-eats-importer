@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { Users, Tag, Star, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface CategoryImageGridProps {
   parentGroup: string;
@@ -111,7 +112,7 @@ function CategoryImageGridInner({ parentGroup, title, activeCategories }: Catego
     <div className="mb-6 px-4">
       {/* Section header */}
       <div className="flex items-center justify-between mb-3">
-      <h3 className="font-extrabold text-[15px] text-foreground tracking-tight">{title}</h3>
+        <h3 className="font-bold text-[14px] text-foreground tracking-tight">{title}</h3>
         <Link
           to={`/category/${parentGroup}`}
           className="text-[11px] font-bold text-primary flex items-center gap-0.5 ml-4"
@@ -120,71 +121,77 @@ function CategoryImageGridInner({ parentGroup, title, activeCategories }: Catego
         </Link>
       </div>
 
-        {/* Responsive card grid — auto-fit so columns match actual items */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {categories.slice(0, 6).map((cat) => {
+      {/* Responsive card grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {categories.slice(0, 6).map((cat, i) => {
           const meta = metaMap[cat.category] || { count: 0, sellerCount: 0, minPrice: null, collageImages: [], hasBestseller: false };
           return (
-            <Link
+            <motion.div
               key={cat.category}
-              to={`/category/${cat.parentGroup}?sub=${cat.category}`}
-              className="block rounded-2xl overflow-hidden active:scale-[0.97] transition-all duration-200 group bg-card border border-border hover:border-primary/20 hover:shadow-md"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.05, duration: 0.3 }}
             >
-              {/* Image area */}
-              <div className="relative aspect-[3/2] overflow-hidden">
-                <ImageCollage
-                  images={meta.collageImages}
-                  fallbackIcon={cat.icon}
-                  fallbackUrl={cat.imageUrl}
-                  alt={cat.displayName}
-                />
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <Link
+                to={`/category/${cat.parentGroup}?sub=${cat.category}`}
+                className="block rounded-2xl overflow-hidden active:scale-[0.97] transition-all duration-200 group bg-card border border-border hover:border-primary/20 hover:shadow-md"
+              >
+                {/* Image area */}
+                <div className="relative aspect-[3/2] overflow-hidden">
+                  <ImageCollage
+                    images={meta.collageImages}
+                    fallbackIcon={cat.icon}
+                    fallbackUrl={cat.imageUrl}
+                    alt={cat.displayName}
+                  />
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                {/* Count badge — top right */}
-                {meta.count > 0 && (
-                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[9px] font-bold shadow-sm">
-                    {meta.count} items
+                  {/* Count badge — top right */}
+                  {meta.count > 0 && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[9px] font-bold shadow-sm backdrop-blur-sm">
+                      {meta.count} items
+                    </div>
+                  )}
+
+                  {/* Bestseller star — top left */}
+                  {meta.hasBestseller && (
+                    <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-rating-star/90 flex items-center justify-center shadow-sm">
+                      <Star size={12} className="text-foreground fill-foreground" />
+                    </div>
+                  )}
+
+                  {/* Category name overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <span className="text-[14px] font-bold text-white leading-tight line-clamp-2 drop-shadow-lg tracking-tight">
+                      {cat.displayName}
+                    </span>
                   </div>
-                )}
-
-                {/* Bestseller star — top left */}
-                {meta.hasBestseller && (
-                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-rating-star/90 flex items-center justify-center shadow-sm">
-                    <Star size={12} className="text-foreground fill-foreground" />
-                  </div>
-                )}
-
-                {/* Category name overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <span className="text-[14px] font-extrabold text-white leading-tight line-clamp-2 drop-shadow-lg tracking-tight">
-                    {cat.displayName}
-                  </span>
                 </div>
-              </div>
 
-              {/* Metadata row */}
-              <div className="flex items-center gap-2.5 px-3 py-2.5 text-[10px] text-muted-foreground">
-                {meta.sellerCount > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <Users size={10} className="shrink-0 text-primary/70" />
-                    <span className="font-medium">{meta.sellerCount} {meta.sellerCount === 1 ? 'seller' : 'sellers'}</span>
-                  </span>
-                )}
-                {meta.minPrice !== null && (
-                  <span className="inline-flex items-center gap-1">
-                    <Tag size={10} className="shrink-0 text-primary/70" />
-                    <span className="font-medium">From {formatPrice(meta.minPrice)}</span>
-                  </span>
-                )}
-                {meta.sellerCount === 0 && meta.minPrice === null && (
-                  <span className="text-muted-foreground/60 font-medium">Explore →</span>
-                )}
-              </div>
-            </Link>
+                {/* Metadata row */}
+                <div className="flex items-center gap-2.5 px-3 py-2.5 text-[10px] text-muted-foreground">
+                  {meta.sellerCount > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <Users size={10} className="shrink-0 text-primary/70" />
+                      <span className="font-medium">{meta.sellerCount} {meta.sellerCount === 1 ? 'seller' : 'sellers'}</span>
+                    </span>
+                  )}
+                  {meta.minPrice !== null && (
+                    <span className="inline-flex items-center gap-1">
+                      <Tag size={10} className="shrink-0 text-primary/70" />
+                      <span className="font-medium">From {formatPrice(meta.minPrice)}</span>
+                    </span>
+                  )}
+                  {meta.sellerCount === 0 && meta.minPrice === null && (
+                    <span className="text-muted-foreground/60 font-medium">Explore →</span>
+                  )}
+                </div>
+              </Link>
+            </motion.div>
           );
         })}
-        </div>
+      </div>
     </div>
   );
 }

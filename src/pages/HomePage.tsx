@@ -53,13 +53,19 @@ export default function HomePage() {
       <div className="pb-6">
         {/* ═══ INCOMPLETE PROFILE BANNER ═══ */}
         {profile && !profile.flat_number && (
-          <div className="mx-4 mt-3 flex items-center gap-3 rounded-xl bg-muted border border-border p-3">
-            <AlertCircle size={18} className="text-destructive shrink-0" />
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-3 flex items-center gap-3 rounded-2xl bg-destructive/5 border border-destructive/15 p-3.5"
+          >
+            <div className="w-8 h-8 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
+              <AlertCircle size={16} className="text-destructive" />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground">Complete your profile to enable delivery orders.</p>
+              <p className="text-xs font-semibold text-foreground">Complete your profile to enable delivery orders.</p>
             </div>
             <Link to="/profile" className="text-xs font-bold text-primary shrink-0 hover:underline">Update</Link>
-          </div>
+          </motion.div>
         )}
 
         {/* ═══ SOCIETY TRUST STRIP ═══ */}
@@ -74,18 +80,18 @@ export default function HomePage() {
         </section>
 
         {/* ═══ YOUR ORDERS ═══ */}
-        <section className="mt-4 border-t border-border/40 pt-3">
+        <section className="mt-5 border-t border-border/30 pt-4">
           <ReorderLastOrder />
           <BuyAgainRow />
         </section>
 
         {/* ═══ COMMUNITY ═══ */}
-        <section className="mt-2 border-t border-border/40 pt-3">
+        <section className="mt-3 border-t border-border/30 pt-4">
           <SocietyQuickLinks />
         </section>
 
         {/* ═══ MARKETPLACE & COMMUNITY ═══ */}
-        <section className="mt-2 border-t border-border/40 pt-3">
+        <section className="mt-3 border-t border-border/30 pt-4">
           <MarketplaceSection />
           <CommunityTeaser />
         </section>

@@ -27,14 +27,16 @@ export function TrendingInSociety({
   if (trending.length < 3) return null;
 
   return (
-    <div className="mt-5">
-      <div className="flex items-center gap-1.5 px-4 mb-3">
-        <TrendingUp size={14} className="text-primary" />
-        <h3 className="font-extrabold text-[15px] text-foreground tracking-tight">
+    <div className="mt-6">
+      <div className="flex items-center gap-2 px-4 mb-3">
+        <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+          <TrendingUp size={13} className="text-primary" />
+        </div>
+        <h3 className="font-bold text-[14px] text-foreground tracking-tight">
           Trending in your society
         </h3>
       </div>
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-1 snap-x snap-mandatory">
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2 snap-x snap-mandatory">
         {trending.map((product) => (
           <div key={product.id} className="w-[155px] shrink-0 snap-start">
             <ProductListingCard

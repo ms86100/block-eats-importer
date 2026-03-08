@@ -55,7 +55,7 @@ function buildCategoryMeta(
   return map;
 }
 
-/* ── Collage component (inline) ──────────────────────────── */
+/* ── Collage component ──────────────────────────── */
 
 function ImageCollage({ images, fallbackIcon, fallbackUrl, alt }: {
   images: string[];
@@ -110,10 +110,8 @@ export default function CategoriesPage() {
   const [activeGroup, setActiveGroup] = useState<string>('all');
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Build enriched metadata map
   const metaMap = useMemo(() => buildCategoryMeta(productCategories), [productCategories]);
 
-  // Compute active categories
   const activeCategorySet = (() => {
     const s = new Set(productCategories.map(c => c.category));
     if (browseBeyond && nearbyBands.length > 0) {
@@ -177,15 +175,15 @@ export default function CategoriesPage() {
     <AppLayout showHeader={false}>
       {/* Header */}
       <div className="sticky top-0 z-40 safe-top bg-background">
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-4 pt-3 pb-2">
           <h1 className="text-lg font-bold text-foreground">Explore Categories</h1>
-          <p className="text-xs text-muted-foreground mb-1">Find what you love</p>
+          <p className="text-xs text-muted-foreground mb-2">Find what you love</p>
           <div className="h-[2px] rounded-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
         </div>
 
-        <div className="px-3 pb-2">
+        <div className="px-4 pb-2">
           <Link to="/search" className="block">
-            <div className="flex items-center gap-2.5 bg-secondary rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-2.5 bg-card border border-border rounded-2xl px-4 py-3 hover:border-primary/20 transition-colors">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground shrink-0">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.3-4.3"/>
@@ -198,14 +196,14 @@ export default function CategoriesPage() {
 
       {/* Parent Group Pills */}
       {!isLoading && activeParentGroups.length > 0 && (
-        <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+        <div className="flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
           <button
             onClick={() => handlePillClick('all')}
             className={cn(
-              'px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all border snap-start min-w-[auto]',
+              'px-3.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all border snap-start min-w-[auto]',
               activeGroup === 'all'
-                ? 'bg-primary text-primary-foreground border-primary scale-105'
-                : 'bg-card text-muted-foreground border-border active:scale-[0.97]'
+                ? 'bg-primary text-primary-foreground border-primary shadow-cta scale-105'
+                : 'bg-card text-muted-foreground border-border active:scale-[0.97] hover:border-primary/30'
             )}
           >
             All
@@ -215,10 +213,10 @@ export default function CategoriesPage() {
               key={g.slug}
               onClick={() => handlePillClick(g.slug)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all border snap-start min-w-[auto]',
+                'px-3.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all border snap-start min-w-[auto]',
                 activeGroup === g.slug
-                  ? 'bg-primary text-primary-foreground border-primary scale-105'
-                  : 'bg-card text-muted-foreground border-border active:scale-[0.97]'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-cta scale-105'
+                  : 'bg-card text-muted-foreground border-border active:scale-[0.97] hover:border-primary/30'
               )}
             >
               {g.name}
@@ -228,7 +226,7 @@ export default function CategoriesPage() {
       )}
 
       {/* Content */}
-      <div className="px-3 pb-20">
+      <div className="px-4 pb-20">
         {isLoading ? (
           <div className="space-y-5">
             {[1, 2].map(i => (
@@ -278,14 +276,14 @@ export default function CategoriesPage() {
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.4 }}
-              className="mt-6 flex items-center gap-2 text-xs text-muted-foreground bg-muted rounded-full px-4 py-2"
+              className="mt-6 flex items-center gap-2 text-xs text-muted-foreground bg-card border border-border rounded-full px-4 py-2"
             >
               <Clock size={14} />
               <span>Check back soon for new listings</span>
             </motion.div>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {filteredGroups.map((group, groupIdx) => (
               <motion.div
                 key={group.slug}
@@ -295,15 +293,15 @@ export default function CategoriesPage() {
                 transition={{ delay: groupIdx * 0.08, duration: 0.35 }}
               >
                 {/* Section Header */}
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-[11px] font-bold">
                     {group.icon || '📦'} {group.name}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">({group.categories.length})</span>
-                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] text-muted-foreground font-medium">({group.categories.length})</span>
+                  <div className="flex-1 h-px bg-border/50" />
                 </div>
 
-                {/* Category Cards Grid — 2 cols mobile, 3 cols md+ */}
+                {/* Category Cards Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {group.categories.map((cat, catIdx) => {
                     const meta = metaMap[cat.category] || { count: 0, sellerCount: 0, minPrice: null, collageImages: [], hasBestseller: false };
@@ -316,7 +314,7 @@ export default function CategoriesPage() {
                       >
                         <Link
                           to={`/category/${cat.parentGroup}?sub=${cat.category}`}
-                          className="block rounded-2xl overflow-hidden shadow-sm active:scale-[0.97] transition-transform group bg-card border border-border"
+                          className="block rounded-2xl overflow-hidden active:scale-[0.97] transition-all duration-200 group bg-card border border-border hover:border-primary/20 hover:shadow-md"
                         >
                           {/* Image area */}
                           <div className="relative aspect-[3/2] overflow-hidden">
@@ -327,24 +325,20 @@ export default function CategoriesPage() {
                               alt={cat.displayName}
                             />
 
-                            {/* Gradient overlay */}
                             <div className="absolute inset-0 bg-gradient-to-t from-foreground/65 via-foreground/15 to-transparent" />
 
-                            {/* Count badge — top right */}
                             {meta.count > 0 && (
-                              <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[9px] font-bold shadow-sm">
+                              <div className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[9px] font-bold shadow-sm backdrop-blur-sm">
                                 {meta.count} items
                               </div>
                             )}
 
-                            {/* Bestseller star — top left */}
                             {meta.hasBestseller && (
                               <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-warning/90 flex items-center justify-center shadow-sm">
                                 <Star size={12} className="text-primary-foreground fill-primary-foreground" />
                               </div>
                             )}
 
-                            {/* Category name overlay */}
                             <div className="absolute bottom-0 left-0 right-0 p-2.5">
                               <span className="text-sm font-bold text-primary-foreground leading-tight line-clamp-2 drop-shadow-md">
                                 {cat.displayName}
@@ -353,21 +347,21 @@ export default function CategoriesPage() {
                           </div>
 
                           {/* Metadata row */}
-                          <div className="flex items-center gap-2 px-2.5 py-2 text-[10px] text-muted-foreground">
+                          <div className="flex items-center gap-2 px-2.5 py-2.5 text-[10px] text-muted-foreground">
                             {meta.sellerCount > 0 && (
                               <span className="inline-flex items-center gap-0.5">
-                                <Users size={10} className="shrink-0" />
-                                {meta.sellerCount} {meta.sellerCount === 1 ? 'seller' : 'sellers'}
+                                <Users size={10} className="shrink-0 text-primary/70" />
+                                <span className="font-medium">{meta.sellerCount} {meta.sellerCount === 1 ? 'seller' : 'sellers'}</span>
                               </span>
                             )}
                             {meta.minPrice !== null && (
                               <span className="inline-flex items-center gap-0.5">
-                                <Tag size={10} className="shrink-0" />
-                                From {formatPrice(meta.minPrice)}
+                                <Tag size={10} className="shrink-0 text-primary/70" />
+                                <span className="font-medium">From {formatPrice(meta.minPrice)}</span>
                               </span>
                             )}
                             {meta.sellerCount === 0 && meta.minPrice === null && (
-                              <span className="text-muted-foreground/60">Explore →</span>
+                              <span className="text-muted-foreground/60 font-medium">Explore →</span>
                             )}
                           </div>
                         </Link>
