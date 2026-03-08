@@ -30,7 +30,7 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
   // Fetch service products for this seller
   useEffect(() => {
     if (!sellerId) return;
-    let cancelled = false; // [BUG FIX #M17] Cleanup on unmount
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('products')
@@ -50,13 +50,14 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
       const serviceProducts = data.filter(p => serviceProductIds.has(p.id));
       if (!cancelled) {
         setProducts(serviceProducts);
-        if (serviceProducts.length > 0 && !selectedProductId) {
+        // [FIX] Only auto-select if no product selected yet
+        if (serviceProducts.length > 0 && !initialProductId && !selectedProductId) {
           setSelectedProductId(serviceProducts[0].id);
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [sellerId]);
+  }, [sellerId, initialProductId]); // [FIX] removed selectedProductId dep to avoid loops
 
   const fetchSlots = useCallback(async () => {
     if (!selectedProductId) return;

@@ -154,17 +154,19 @@ async function generateSlotsForSeller(supabase: any, seller_id: string, product_
         }
 
         if (slotsToInsert.length > 0) {
-          const { error: insertError } = await supabase
+          const { error: insertError, count } = await supabase
             .from("service_slots")
             .upsert(slotsToInsert, {
               onConflict: "product_id,slot_date,start_time",
               ignoreDuplicates: true,
+              count: "exact",
             });
 
           if (insertError) {
             console.error("Insert error for date", dateStr, insertError);
           } else {
-            totalCreated += slotsToInsert.length;
+            // [FIX] Use actual inserted count, not attempted count
+            totalCreated += count ?? 0;
           }
         }
       }

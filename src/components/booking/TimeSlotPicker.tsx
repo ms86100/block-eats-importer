@@ -46,16 +46,30 @@ export function TimeSlotPicker({
   const timeSlots = useMemo(() => {
     if (!selectedDate) return [];
 
+    const now = new Date();
+    const isTodaySelected = isSameDay(selectedDate, today);
+
     // If specific available slots are provided, use those
     if (availableSlots) {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const daySlots = availableSlots.find((s) => s.date === dateStr);
       if (daySlots) {
-        return daySlots.slots.map((time) => ({
-          time,
-          label: time,
-          available: true,
-        }));
+        return daySlots.slots.map((time) => {
+          // [FIX] Format raw HH:mm:ss to readable 12h format
+          const [h, m] = time.split(':').map(Number);
+          const period = h >= 12 ? 'PM' : 'AM';
+          const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          const formattedLabel = `${h12}:${String(m).padStart(2, '0')} ${period}`;
+
+          // [FIX] Filter out past times for today
+          let isAvailable = true;
+          if (isTodaySelected) {
+            const currentTimeStr = format(now, 'HH:mm:ss');
+            if (time <= currentTimeStr) isAvailable = false;
+          }
+
+          return { time, label: formattedLabel, available: isAvailable };
+        }).filter(s => s.available || !isTodaySelected); // Hide past slots for today entirely
       }
       return [];
     }
@@ -69,12 +83,11 @@ export function TimeSlotPicker({
     const endTime = setMinutes(setHours(selectedDate, endHour), endMin);
 
     let currentSlot = startTime;
-    const now = new Date();
-    const isToday = isSameDay(selectedDate, today);
+    const isTodayFallback = isSameDay(selectedDate, today);
 
     while (currentSlot < endTime) {
       const slotTime = format(currentSlot, 'HH:mm');
-      const isAvailable = !isToday || isAfter(currentSlot, now);
+      const isAvailable = !isTodayFallback || isAfter(currentSlot, now);
 
       slots.push({
         time: slotTime,

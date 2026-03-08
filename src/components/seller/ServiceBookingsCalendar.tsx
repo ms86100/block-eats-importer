@@ -69,7 +69,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
   }, [sellerId, refetch]);
 
   const updateBookingStatus = useCallback(async (bookingId: string, orderId: string, newStatus: string) => {
-    // [BUG FIX #H7] Prevent concurrent actions on same booking
+    // [FIX] Use functional ref to avoid stale closure on actionLoading
     if (actionLoading) {
       toast.info('Please wait for the current action to complete');
       return;

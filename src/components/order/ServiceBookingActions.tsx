@@ -107,11 +107,12 @@ export function ServiceBookingActions({
       // RPC already enqueues notification — just trigger processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
-      // Invalidate relevant queries
+      // Invalidate relevant queries + refresh home banner
       queryClient.invalidateQueries({ queryKey: ['service-booking-order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['service-slots'] });
       queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['order-detail'] });
+      window.dispatchEvent(new Event('booking-changed'));
 
       toast.success('Appointment rescheduled');
       setIsRescheduleOpen(false);

@@ -137,6 +137,9 @@ export function BuyerCancelBooking({ bookingId, orderId, slotId, status }: Buyer
       queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['order-detail'] });
 
+      // [FIX] Notify banner to refresh so cancelled booking disappears from home
+      window.dispatchEvent(new Event('booking-changed'));
+
       toast.success('Booking cancelled');
       setIsOpen(false);
     } catch {

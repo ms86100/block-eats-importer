@@ -273,9 +273,10 @@ export function ServiceBookingFlow({
       // Trigger notification processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
-      // Invalidate queries
+      // Invalidate queries + refresh banner
       queryClient.invalidateQueries({ queryKey: ['service-slots', productId] });
       queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
+      window.dispatchEvent(new Event('booking-changed'));
 
       toast.success('Booking request sent!');
       onOpenChange(false);
