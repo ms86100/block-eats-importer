@@ -231,122 +231,6 @@ export function AdminCatalogManager() {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Overview — category cards with linked attribute badges */}
-        <TabsContent value="overview" className="mt-4">
-          <p className="text-xs text-muted-foreground mb-3 font-medium">
-            Categories and their linked attribute blocks. Tap a category to expand.
-          </p>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
-            </div>
-          ) : filteredCategories.length === 0 && isSearching ? (
-            <p className="text-xs text-muted-foreground italic text-center py-8">No categories match "{searchQuery}"</p>
-          ) : (
-            <div className="space-y-2">
-              <AnimatePresence initial={false}>
-                {filteredCategories.map((cat: any, idx: number) => {
-                  const linkedBlocks = getBlocksForCategory(cat.category);
-                  const isExpanded = expandedCategory === cat.category;
-
-                  return (
-                    <motion.div
-                      key={cat.category}
-                      layout
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.2, delay: idx * 0.02 }}
-                    >
-                      <Card
-                        className="cursor-pointer border-0 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-md)] transition-all duration-300 rounded-2xl"
-                        onClick={() => toggleExpand(cat.category)}
-                      >
-                        <CardContent className="p-3.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <DynamicIcon name={cat.icon} size={18} className="shrink-0" />
-                              <div className="min-w-0">
-                                <p className="font-semibold text-sm truncate">
-                                  {cat.displayName || cat.display_name}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground font-medium">
-                                  {linkedBlocks.length} attribute block{linkedBlocks.length !== 1 ? 's' : ''}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {linkedBlocks.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
-                                  {linkedBlocks.slice(0, 3).map(b => (
-                                    <Badge key={b.id} variant="secondary" className="text-[9px] px-1.5 py-0.5 h-auto rounded-md">
-                                      {b.display_name}
-                                    </Badge>
-                                  ))}
-                                  {linkedBlocks.length > 3 && (
-                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5 h-auto rounded-md">
-                                      +{linkedBlocks.length - 3}
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                                <ChevronDown size={14} className="text-muted-foreground" />
-                              </motion.div>
-                            </div>
-                          </div>
-
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.25 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="mt-3 pt-3 border-t border-border/30 space-y-1.5">
-                                  {linkedBlocks.length === 0 ? (
-                                    <p className="text-xs text-muted-foreground italic">
-                                      No attribute blocks linked to this category yet.
-                                    </p>
-                                  ) : (
-                                    linkedBlocks.map((block, bidx) => (
-                                      <motion.div
-                                        key={block.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: bidx * 0.05, duration: 0.15 }}
-                                        className="flex items-center gap-2 p-2 rounded-xl bg-muted/30"
-                                      >
-                                        <span className="text-sm shrink-0">{block.icon || '📦'}</span>
-                                        <div className="min-w-0 flex-1">
-                                          <p className="text-xs font-semibold truncate">{block.display_name}</p>
-                                          {block.description && (
-                                            <p className="text-[10px] text-muted-foreground line-clamp-1">{block.description}</p>
-                                          )}
-                                        </div>
-                                        <Badge variant="outline" className="text-[8px] shrink-0 rounded-md">
-                                          {block.renderer_type}
-                                        </Badge>
-                                      </motion.div>
-                                    ))
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          )}
-        </TabsContent>
-
         {/* Categories sub-tab */}
         <TabsContent value="categories" className="mt-4 space-y-4">
           <CategoryManager searchQuery={searchQuery} />
@@ -356,6 +240,11 @@ export function AdminCatalogManager() {
         {/* Attributes sub-tab */}
         <TabsContent value="attributes" className="mt-4">
           <AdminAttributeBlockManager searchQuery={searchQuery} />
+        </TabsContent>
+
+        {/* Licenses sub-tab */}
+        <TabsContent value="licenses" className="mt-4">
+          <LicenseConfigSection />
         </TabsContent>
       </Tabs>
     </div>
