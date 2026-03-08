@@ -10,6 +10,7 @@ import { ProductListingCard, ProductWithSeller } from '@/components/product/Prod
 import { MarketplaceConfig } from '@/hooks/useMarketplaceConfig';
 import { BadgeConfigRow } from '@/hooks/useBadgeConfig';
 import { ArrowLeft, Search as SearchIcon, X, Globe, ShoppingBag } from 'lucide-react';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { TypewriterPlaceholder } from '@/components/search/TypewriterPlaceholder';
@@ -190,7 +191,7 @@ function CategoryBubbleRow({ categories, selectedCategory, onCategoryTap, isLoad
       <div className="flex gap-2 pb-2">
         {categories.map((cat) => (
           <button key={cat.category} onClick={() => onCategoryTap(cat.category)} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-2xl min-w-[68px] transition-all shrink-0 ${selectedCategory === cat.category ? 'bg-primary text-primary-foreground shadow-md scale-[1.03]' : 'bg-muted/60 hover:bg-muted'}`}>
-            <span className="text-xl leading-none">{cat.icon}</span>
+            <span className="text-xl leading-none"><DynamicIcon name={cat.icon} size={20} /></span>
             <span className={`text-[10px] font-medium leading-tight text-center line-clamp-1 ${selectedCategory === cat.category ? 'text-primary-foreground' : 'text-foreground'}`}>{cat.displayName}</span>
           </button>
         ))}
@@ -227,7 +228,7 @@ function ProductGridByCategory({ products, categoryMap, categoryConfigs, marketp
         return (
           <div key={cat}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-base leading-none">{catInfo?.icon || '📦'}</span>
+              <span className="text-base leading-none"><DynamicIcon name={catInfo?.icon || 'Package'} size={18} /></span>
               <h3 className="font-bold text-sm text-foreground">{catInfo?.displayName || cat}</h3>
               <span className="text-xs text-muted-foreground">({items.length})</span>
               <span className="text-[11px] font-semibold text-accent ml-auto">From {formatPrice(Math.min(...items.map(p => p.price)))}</span>
