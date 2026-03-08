@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Calendar, Clock, ChevronLeft, ChevronRight, MapPin, Video, Home, Store, Zap } from 'lucide-react';
+import { Calendar, Clock, MapPin, Video, Home, Store, Zap } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
   requested: 'bg-blue-100 text-blue-700',
