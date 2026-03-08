@@ -228,7 +228,7 @@ function ProductGridByCategory({ products, categoryMap, categoryConfigs, marketp
         return (
           <div key={cat}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-base leading-none">{catInfo?.icon || '📦'}</span>
+              <span className="text-base leading-none"><DynamicIcon name={catInfo?.icon || 'Package'} size={18} /></span>
               <h3 className="font-bold text-sm text-foreground">{catInfo?.displayName || cat}</h3>
               <span className="text-xs text-muted-foreground">({items.length})</span>
               <span className="text-[11px] font-semibold text-accent ml-auto">From {formatPrice(Math.min(...items.map(p => p.price)))}</span>
