@@ -40,6 +40,13 @@ export function ServiceBookingActions({
     [serviceSlots]
   );
 
+  // BUG FIX: Reset selections when dialog opens
+  const handleOpen = () => {
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+    setIsRescheduleOpen(true);
+  };
+
   const handleReschedule = async () => {
     if (!selectedDate || !selectedTime || !user) return;
     setIsSubmitting(true);
@@ -74,13 +81,46 @@ export function ServiceBookingActions({
         return;
       }
 
-      // Notify seller about reschedule
+      // BUG FIX: Notify seller about buyer reschedule
+      const { data: booking } = await supabase
+        .from('service_bookings')
+        .select('seller_id, product_id')
+        .eq('id', bookingId)
+        .maybeSingle();
+
+      if (booking?.seller_id) {
+        const { data: sellerProfile } = await supabase
+          .from('seller_profiles')
+          .select('user_id')
+          .eq('id', booking.seller_id)
+          .single();
+
+        if (sellerProfile?.user_id) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('name')
+            .eq('id', booking.product_id)
+            .single();
+
+          await supabase.from('notification_queue').insert({
+            user_id: sellerProfile.user_id,
+            type: 'order',
+            title: '🔄 Booking Rescheduled by Buyer',
+            body: `${product?.name || 'A service'} has been rescheduled to ${newDateStr} at ${slot.start_time.slice(0, 5)}`,
+            reference_path: `/orders/${orderId}`,
+            payload: { orderId, status: 'rescheduled', type: 'order' },
+          });
+        }
+      }
+
+      // Trigger notification processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['service-booking-order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['service-slots'] });
       queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['order-detail'] });
 
       toast.success('Appointment rescheduled');
       setIsRescheduleOpen(false);
@@ -97,7 +137,7 @@ export function ServiceBookingActions({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsRescheduleOpen(true)}
+        onClick={handleOpen}
         className="gap-1.5"
       >
         <CalendarClock size={14} />

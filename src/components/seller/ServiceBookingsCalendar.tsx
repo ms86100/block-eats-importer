@@ -73,10 +73,12 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       }
 
       // Prevent invalid transitions
+      // BUG FIX: Added rescheduled status transitions (rescheduled bookings need to be confirmable)
       const validTransitions: Record<string, string[]> = {
         requested: ['confirmed', 'cancelled'],
         confirmed: ['in_progress', 'no_show', 'cancelled'],
         scheduled: ['in_progress', 'no_show', 'cancelled'],
+        rescheduled: ['confirmed', 'in_progress', 'no_show', 'cancelled'],
         in_progress: ['completed'],
       };
       const allowed = validTransitions[booking.status] || [];
