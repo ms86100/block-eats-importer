@@ -213,6 +213,7 @@ export default function OrdersPage() {
                 <TabsTrigger value="selling" className="flex-1 text-xs">Received</TabsTrigger>
               </TabsList>
               <TabsContent value="buying">
+                <BuyerBookingsCalendar />
                 <RecurringBookingsList />
                 <OrderList type="buyer" userId={user.id} />
               </TabsContent>
