@@ -1,52 +1,134 @@
+## Category Configuration & Attribute Blocks — COMPLETED
 
+### What Was Done
 
-# Fix Plan: Action Button Mismatch & Cart Sync Issues
+**Part 1: Transaction Type & Feature Flags** — Updated all 54 categories in `category_config`:
+- Food & Beverages → `cart_purchase`
+- Education → `book_slot` (with recurring, staff, addons as appropriate)
+- Home Services → `request_service` / `request_quote` / `book_slot`
+- Personal Care → `book_slot` / `request_quote` / `cart_purchase`
+- Domestic Help → `contact_only` (with recurring)
+- Events → `request_quote` / `book_slot`
+- Professional → `book_slot` / `request_service` / `request_quote`
+- Pets → `cart_purchase` / `book_slot`
+- Rentals → `contact_only` / `cart_purchase`
+- Shopping → `cart_purchase` / `buy_now`
+- Real Estate → `schedule_visit` / `contact_only`
 
-## Issue 1: Bookable Services Show "ADD" Instead of "Book"
+**Part 2: Attribute Block Library** — Inserted 24 reusable blocks:
+food_details, grocery_details, class_session_info, daycare_info, home_service_details, domestic_help_profile, beauty_salon_details, laundry_details, tailoring_details, catering_details, event_service_details, pet_service_details, pet_food_details, professional_service_details, rental_item_details, electronics_specs, furniture_details, clothing_details, books_details, toys_details, kitchen_details, real_estate_flat, parking_details, roommate_details
 
-**Root Cause**: `ProductGridCard.tsx` (line 39) calls `deriveActionType(product.action_type, null)` — it always passes `null` as the category transaction type fallback. When a product's `action_type` column is NULL in the database (trigger didn't backfill, or product was created before the trigger existed), the function falls through to the hardcoded default `'add_to_cart'`.
-
-By contrast, `ProductListingCard.tsx` (line 110-112) correctly looks up the category's `transactionType` from `categoryConfigs` and passes it as the second argument, so it gets the correct button even when `action_type` is NULL.
-
-**Fix** — two-pronged:
-
-1. **`ProductGridCard.tsx`**: Accept `categoryConfigs` (or just a `transactionType` string) as a prop and pass it to `deriveActionType`. Alternatively, use the `useCategoryConfigs()` hook directly inside the component to look up the transaction type for `product.category`.
-
-2. **`useProductDetail.ts`** (line 69): Same issue — passes `null` as second arg. Fix to look up category transaction type.
-
-3. **Database backfill**: Run a one-time migration to backfill `action_type` on all products where it is currently NULL, using the `category_config.transaction_type` mapping. This ensures the primary path in `deriveActionType` always works.
-
-**Files**:
-- `src/components/product/ProductGridCard.tsx` — add category config lookup
-- `src/hooks/useProductDetail.ts` — add category config lookup
-- Database migration — backfill NULL `action_type` values
-
----
-
-## Issue 2: Cart Shows Items in Badge But Cart Page is Empty
-
-**Root Cause**: The cart badge uses `useCartCount` with query key `['cart-count', user?.id]`. When adding items, the count is optimistically set via `queryClient.setQueryData`. However, the cart page uses the full `useCart` hook with query key `['cart-items', user?.id]`.
-
-The problem is a **stale query cache issue**: after adding items from a product grid, `addItem` calls `invalidate()` which triggers `queryClient.invalidateQueries` for both keys. But if the cart page component hasn't been mounted yet, its query may not re-fetch until the user navigates to it. Combined with `staleTime: 30_000`, the cached empty array from initial load persists.
-
-The deeper issue: when `user` changes (e.g., auth state resolves async), the query key changes from `['cart-items', undefined]` to `['cart-items', '<actual-id>']`. The old empty-result cache for `undefined` is gone, but the new key hasn't fetched yet. The optimistic updates were written to the old key.
-
-**Fix**:
-- In `useCart.tsx`, ensure `invalidate()` also invalidates queries without the user ID suffix, or better: after optimistic update, always call `invalidateQueries` with `exact: false` so stale data is cleared regardless of key timing.
-- Add `refetchOnMount: 'always'` to the cart query so navigating to the cart page always triggers a fresh fetch.
-- Ensure the `CartProvider`'s query re-fetches when `user?.id` transitions from `undefined` to a real value (currently handled by `enabled: !!user`, but stale cache from a previous render cycle can linger).
-
-**Files**:
-- `src/hooks/useCart.tsx` — add `refetchOnMount: 'always'` and improve invalidation
+### No Code Changes Needed
+Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` components already handle the dynamic rendering.
 
 ---
 
-## Summary
+## Listing Type Behavior Fix — COMPLETED
 
-| File | Change |
-|------|--------|
-| `src/components/product/ProductGridCard.tsx` | Use `useCategoryConfigs()` to pass `transactionType` to `deriveActionType` |
-| `src/hooks/useProductDetail.ts` | Same — look up category transaction type instead of passing `null` |
-| `src/hooks/useCart.tsx` | Add `refetchOnMount: 'always'` to cart query; broaden invalidation |
-| DB migration | Backfill `products.action_type` from `category_config.transaction_type` for all NULL rows |
+### Root Cause
+- DB trigger `propagate_category_transaction_type` was never installed
+- Products had invalid `action_type` values (`'buy'`, `'enquiry'`) not in `ACTION_CONFIG`
+- DB default was `'buy'` instead of `'add_to_cart'`
+- No INSERT-time trigger to derive action_type from category
 
+### Database Fixes Applied
+1. **INSERT trigger** `trg_set_product_action_type_on_insert` — auto-derives action_type from category_config.transaction_type
+2. **UPDATE propagation trigger** `trg_propagate_category_transaction_type` — syncs products when admin changes category transaction_type
+3. **Default changed** to `'add_to_cart'`
+4. **Backfilled** all existing products with correct action_type values
+5. **CHECK constraint** `products_action_type_valid` — prevents invalid values
+
+### Frontend Fixes Applied
+1. **`deriveActionType()` utility** in `marketplace-constants.ts` — maps transaction_type → action_type as safety net
+2. **`transactionType`** added to `CategoryConfig` type and loaded from DB
+3. **ProductListingCard** — uses `deriveActionType(product.action_type, catConfig.transactionType)`
+4. **ProductGridCard** — uses `deriveActionType(product.action_type, null)`
+5. **useProductDetail** — uses `deriveActionType`
+6. **useCart** — rejects non-cart items (`action_type` not in `add_to_cart`/`buy_now`)
+7. **useBulkUpload** — sets `action_type` from category config on bulk create
+8. **ProductDetailSheet** — shows "Buy Now" label for `buy_now` action type
+
+### Mapping Reference
+| transaction_type | action_type | Button |
+|-----------------|-------------|--------|
+| cart_purchase | add_to_cart | ADD |
+| buy_now | buy_now | BUY |
+| book_slot | book | Book |
+| request_service | request_service | Request |
+| request_quote | request_quote | Quote |
+| contact_only | contact_seller | Contact |
+| schedule_visit | schedule_visit | Visit |
+
+---
+
+## Buyer & Seller Service Booking Experience — COMPLETED
+
+### What Was Done
+
+**1. Database: `session_feedback` table**
+- New table with RLS for per-session ratings (1-5 stars + comment)
+- Buyer can insert/read own; seller can read for their bookings
+- Validation trigger ensures rating 1-5
+
+**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
+- Fetches upcoming bookings for buyer joined with product + seller info
+- Also added `useSessionFeedback` hook for checking existing feedback
+
+**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
+- Week strip day selector with dot indicators
+- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
+- Each booking card shows: service name, seller, time, location type, status badge
+- Tap navigates to order detail
+- Self-hides if no upcoming bookings
+
+**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
+- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
+
+**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
+- Location type with icon (home visit / at seller / online)
+- Duration display (e.g., "60 min")
+- Buyer address when present (home visits)
+
+**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
+- Inline 1-5 star rating with optional comment
+- Shows after booking is completed on order detail page
+- Shows "rated X/5" summary if already submitted
+
+**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
+- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
+- Session feedback prompt integrated below booking add-ons
+
+---
+
+## Service Marketplace Tier 1 Enhancements — COMPLETED
+
+### What Was Done
+
+**1. iCal Export ("Add to Calendar")** (`src/components/booking/CalendarExportButton.tsx`)
+- Client-side .ics file generation with event title, date, time, location, description
+- Button appears on OrderDetailPage for upcoming confirmed/scheduled service bookings
+- Works with Google Calendar, Apple Calendar, Outlook
+
+**2. Seller Day Agenda** (`src/components/seller/SellerDayAgenda.tsx`)
+- Vertical timeline showing today's bookings with time, service, buyer, status
+- Quick "View" action navigates to order detail
+- Integrated at top of Service Bookings section in SellerDashboardPage
+- Auto-hides if no bookings today
+
+**3. Preparation Instructions** (`service_listings.preparation_instructions`)
+- New column on `service_listings` table
+- Seller can edit in ServiceFieldsSection form during product creation/editing
+- Displayed on OrderDetailPage as "How to prepare" card
+- Included in iCal export description
+
+**4. Slot Soft-Locking** (DB: `slot_holds` table + RPCs)
+- New `slot_holds` table with 5-minute expiry
+- `hold_service_slot` RPC: creates hold, checks for contention, auto-cleans expired
+- `release_slot_hold` RPC: releases hold on checkout or navigation away
+- RLS policies for authenticated users on own holds
+
+**5. Slot Waitlist** (DB: `slot_waitlist` table + trigger)
+- New `slot_waitlist` table (slot_id, buyer_id, product_id, notified_at)
+- RLS: buyers can join/view/leave their own waitlist entries
+- DB trigger `trg_notify_waitlist_on_slot_release`: when `booked_count` decreases, auto-notifies first waitlisted buyer via notification_queue
+- Unique constraint prevents duplicate waitlist entries

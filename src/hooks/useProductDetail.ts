@@ -7,6 +7,7 @@ import { ProductActionType } from '@/types/database';
 import { ACTION_CONFIG, deriveActionType } from '@/lib/marketplace-constants';
 import { useCurrency } from '@/hooks/useCurrency';
 import { hapticImpact } from '@/lib/haptics';
+import { useCategoryConfig } from '@/hooks/queries/useCategoryConfig';
 
 export interface ProductDetail {
   product_id: string;
@@ -66,7 +67,9 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
     fetchData();
   }, [product?.product_id, open]);
 
-  const actionType: ProductActionType = deriveActionType(product?.action_type as string, null);
+  const { data: categoryConfigs } = useCategoryConfig();
+  const categoryTransactionType = categoryConfigs?.find(c => c.category === product?.category)?.transactionType ?? null;
+  const actionType: ProductActionType = deriveActionType(product?.action_type as string, categoryTransactionType);
   const config = ACTION_CONFIG[actionType];
   const isCartAction = config.isCart;
 
