@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import {
   useLocalSellers,
   useNearbySocietySellers,
@@ -8,12 +9,40 @@ import {
   type DistanceBand,
   type SocietyGroup,
 } from '@/hooks/queries/useStoreDiscovery';
+import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Store, Star, MapPin, ChevronDown, Building2 } from 'lucide-react';
+import { Store, Star, MapPin, ChevronDown, Building2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+
+function useSellerActivity(sellerIds: string[]) {
+  return useQuery({
+    queryKey: ['seller-activity', sellerIds.sort().join(',')],
+    queryFn: async () => {
+      if (sellerIds.length === 0) return {};
+      const { data } = await supabase
+        .from('seller_profiles')
+        .select('id, last_active_at')
+        .in('id', sellerIds);
+      const map: Record<string, string | null> = {};
+      for (const s of data || []) map[s.id] = s.last_active_at;
+      return map;
+    },
+    enabled: sellerIds.length > 0,
+    staleTime: 2 * 60_000,
+  });
+}
+
+function getActivityDot(lastActiveAt: string | null | undefined): { color: string; label: string } | null {
+  if (!lastActiveAt) return null;
+  const diffHours = (Date.now() - new Date(lastActiveAt).getTime()) / (1000 * 60 * 60);
+  if (diffHours < 0.5) return { color: 'bg-success', label: 'Active now' };
+  if (diffHours < 2) return { color: 'bg-warning', label: 'Active recently' };
+  if (diffHours < 24) return { color: 'bg-muted-foreground', label: 'Active today' };
+  return null;
+}
 
 export function ShopByStoreDiscovery() {
   const { effectiveSociety, profile } = useAuth();
@@ -21,6 +50,9 @@ export function ShopByStoreDiscovery() {
   const radiusKm = profile?.search_radius_km ?? 10;
   const { data: localGrouped = {}, isLoading: loadingLocal } = useLocalSellers();
   const { data: nearbyBands = [], isLoading: loadingNearby } = useNearbySocietySellers(radiusKm, browseBeyond);
+
+  const localSellerIds = useMemo(() => Object.values(localGrouped).flat().map(s => s.id), [localGrouped]);
+  const { data: activityMap = {} } = useSellerActivity(localSellerIds);
 
   const hasLocal = Object.keys(localGrouped).length > 0;
   const hasNearby = nearbyBands.length > 0;
@@ -57,6 +89,7 @@ export function ShopByStoreDiscovery() {
                     business_name: s.business_name,
                     profile_image_url: s.profile_image_url,
                     rating: s.rating,
+                    lastActiveAt: activityMap[s.id] || null,
                   }))}
                 />
               ))}
@@ -187,7 +220,7 @@ function CategorySellerRow({
   compact = false,
 }: {
   groupLabel: string;
-  sellers: { id: string; business_name: string; profile_image_url: string | null; rating: number }[];
+  sellers: { id: string; business_name: string; profile_image_url: string | null; rating: number; lastActiveAt?: string | null }[];
   compact?: boolean;
 }) {
   const navigate = useNavigate();
@@ -212,7 +245,7 @@ function CategorySellerRow({
                 compact ? 'w-20' : 'w-24'
               )}
             >
-              <div className={cn('flex items-center justify-center bg-muted', compact ? 'h-12 p-1.5' : 'h-16 p-2')}>
+              <div className={cn('flex items-center justify-center bg-muted relative', compact ? 'h-12 p-1.5' : 'h-16 p-2')}>
                 {seller.profile_image_url ? (
                   <img
                     src={seller.profile_image_url}
@@ -225,6 +258,13 @@ function CategorySellerRow({
                     <Store className="text-muted-foreground" size={compact ? 16 : 22} />
                   </div>
                 )}
+                {/* Activity dot */}
+                {(() => {
+                  const dot = getActivityDot(seller.lastActiveAt);
+                  return dot ? (
+                    <div className={cn('absolute top-1 right-1 w-2 h-2 rounded-full border border-card', dot.color)} title={dot.label} />
+                  ) : null;
+                })()}
               </div>
               <div className="px-1.5 pb-2 pt-1.5 text-center">
                 <p className={cn('font-bold text-foreground line-clamp-2 leading-tight', compact ? 'text-[9px]' : 'text-[11px]')}>

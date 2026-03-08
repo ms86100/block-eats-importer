@@ -17,6 +17,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useMarketplaceLabels } from '@/hooks/useMarketplaceLabels';
 import { computeStoreStatus, formatStoreClosedMessage, type StoreAvailability } from '@/lib/store-availability';
 import { SellerTrustBadge, getSellerTrustTier } from '@/components/trust/SellerTrustBadge';
+import { FirstOrderBadge } from '@/components/trust/FirstOrderBadge';
 
 /* ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -422,6 +423,11 @@ function ProductListingCardInner({
               .replace('{count}', String(socialProofCount))
               .replace('{unit}', socialProofCount === 1 ? ml.label('label_social_proof_singular') : ml.label('label_social_proof_plural'))}
           </span>
+        )}
+
+        {/* First order protection — shown when no social proof (likely first-time) */}
+        {(socialProofCount == null || socialProofCount === 0) && (
+          <FirstOrderBadge className="mb-0.5" />
         )}
 
         {deliveryText && (

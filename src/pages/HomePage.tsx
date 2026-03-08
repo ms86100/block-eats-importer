@@ -5,8 +5,10 @@ import { OnboardingWalkthrough, useOnboarding } from '@/components/onboarding/On
 import { VerificationPendingScreen } from '@/components/onboarding/VerificationPendingScreen';
 import { MarketplaceSection } from '@/components/home/MarketplaceSection';
 import { ReorderLastOrder } from '@/components/home/ReorderLastOrder';
+import { BuyAgainRow } from '@/components/home/BuyAgainRow';
 import { SocietyQuickLinks } from '@/components/home/SocietyQuickLinks';
-// FeaturedBanners rendered inside MarketplaceSection
+import { SocietyTrustStrip } from '@/components/home/SocietyTrustStrip';
+import { HomeSearchSuggestions } from '@/components/home/HomeSearchSuggestions';
 import { CommunityTeaser } from '@/components/home/CommunityTeaser';
 import { UpcomingAppointmentBanner } from '@/components/home/UpcomingAppointmentBanner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,7 +62,11 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* FeaturedBanners rendered inside MarketplaceSection — removed here to avoid duplicates (#5) */}
+        {/* ═══ SOCIETY TRUST STRIP ═══ */}
+        <SocietyTrustStrip />
+
+        {/* ═══ COMMUNITY SEARCH SUGGESTIONS ═══ */}
+        <HomeSearchSuggestions />
 
         {/* ═══ UPCOMING APPOINTMENT ═══ */}
         <div className="px-4 mt-3">
@@ -69,6 +75,9 @@ export default function HomePage() {
 
         {/* ═══ REORDER LAST ORDER ═══ */}
         <ReorderLastOrder />
+
+        {/* ═══ BUY AGAIN ═══ */}
+        <BuyAgainRow />
 
         {/* ═══ SOCIETY QUICK LINKS ═══ */}
         <SocietyQuickLinks />
