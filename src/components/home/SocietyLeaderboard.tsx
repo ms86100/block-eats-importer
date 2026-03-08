@@ -133,35 +133,42 @@ export function SocietyLeaderboard() {
         </div>
       )}
 
-      {/* Most Ordered Products */}
+      {/* Most Ordered Products — horizontal cards */}
       {topProducts.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2.5">
             <ShoppingBag size={16} className="text-primary" />
             <h3 className="font-bold text-sm">Most Ordered Products</h3>
           </div>
-          <div className="space-y-2">
+          <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
             {topProducts.map((p, i) => (
               <div
                 key={p.product_id}
-                className="flex items-center gap-3 p-2 rounded-xl bg-card border cursor-pointer hover:shadow-sm transition-shadow"
+                className="shrink-0 w-[130px] rounded-2xl bg-card border border-border overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => navigate(`/seller/${p.seller_id}`)}
               >
-                <span className="text-base shrink-0">{medals[i]}</span>
-                {p.image_url ? (
-                  <img src={p.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <ShoppingBag size={14} className="text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate">{p.product_name}</p>
-                  <p className="text-[10px] text-muted-foreground">{p.seller_name} · {formatPrice(p.price)}</p>
+                <div className="relative aspect-square bg-muted">
+                  {p.image_url ? (
+                    <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ShoppingBag size={24} className="text-muted-foreground/40" />
+                    </div>
+                  )}
+                  {/* Rank badge */}
+                  <span className="absolute top-1.5 left-1.5 text-sm leading-none bg-background/80 backdrop-blur-sm rounded-lg px-1.5 py-1">
+                    {medals[i]}
+                  </span>
+                  {/* Order count pill */}
+                  <span className="absolute bottom-1.5 right-1.5 text-[9px] font-bold text-primary-foreground bg-primary/90 backdrop-blur-sm rounded-full px-2 py-0.5">
+                    {p.order_count}× ordered
+                  </span>
                 </div>
-                <Badge variant="secondary" className="text-[10px] shrink-0">
-                  {p.order_count} ordered
-                </Badge>
+                <div className="p-2.5">
+                  <p className="text-[11px] font-semibold text-foreground truncate leading-tight">{p.product_name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">{p.seller_name}</p>
+                  <p className="text-[11px] font-bold text-primary mt-1">{formatPrice(p.price)}</p>
+                </div>
               </div>
             ))}
           </div>
