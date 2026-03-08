@@ -186,7 +186,7 @@ export default function CategoryGroupPage() {
               <ArrowLeft size={18} className="text-foreground" />
             </button>
             <h1 className="text-base font-bold flex items-center gap-1.5 flex-1 min-w-0">
-              <span>{parentGroup.icon}</span>
+              <DynamicIcon name={parentGroup.icon} size={18} />
               <span className="truncate">{parentGroup.label}</span>
             </h1>
           </div>
@@ -296,7 +296,9 @@ export default function CategoryGroupPage() {
           </>
         ) : (
           <div className="text-center py-16">
-            <div className="text-4xl mb-4">{parentGroup.icon}</div>
+            <div className="mb-4 flex justify-center">
+              <DynamicIcon name={parentGroup.icon} size={40} className="text-muted-foreground" />
+            </div>
             <h3 className="font-semibold text-sm mb-2">No items found</h3>
             <p className="text-xs text-muted-foreground mb-4">
               {searchQuery ? 'Try a different search' : 'Check back soon for new listings!'}
