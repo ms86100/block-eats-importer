@@ -108,7 +108,7 @@ export function useSellerSettings() {
           fulfillment_mode: profile.fulfillment_mode || 'self_pickup',
           delivery_note: profile.delivery_note || '',
           minimum_order_amount: profile.minimum_order_amount?.toString() || '',
-        });
+          daily_order_limit: profile.daily_order_limit?.toString() || '',
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
