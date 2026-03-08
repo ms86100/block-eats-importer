@@ -291,6 +291,13 @@ export function useSellerProducts() {
   // Determine if current category is a service type
   const isCurrentCategoryService = useMemo(() => isServiceCategory(formData.category, configs), [formData.category, configs]);
 
+  // Check if current category supports addons (from DB flag)
+  const currentCategorySupportsAddons = useMemo(() => {
+    if (!formData.category) return false;
+    const config = configs.find((c: any) => c.category === formData.category);
+    return (config as any)?.supports_addons === true || (isCurrentCategoryService && (config as any)?.supports_addons !== false);
+  }, [formData.category, configs, isCurrentCategoryService]);
+
   return {
     user, sellerProfile, primaryGroup, products, isLoading, isDialogOpen, setIsDialogOpen,
     editingProduct, isSaving, licenseBlocked, isBulkOpen, setIsBulkOpen,
@@ -298,6 +305,7 @@ export function useSellerProducts() {
     activeCategoryConfig, showVegToggle, showDurationField, allowedCategories, subcategories,
     configs, sellerProfiles, resetForm, openEditDialog, handleSave, confirmDelete,
     toggleAvailability, fetchData, serviceFields, setServiceFields, isCurrentCategoryService,
+    currentCategorySupportsAddons,
   };
 }
 
