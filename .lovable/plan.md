@@ -1,50 +1,77 @@
 
 
-## Notification Health Check — User-Friendly UI
+# Dynamic Category-Driven Seller UI Configuration
 
-### What We'll Build
+## Current State
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+The system already has **most of the infrastructure** in place but has two key gaps where hardcoded logic overrides the admin configuration:
 
-### UI Design
+### What's Already Working (Admin → DB)
+- `category_config` table has columns: `supports_addons`, `supports_recurring`, `supports_staff_assignment`, `show_veg_toggle`, `show_duration_field`, `layout_type`, `transaction_type`
+- Admin `CategoryManager` UI has toggles for all these flags per category
+- These flags are saved to the database correctly
 
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
+### What's Broken (DB → Seller UI)
+1. **`SellerSettingsPage.tsx` line 25-28** — Hardcoded `SERVICE_PARENT_GROUPS` array decides whether to show `ServiceAvailabilityConfig` and `ServiceStaffManager`. It ignores the DB flags entirely.
+2. **`SellerProductsPage.tsx` line 70-74** — Uses `isCurrentCategoryService` (based on `layoutType === 'service'`) to show `ServiceFieldsSection` and `ServiceAddonsManager`. This partially works but doesn't use the granular `supports_addons` / `supports_staff_assignment` flags.
+3. **`SellerDashboardPage.tsx`** — Likely also uses the same hardcoded parent group list for showing booking calendar and slot manager.
 
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
+The admin can already toggle these flags, but the seller-side UI doesn't read them.
 
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
+## Implementation Plan
 
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
+### Task 1: Create a `useCategoryFeatureFlags` hook
 
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
+A thin hook that, given a category slug (or seller's categories), returns the resolved feature flags from `category_config`:
 
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
+```ts
+// Returns { supportsAddons, supportsRecurring, supportsStaffAssignment, 
+//           showVegToggle, showDurationField, isServiceLayout }
+```
 
-### Implementation
+This hook reuses the existing `useCategoryConfigs()` cache — no new queries needed.
 
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
+### Task 2: Fix SellerSettingsPage — Remove hardcoded SERVICE_PARENT_GROUPS
 
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+**Current:** `isServiceGroup(primaryGroup)` checks against a hardcoded array.
 
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
+**Fix:** 
+- Query the seller's product categories via `category_config`
+- Show `ServiceAvailabilityConfig` if **any** of the seller's categories has `layout_type = 'service'`
+- Show `ServiceStaffManager` if **any** category has `supports_staff_assignment = true`
+- Remove the `SERVICE_PARENT_GROUPS` constant entirely
 
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
+### Task 3: Fix SellerProductsPage — Use granular flags
 
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
+**Current:** Shows `ServiceFieldsSection` and `ServiceAddonsManager` based on `layoutType === 'service'` only.
+
+**Fix:**
+- Show `ServiceFieldsSection` when `layoutType === 'service'` (this is correct)
+- Show `ServiceAddonsManager` only when the specific category has `supports_addons = true`
+- Both already read from `category_config` via `useCategoryConfigs`, just need to check the right flag
+
+### Task 4: Fix SellerDashboardPage — Dynamic service widgets
+
+Check if any of the seller's active products belong to categories with `layout_type = 'service'` before showing:
+- `ServiceBookingsCalendar`
+- `SlotCalendarManager`
+- `ServiceBookingStats`
+
+### Task 5: Fix DraftProductManager — Use granular flags
+
+Currently shows `ServiceFieldsSection` when `layoutType === 'service'`. This is correct but should also respect `supports_addons` when showing add-on hints.
+
+---
+
+## Summary
+
+| # | Change | File |
+|---|--------|------|
+| 1 | Create `useCategoryFeatureFlags` hook | New hook file |
+| 2 | Remove hardcoded `SERVICE_PARENT_GROUPS`, use DB flags | `SellerSettingsPage.tsx` |
+| 3 | Use `supports_addons` flag for add-ons visibility | `SellerProductsPage.tsx` |
+| 4 | Dynamic service widget visibility on dashboard | `SellerDashboardPage.tsx` |
+| 5 | Respect granular flags in onboarding flow | `DraftProductManager.tsx` |
+
+No DB migrations needed — the columns and admin UI already exist. This is purely a frontend wiring fix to make the seller UI respect what the admin has configured.
 
