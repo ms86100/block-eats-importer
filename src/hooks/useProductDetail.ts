@@ -50,7 +50,7 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
       const [specsRes, similarRes] = await Promise.all([
         supabase.from('products').select('specifications').eq('id', product.product_id).maybeSingle(),
         supabase.from('products')
-          .select('id, name, price, image_url, is_veg, seller_id, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
+          .select('id, name, price, image_url, is_veg, seller_id, seller:seller_profiles!products_seller_id_fkey(business_name, society_id, availability_start, availability_end, operating_days, is_available)')
           .eq('category', product.category as string)
           .eq('is_available', true).eq('approval_status', 'approved')
           .neq('id', product.product_id).limit(6),
@@ -86,9 +86,13 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
       image_url: product.image_url, is_veg: product.is_veg ?? true,
       is_available: true, category: product.category as any,
       description: product.description || null,
+      seller_availability_start: (product as any).seller_availability_start ?? null,
+      seller_availability_end: (product as any).seller_availability_end ?? null,
+      seller_operating_days: (product as any).seller_operating_days ?? null,
+      seller_is_available: (product as any).seller_is_available ?? true,
       is_bestseller: false, is_recommended: false, is_urgent: false,
       created_at: '', updated_at: '',
-    });
+    } as any);
     // Only navigate to cart for buy_now; add_to_cart stays on sheet with stepper
     if (actionType === 'buy_now') {
       onOpenChange?.(false);

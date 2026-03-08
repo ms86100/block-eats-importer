@@ -32,13 +32,14 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
   // Store availability check
   const seller = (product as any)?.seller;
   const storeAvailability = useMemo(() => {
+    const p = product as any;
     return computeStoreStatus(
-      seller?.availability_start,
-      seller?.availability_end,
-      seller?.operating_days,
-      seller?.is_available ?? true
+      p.seller_availability_start ?? seller?.availability_start,
+      p.seller_availability_end ?? seller?.availability_end,
+      p.seller_operating_days ?? seller?.operating_days,
+      p.seller_is_available ?? seller?.is_available ?? true
     );
-  }, [seller?.availability_start, seller?.availability_end, seller?.operating_days, seller?.is_available]);
+  }, [product, seller?.availability_start, seller?.availability_end, seller?.operating_days, seller?.is_available]);
 
   const isStoreClosed = storeAvailability.status !== 'open';
   const storeClosedMessage = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';

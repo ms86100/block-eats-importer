@@ -5,8 +5,47 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CartItem, Product } from '@/types/database';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/query-utils';
-import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
+import { computeStoreStatus, formatStoreClosedMessage, type StoreStatus } from '@/lib/store-availability';
 
+const hasOwn = (obj: unknown, key: string) => Object.prototype.hasOwnProperty.call(obj ?? {}, key);
+
+function parseStoreAvailabilityError(error: unknown): string | null {
+  const msg = String((error as any)?.message || '');
+  const statusMatch = msg.match(/STORE_CLOSED:([a-z_]+)/i);
+  if (statusMatch?.[1]) {
+    const status = statusMatch[1].toLowerCase() as StoreStatus;
+    return formatStoreClosedMessage({ status, nextOpenAt: null, minutesUntilOpen: null }) || 'This store is currently closed.';
+  }
+  if (msg.includes('PRODUCT_NOT_ORDERABLE')) return 'This item is no longer available.';
+  if (msg.includes('SELLER_NOT_FOUND')) return 'Seller is unavailable right now.';
+  return null;
+}
+
+function getInlineSellerAvailability(product: Product) {
+  const p = product as any;
+  const seller = p?.seller as any;
+
+  const hasProductAvailabilityFields =
+    hasOwn(p, 'seller_availability_start') ||
+    hasOwn(p, 'seller_availability_end') ||
+    hasOwn(p, 'seller_operating_days') ||
+    hasOwn(p, 'seller_is_available');
+
+  const hasSellerAvailabilityFields = !!seller && (
+    hasOwn(seller, 'availability_start') ||
+    hasOwn(seller, 'availability_end') ||
+    hasOwn(seller, 'operating_days') ||
+    hasOwn(seller, 'is_available')
+  );
+
+  return {
+    hasInlineAvailability: hasProductAvailabilityFields || hasSellerAvailabilityFields,
+    availabilityStart: p.seller_availability_start ?? seller?.availability_start ?? null,
+    availabilityEnd: p.seller_availability_end ?? seller?.availability_end ?? null,
+    operatingDays: p.seller_operating_days ?? seller?.operating_days ?? null,
+    isAvailable: p.seller_is_available ?? seller?.is_available ?? true,
+  };
+}
 interface SellerGroup {
   sellerId: string;
   sellerName: string;
@@ -98,20 +137,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Check store availability before allowing add-to-cart
-    const seller = (product as any)?.seller;
-    if (seller) {
-      const availability = computeStoreStatus(
-        seller.availability_start,
-        seller.availability_end,
-        seller.operating_days,
-        seller.is_available ?? true
-      );
-      if (availability.status !== 'open') {
-        const msg = formatStoreClosedMessage(availability);
-        toast.error(msg || 'This store is currently closed. Please try again later.');
+    const inlineAvailability = getInlineSellerAvailability(product);
+    let availability = computeStoreStatus(
+      inlineAvailability.availabilityStart,
+      inlineAvailability.availabilityEnd,
+      inlineAvailability.operatingDays,
+      inlineAvailability.isAvailable
+    );
+
+    // Fallback fetch when product payload does not include seller availability metadata
+    if (!inlineAvailability.hasInlineAvailability) {
+      if (!product.seller_id) {
+        toast.error('Unable to verify store availability right now. Please try again.');
         return;
       }
+
+      const { data: sellerSnapshot, error: sellerError } = await supabase
+        .from('seller_profiles')
+        .select('availability_start, availability_end, operating_days, is_available')
+        .eq('id', product.seller_id)
+        .maybeSingle();
+
+      if (sellerError || !sellerSnapshot) {
+        toast.error('Unable to verify store availability right now. Please try again.');
+        return;
+      }
+
+      availability = computeStoreStatus(
+        sellerSnapshot.availability_start,
+        sellerSnapshot.availability_end,
+        sellerSnapshot.operating_days,
+        sellerSnapshot.is_available ?? true
+      );
+    }
+
+    if (availability.status !== 'open') {
+      const msg = formatStoreClosedMessage(availability);
+      toast.error(msg || 'This store is currently closed. Please try again later.');
+      return;
     }
 
     // Optimistic update
@@ -161,7 +224,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       queryClient.setQueryData(['cart-count', user?.id], prevCount);
       invalidate(); // Rollback
-      handleApiError(error, 'Failed to add item');
+      const availabilityError = parseStoreAvailabilityError(error);
+      if (availabilityError) toast.error(availabilityError);
+      else handleApiError(error, 'Failed to add item');
     }
   }, [user, setOptimistic, invalidate, queryClient]);
 
@@ -220,7 +285,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (qtyDelta !== 0) {
         queryClient.setQueryData(['cart-count', user?.id], (old: number | undefined) => Math.max(0, (old || 0) - qtyDelta));
       }
-      handleApiError(error, 'Failed to update quantity');
+      const availabilityError = parseStoreAvailabilityError(error);
+      if (availabilityError) toast.error(availabilityError);
+      else handleApiError(error, 'Failed to update quantity');
     }
   }, [user, setOptimistic, removeItem, queryClient]);
 
