@@ -234,11 +234,11 @@ export default function OrderDetailPage() {
                     slotId={serviceBooking.slot_id}
                     status={serviceBooking.status}
                   />
+                </div>
+              )}
             </div>
             );
           })()}
-            </div>
-          )}
 
           {/* Payment */}
           <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">
