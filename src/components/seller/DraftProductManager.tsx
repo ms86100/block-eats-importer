@@ -9,13 +9,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { VegBadge } from '@/components/ui/veg-badge';
 import { ProductImageUpload } from '@/components/ui/product-image-upload';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Trash2, Loader2, Package, Percent, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Package, Percent, CheckCircle2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { friendlyError } from '@/lib/utils';
 import { AttributeBlockBuilder } from '@/components/seller/AttributeBlockBuilder';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ServiceFieldsSection, ServiceFieldsData, INITIAL_SERVICE_FIELDS } from '@/components/seller/ServiceFieldsSection';
 
 interface DraftProduct {
   id?: string;
