@@ -15,6 +15,7 @@ import { ServiceBookingActions } from '@/components/order/ServiceBookingActions'
 import { BookingAddonsSummary } from '@/components/booking/BookingAddonsSummary';
 import { SessionFeedbackPrompt } from '@/components/booking/SessionFeedbackPrompt';
 import { BuyerCancelBooking } from '@/components/booking/BuyerCancelBooking';
+import { CalendarExportButton } from '@/components/booking/CalendarExportButton';
 import { FeedbackSheet } from '@/components/feedback/FeedbackSheet';
 import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';

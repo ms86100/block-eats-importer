@@ -34,6 +34,7 @@ import { useNewOrderAlert } from '@/hooks/useNewOrderAlert';
 import { ServiceBookingsCalendar } from '@/components/seller/ServiceBookingsCalendar';
 import { ServiceBookingStats } from '@/components/seller/ServiceBookingStats';
 import { SlotCalendarManager } from '@/components/seller/SlotCalendarManager';
+import { SellerDayAgenda } from '@/components/seller/SellerDayAgenda';
 
 import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
