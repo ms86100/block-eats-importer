@@ -41,7 +41,8 @@ export function useServiceSlots(productId: string | undefined, daysAhead = 14) {
       ) as ServiceSlot[];
     },
     enabled: !!productId,
-    staleTime: 30 * 1000, // 30s - slots change frequently
+    staleTime: 15 * 1000, // [BUG FIX #M3] Reduce staleTime from 30s to 15s for fresher slot data
+    refetchOnWindowFocus: true, // [BUG FIX #M4] Refetch when user returns to tab
   });
 }
 
@@ -50,9 +51,17 @@ export function slotsToPickerFormat(slots: ServiceSlot[]): { date: string; slots
   const grouped: Record<string, string[]> = {};
   for (const slot of slots) {
     if (!grouped[slot.slot_date]) grouped[slot.slot_date] = [];
-    grouped[slot.slot_date].push(slot.start_time);
+    // [BUG FIX #H9] Deduplicate time slots (same time can appear from multiple capacity slots)
+    const timeStr = slot.start_time;
+    if (!grouped[slot.slot_date].includes(timeStr)) {
+      grouped[slot.slot_date].push(timeStr);
+    }
   }
-  return Object.entries(grouped).map(([date, times]) => ({ date, slots: times }));
+  // [BUG FIX #M5] Sort times within each date
+  return Object.entries(grouped).map(([date, times]) => ({
+    date,
+    slots: times.sort(),
+  }));
 }
 
 /** Find the slot record matching a date + time */

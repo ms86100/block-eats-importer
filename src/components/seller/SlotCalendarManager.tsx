@@ -30,6 +30,7 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
   // Fetch service products for this seller
   useEffect(() => {
     if (!sellerId) return;
+    let cancelled = false; // [BUG FIX #M17] Cleanup on unmount
     (async () => {
       const { data } = await supabase
         .from('products')
@@ -38,20 +39,23 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
         .eq('is_available', true)
         .order('name');
       
-      if (data && data.length > 0) {
-        const { data: serviceListings } = await supabase
-          .from('service_listings')
-          .select('product_id')
-          .in('product_id', data.map(p => p.id));
-        
-        const serviceProductIds = new Set((serviceListings || []).map(sl => sl.product_id));
-        const serviceProducts = data.filter(p => serviceProductIds.has(p.id));
+      if (cancelled || !data || data.length === 0) return;
+
+      const { data: serviceListings } = await supabase
+        .from('service_listings')
+        .select('product_id')
+        .in('product_id', data.map(p => p.id));
+      
+      const serviceProductIds = new Set((serviceListings || []).map(sl => sl.product_id));
+      const serviceProducts = data.filter(p => serviceProductIds.has(p.id));
+      if (!cancelled) {
         setProducts(serviceProducts);
         if (serviceProducts.length > 0 && !selectedProductId) {
           setSelectedProductId(serviceProducts[0].id);
         }
       }
     })();
+    return () => { cancelled = true; };
   }, [sellerId]);
 
   const fetchSlots = useCallback(async () => {
@@ -86,13 +90,19 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
     return managementSlots.filter(s => s.slot_date === dateStr);
   }, [managementSlots, selectedDate]);
 
+  // [BUG FIX #M18] Prevent blocking slots that have bookings
   const toggleBlock = async (slot: ServiceSlot) => {
+    if (slot.booked_count > 0 && !slot.is_blocked) {
+      toast.error('Cannot block a slot that has active bookings');
+      return;
+    }
     setBlockingSlots(prev => new Set(prev).add(slot.id));
     const newBlocked = !slot.is_blocked;
     const { error } = await supabase
       .from('service_slots')
       .update({ is_blocked: newBlocked })
-      .eq('id', slot.id);
+      .eq('id', slot.id)
+      .eq('seller_id', sellerId); // [BUG FIX #H13] Ownership check
 
     if (error) {
       toast.error('Failed to update slot');
@@ -105,6 +115,7 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
     setBlockingSlots(prev => { const n = new Set(prev); n.delete(slot.id); return n; });
   };
 
+  // [BUG FIX #H14] Add seller_id to bulk block/unblock queries
   const blockAllForDate = async () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const unblockedSlots = slotsForDate.filter(s => !s.is_blocked && s.booked_count === 0);
@@ -114,7 +125,8 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
       .update({ is_blocked: true })
       .eq('product_id', selectedProductId)
       .eq('slot_date', dateStr)
-      .eq('booked_count', 0);
+      .eq('booked_count', 0)
+      .eq('seller_id', sellerId);
     if (error) {
       toast.error('Failed to block slots');
       return;
@@ -131,7 +143,8 @@ export function SlotCalendarManager({ productId: initialProductId, sellerId }: S
       .from('service_slots')
       .update({ is_blocked: false })
       .eq('product_id', selectedProductId)
-      .eq('slot_date', dateStr);
+      .eq('slot_date', dateStr)
+      .eq('seller_id', sellerId);
     if (error) {
       toast.error('Failed to unblock slots');
       return;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
@@ -39,6 +39,8 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
   const [actionLoading, setActionLoading] = useState<BookingAction>(null);
 
   useEffect(() => {
+    // [BUG FIX #M1] Add cleanup flag for unmount
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('service_staff')
@@ -46,24 +48,33 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
         .eq('seller_id', sellerId)
         .eq('is_active', true)
         .order('name');
-      setStaffList((data || []) as { id: string; name: string }[]);
+      if (!cancelled) setStaffList((data || []) as { id: string; name: string }[]);
     })();
+    return () => { cancelled = true; };
   }, [sellerId]);
 
-  const assignStaff = async (bookingId: string, staffId: string | null) => {
+  // [BUG FIX #H6] Add seller_id filter to staff assignment
+  const assignStaff = useCallback(async (bookingId: string, staffId: string | null) => {
     const { error } = await supabase
       .from('service_bookings')
       .update({ staff_id: staffId })
-      .eq('id', bookingId);
+      .eq('id', bookingId)
+      .eq('seller_id', sellerId); // Ownership check
     if (error) {
       toast.error('Failed to assign staff');
       return;
     }
     refetch();
     toast.success(staffId ? 'Staff assigned' : 'Staff unassigned');
-  };
+  }, [sellerId, refetch]);
 
-  const updateBookingStatus = async (bookingId: string, orderId: string, newStatus: string) => {
+  const updateBookingStatus = useCallback(async (bookingId: string, orderId: string, newStatus: string) => {
+    // [BUG FIX #H7] Prevent concurrent actions on same booking
+    if (actionLoading) {
+      toast.info('Please wait for the current action to complete');
+      return;
+    }
+
     setActionLoading({ id: bookingId, action: newStatus });
     try {
       const booking = bookings.find(b => b.id === bookingId);
@@ -73,7 +84,6 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       }
 
       // Prevent invalid transitions
-      // BUG FIX: Added rescheduled status transitions (rescheduled bookings need to be confirmable)
       const validTransitions: Record<string, string[]> = {
         requested: ['confirmed', 'cancelled'],
         confirmed: ['in_progress', 'no_show', 'cancelled'],
@@ -87,7 +97,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
         return;
       }
 
-      // Update booking — BUG FIX: Add seller_id filter to prevent unauthorized updates
+      // Update booking — ownership check via seller_id
       const { error: bookingErr } = await supabase
         .from('service_bookings')
         .update({
@@ -109,13 +119,15 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       };
       const orderStatus = orderStatusMap[newStatus] || newStatus;
 
+      // [BUG FIX #H8] Add seller_id filter to order update too
       await supabase
         .from('orders')
         .update({
           status: orderStatus,
           ...(newStatus === 'cancelled' ? { rejection_reason: 'Rejected by seller' } : {}),
         })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .eq('seller_id', sellerId);
 
       // Atomically free slot on cancel/no_show
       if ((newStatus === 'cancelled' || newStatus === 'no_show') && booking.slot_id) {
@@ -168,7 +180,7 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [bookings, sellerId, actionLoading, refetch, queryClient]);
 
   const weekDates = useMemo(() => {
     const dates = [];
@@ -267,8 +279,8 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                         <User size={10} />
                         {booking.buyer_name || 'Customer'}
                       </p>
-                      {/* Staff assignment */}
-                      {staffList.length > 0 && (
+                      {/* [BUG FIX #M2] Only show staff assignment for non-terminal statuses */}
+                      {staffList.length > 0 && !['cancelled', 'completed', 'no_show'].includes(booking.status) && (
                         <div className="mt-1">
                           <Select
                             value={(booking as any).staff_id || 'none'}
@@ -316,7 +328,6 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                     </div>
                   )}
 
-                  {/* BUG FIX: Added rescheduled status — seller needs to re-confirm or take action */}
                   {booking.status === 'rescheduled' && (
                     <div className="flex gap-2 pt-1 border-t border-border">
                       <Button

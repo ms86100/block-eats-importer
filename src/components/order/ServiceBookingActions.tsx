@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
+import { useState, useMemo, useRef } from 'react';
+import { format, isBefore, startOfToday } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,6 +33,8 @@ export function ServiceBookingActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
+  // [BUG FIX #M8] Prevent double-submit
+  const submittingRef = useRef(false);
 
   const { data: serviceSlots = [], refetch: refetchSlots } = useServiceSlots(isRescheduleOpen ? productId : undefined);
   const availableSlots = useMemo(
@@ -40,28 +42,48 @@ export function ServiceBookingActions({
     [serviceSlots]
   );
 
-  // BUG FIX: Reset selections when dialog opens
   const handleOpen = () => {
     setSelectedDate(undefined);
     setSelectedTime(undefined);
     setIsRescheduleOpen(true);
   };
 
+  // [BUG FIX #M9] Clear time when date changes (same as booking flow)
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setSelectedTime(undefined);
+  };
+
+  // [BUG FIX #H10] Validate reschedule date is not in the past
+  const isDateValid = selectedDate && !isBefore(selectedDate, startOfToday());
+
   const handleReschedule = async () => {
-    if (!selectedDate || !selectedTime || !user) return;
+    if (!selectedDate || !selectedTime || !user || !isDateValid) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
 
     try {
       const newDateStr = format(selectedDate, 'yyyy-MM-dd');
+
+      // [BUG FIX #M10] Prevent rescheduling to same date+time
+      if (newDateStr === bookingDate && selectedTime === startTime) {
+        toast.info('Please select a different date or time');
+        setIsSubmitting(false);
+        submittingRef.current = false;
+        return;
+      }
+
       const slot = findSlot(serviceSlots, newDateStr, selectedTime);
       if (!slot) {
         toast.error('Selected slot is no longer available');
         refetchSlots();
         setIsSubmitting(false);
+        submittingRef.current = false;
         return;
       }
 
-      // Use atomic reschedule RPC
+      // Use atomic reschedule RPC (already sends notifications internally)
       const { data, error } = await supabase.rpc('reschedule_service_booking', {
         _booking_id: bookingId,
         _new_slot_id: slot.id,
@@ -78,12 +100,11 @@ export function ServiceBookingActions({
         toast.error(result?.error || 'Failed to reschedule');
         refetchSlots();
         setIsSubmitting(false);
+        submittingRef.current = false;
         return;
       }
 
-      // BUG FIX: The reschedule_service_booking RPC already enqueues a notification
-      // to the other party. Sending another one here caused DUPLICATE notifications.
-      // Only trigger the notification processor.
+      // RPC already enqueues notification — just trigger processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
       // Invalidate relevant queries
@@ -99,6 +120,7 @@ export function ServiceBookingActions({
       toast.error('Failed to reschedule: ' + (err.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -114,7 +136,6 @@ export function ServiceBookingActions({
         Reschedule
       </Button>
 
-      {/* Reschedule Dialog */}
       <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -127,14 +148,14 @@ export function ServiceBookingActions({
             <TimeSlotPicker
               selectedDate={selectedDate}
               selectedTime={selectedTime}
-              onDateSelect={setSelectedDate}
+              onDateSelect={handleDateSelect}
               onTimeSelect={setSelectedTime}
               availableSlots={availableSlots}
             />
             <Button
               className="w-full"
               onClick={handleReschedule}
-              disabled={!selectedDate || !selectedTime || isSubmitting}
+              disabled={!selectedDate || !selectedTime || !isDateValid || isSubmitting}
             >
               {isSubmitting && <Loader2 className="animate-spin mr-2" size={16} />}
               Confirm Reschedule
