@@ -224,7 +224,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       queryClient.setQueryData(['cart-count', user?.id], prevCount);
       invalidate(); // Rollback
-      handleApiError(error, 'Failed to add item');
+      const availabilityError = parseStoreAvailabilityError(error);
+      if (availabilityError) toast.error(availabilityError);
+      else handleApiError(error, 'Failed to add item');
     }
   }, [user, setOptimistic, invalidate, queryClient]);
 
