@@ -58,7 +58,6 @@ export function useSellerProducts() {
   const [formData, setFormData] = useState<ProductFormData>(INITIAL_FORM);
   const [serviceFields, setServiceFields] = useState<ServiceFieldsData>(INITIAL_SERVICE_FIELDS);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   const activeCategoryConfig = useMemo(() => {
     if (!formData.category) return null;
