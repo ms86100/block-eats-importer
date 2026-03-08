@@ -68,7 +68,7 @@ function emptyField(): SchemaField {
   return { key: '', label: '', type: 'text', placeholder: '' };
 }
 
-export function AdminAttributeBlockManager() {
+export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?: string }) {
   const [blocks, setBlocks] = useState<AttributeBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);

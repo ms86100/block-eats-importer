@@ -150,8 +150,35 @@ function SortableCategoryItem({ cat, groupIsActive, onToggle, onEdit, onDelete, 
   );
 }
 
-export function CategoryManager() {
+export function CategoryManager({ searchQuery = '' }: { searchQuery?: string }) {
   const cm = useCategoryManagerData();
+  const query = searchQuery.trim().toLowerCase();
+  const isSearching = query.length > 0;
+
+  // Filter grouped categories by search query
+  const filteredGroupedCategories = useMemo(() => {
+    if (!isSearching) return cm.groupedCategories;
+    const result: Record<string, typeof cm.categories> = {};
+    for (const [group, cats] of Object.entries(cm.groupedCategories)) {
+      const filtered = cats.filter(cat =>
+        cat.display_name.toLowerCase().includes(query) ||
+        cat.category.toLowerCase().includes(query) ||
+        (cat.transaction_type || '').toLowerCase().includes(query) ||
+        group.toLowerCase().includes(query)
+      );
+      if (filtered.length > 0) result[group] = filtered;
+    }
+    return result;
+  }, [cm.groupedCategories, query, isSearching]);
+
+  const filteredGroups = useMemo(() => {
+    if (!isSearching) return cm.filteredGroups;
+    return cm.filteredGroups.filter(g =>
+      g.name.toLowerCase().includes(query) ||
+      g.slug.toLowerCase().includes(query) ||
+      (filteredGroupedCategories[g.slug] || []).length > 0
+    );
+  }, [cm.filteredGroups, filteredGroupedCategories, query, isSearching]);
 
   const openSubcategoryCreate = (category: CategoryConfigRow) => {
     if (typeof window === 'undefined') return;
