@@ -291,11 +291,23 @@ export function useSellerProducts() {
   // Determine if current category is a service type
   const isCurrentCategoryService = useMemo(() => isServiceCategory(formData.category, configs), [formData.category, configs]);
 
-  // Check if current category supports addons (from DB flag)
+  // Check service capability flags for current category (from DB)
   const currentCategorySupportsAddons = useMemo(() => {
     if (!formData.category) return false;
     const config = configs.find((c: any) => c.category === formData.category);
     return config?.supportsAddons === true;
+  }, [formData.category, configs]);
+
+  const currentCategorySupportsRecurring = useMemo(() => {
+    if (!formData.category) return false;
+    const config = configs.find((c: any) => c.category === formData.category);
+    return config?.supportsRecurring === true;
+  }, [formData.category, configs]);
+
+  const currentCategorySupportsStaffAssignment = useMemo(() => {
+    if (!formData.category) return false;
+    const config = configs.find((c: any) => c.category === formData.category);
+    return config?.supportsStaffAssignment === true;
   }, [formData.category, configs]);
 
   return {
@@ -305,7 +317,7 @@ export function useSellerProducts() {
     activeCategoryConfig, showVegToggle, showDurationField, allowedCategories, subcategories,
     configs, sellerProfiles, resetForm, openEditDialog, handleSave, confirmDelete,
     toggleAvailability, fetchData, serviceFields, setServiceFields, isCurrentCategoryService,
-    currentCategorySupportsAddons,
+    currentCategorySupportsAddons, currentCategorySupportsRecurring, currentCategorySupportsStaffAssignment,
   };
 }
 
