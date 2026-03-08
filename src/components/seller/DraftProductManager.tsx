@@ -156,7 +156,8 @@ export function DraftProductManager({
       });
       setIsAdding(false);
       setAttributeBlocks([]);
-      toast.success('Product added');
+      setServiceFields(INITIAL_SERVICE_FIELDS);
+      toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);
       toast.error(friendlyError(error));
