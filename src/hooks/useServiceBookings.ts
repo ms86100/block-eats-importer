@@ -53,14 +53,18 @@ export function useServiceBookingForOrder(orderId: string | undefined) {
 
       const { data, error } = await supabase
         .from('service_bookings')
-        .select('*')
+        .select('*, staff:service_staff(name)')
         .eq('order_id', orderId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (error) throw error;
-      return data as ServiceBooking | null;
+      if (!data) return null;
+      return {
+        ...data,
+        staff_name: (data as any).staff?.name || null,
+      } as ServiceBooking | null;
     },
     enabled: !!orderId,
   });
