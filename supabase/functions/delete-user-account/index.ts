@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Delete app data first
+    // Delete app data first — comprehensive list to prevent orphaned records
     const cleanupTables = [
       { table: 'cart_items', column: 'user_id' },
       { table: 'device_tokens', column: 'user_id' },
@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       { table: 'help_responses', column: 'responder_id' },
       { table: 'help_requests', column: 'author_id' },
       { table: 'notification_queue', column: 'user_id' },
+      { table: 'user_notifications', column: 'user_id' },
       { table: 'dispute_comments', column: 'author_id' },
       { table: 'expense_views', column: 'user_id' },
       { table: 'expense_flags', column: 'flagged_by' },
@@ -50,6 +51,10 @@ Deno.serve(async (req) => {
       { table: 'skill_listings', column: 'user_id' },
       { table: 'society_admins', column: 'user_id' },
       { table: 'security_staff', column: 'user_id' },
+      { table: 'authorized_persons', column: 'resident_id' },
+      { table: 'domestic_help_entries', column: 'resident_id' },
+      { table: 'collective_buy_participants', column: 'user_id' },
+      { table: 'service_recurring_configs', column: 'buyer_id' },
     ];
 
     for (const { table, column } of cleanupTables) {
