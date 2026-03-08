@@ -1,50 +1,68 @@
 
+# Service Management UI — Gap Analysis & Implementation Plan
 
-## Notification Health Check — User-Friendly UI
+## Current State: What ALREADY Works
 
-### What We'll Build
+The service management infrastructure is **mostly built** but has two critical gaps in the UI flow:
 
-A simple "Check Notifications" button accessible from the **Profile page** (replacing the current "Push Debug" developer link) and from the **Notifications page**. When tapped, it runs the existing diagnostic engine in the background and presents results as plain, friendly status messages — no technical jargon.
+### Working Components (Seller Side):
+1. **SellerProductsPage** (`/seller/products`) — When editing a product in a service category, `ServiceFieldsSection` appears (duration, buffer, location type, etc.) and `ServiceAddonsManager` shows for existing products. Service listings are upserted to `service_listings` table on save.
+2. **SellerSettingsPage** (`/seller/settings`) — Shows `ServiceAvailabilityConfig` (weekly schedule) and `ServiceStaffManager` if the seller's `primary_group` is in the service parent groups list.
+3. **SellerDashboardPage** (`/seller`) — Shows `ServiceBookingsCalendar` and `SlotCalendarManager` for service-group sellers.
 
-### UI Design
+### Working Components (Admin Side):
+1. **AdminCatalogManager** → **CategoryManager** — Has toggles for `supports_addons`, `supports_recurring`, `supports_staff_assignment` per category. This exists at Admin → Catalog tab.
 
-**Trigger:** A card/button labeled "Check Notifications" with a bell icon, placed in Profile menu items (replacing "Push Debug" for non-admin users; admins keep the debug link).
+### Working Backend:
+- `service_listings`, `service_slots`, `service_bookings`, `service_staff`, `service_addons`, `service_booking_addons` tables all exist
+- `book_service_slot`, `release_service_slot`, `reschedule_service_booking`, `can_cancel_booking` RPCs exist
+- `generate-service-slots` and `send-appointment-reminders` edge functions exist
 
-**Result view:** A bottom sheet (using `vaul` Drawer) with 4 user-facing status rows:
+---
 
-| Internal Check | User Sees (if OK) | User Sees (if NOT OK) |
-|---|---|---|
-| Permission check | "Notification permission is enabled" | "Notifications are turned off" + "Open Settings" button |
-| Plugin + registration | "Your device is set up for notifications" | "Setup incomplete — tap to retry" + retry button |
-| Token in DB | "Your device is registered" | "Registration pending — tap to retry" |
-| Test notification queue | "Everything is working correctly" | "Could not send test — please try again later" |
+## Gap 1: BecomeSellerPage — No Service Configuration During Onboarding
 
-Each row shows a green checkmark or red X icon with the message. No step numbers, no token strings, no technical terms.
+**Problem:** `DraftProductManager` (used in `BecomeSellerPage` step 5) does NOT show `ServiceFieldsSection` when a seller selects a service category. It only inserts into `products` table — no `service_listings` row is created. So new service sellers onboard without configuring duration, buffer time, location type, etc.
 
-**Loading state:** A simple spinner with "Checking..." while the diagnostic runs (typically 2-3 seconds).
+**Fix:**
+1. Add `ServiceFieldsSection` to `DraftProductManager` — detect if the selected category has `layoutType === 'service'` using `useCategoryConfigs`
+2. After inserting the product, upsert the `service_listings` row (same pattern as `useSellerProducts.ts` lines 228-248)
+3. Show a post-product-add prompt: "Set your availability schedule in Seller Settings after approval"
 
-**All-pass state:** A green banner at the top: "Notifications are working correctly" with a checkmark.
+## Gap 2: No Admin UI to View/Monitor Service Bookings
 
-### Implementation
+**Problem:** Admin has no visibility into service bookings across the platform. The docs mention admin can monitor booking volume, cancellation rates, no-show rates — but no such tab/section exists in `AdminPage.tsx`.
 
-**1. New component: `src/components/notifications/NotificationHealthCheck.tsx`**
-- Renders the trigger button and the bottom sheet
-- Calls `runPushDiagnostics(userId)` from `src/lib/pushDiagnostics.ts` (reuses existing engine)
-- Maps technical `DiagnosticResult[]` into 4 user-friendly status items
-- Provides actionable buttons for failures (Open Settings, Retry Registration)
+**Fix:**
+1. Create `AdminServiceBookingsTab` component showing:
+   - Summary stats: total bookings, pending confirmations, no-show count, cancellation count
+   - Filterable list of recent service bookings across all sellers
+   - Ability to view booking details
+2. Add it as a new tab in the admin sidebar nav (e.g., "Services" tab)
 
-**2. New helper: `src/lib/pushDiagnosticsSummary.ts`**
-- Pure function: takes `DiagnosticResult[]` → returns `UserFriendlyStatus[]`
-- Consolidates the 7+ technical steps into 4 simple categories
-- Each category has: `label`, `ok`, `actionType` (none | openSettings | retry)
+---
 
-**3. Update `src/pages/ProfilePage.tsx`**
-- Replace `{ icon: Bug, label: 'Push Debug', to: '/push-debug' }` with an inline button that opens the health check sheet (for all users)
-- Keep Push Debug link visible only for admins
+## Implementation Tasks
 
-**4. Optionally add to `src/pages/NotificationsPage.tsx`**
-- Add a small "Check notification status" link at the top
+### Task 1: Add service fields to DraftProductManager
+- Import `ServiceFieldsSection` and `useCategoryConfigs`
+- Show `ServiceFieldsSection` when selected category's `layoutType === 'service'`
+- On product save, upsert `service_listings` with the service config data
+- Track state with `serviceFields` / `setServiceFields` (same pattern as `useSellerProducts`)
 
-### No backend changes needed
-The existing `runPushDiagnostics` function and `device_tokens` table are sufficient. No new tables, migrations, or edge functions required.
+### Task 2: Create Admin Service Bookings tab
+- Create `src/components/admin/AdminServiceBookingsTab.tsx`
+- Query `service_bookings` with joins to `products`, `profiles` (buyer), `seller_profiles`
+- Show stats cards: Total bookings, Pending, Completed, No-shows, Cancellations
+- Show scrollable booking list with status badges, date/time, buyer/seller names
+- Add "services" tab to `AdminSidebarNav` and render in `AdminPage.tsx`
 
+### Task 3: DB migration for admin service booking access
+- Add RLS policy on `service_bookings` for admin read access (if not already present)
+
+### Summary
+| Task | Type | Key Files |
+|------|------|-----------|
+| 1 | Component enhancement | `DraftProductManager.tsx` |
+| 2 | New component + wiring | `AdminServiceBookingsTab.tsx`, `AdminPage.tsx`, `AdminSidebarNav.tsx` |
+| 3 | DB policy | Migration SQL |
