@@ -348,13 +348,13 @@ export function AdminCatalogManager() {
 
         {/* Categories sub-tab */}
         <TabsContent value="categories" className="mt-4 space-y-4">
-          <CategoryManager />
+          <CategoryManager searchQuery={searchQuery} />
           <SubcategoryManager />
         </TabsContent>
 
         {/* Attributes sub-tab */}
         <TabsContent value="attributes" className="mt-4">
-          <AdminAttributeBlockManager />
+          <AdminAttributeBlockManager searchQuery={searchQuery} />
         </TabsContent>
       </Tabs>
     </div>
