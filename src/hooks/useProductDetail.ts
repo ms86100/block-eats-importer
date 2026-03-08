@@ -92,7 +92,7 @@ export function useProductDetail(product: ProductDetail | null, open: boolean, o
       seller_is_available: (product as any).seller_is_available ?? true,
       is_bestseller: false, is_recommended: false, is_urgent: false,
       created_at: '', updated_at: '',
-    });
+    } as any);
     // Only navigate to cart for buy_now; add_to_cart stays on sheet with stepper
     if (actionType === 'buy_now') {
       onOpenChange?.(false);
