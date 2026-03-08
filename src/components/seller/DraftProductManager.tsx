@@ -317,6 +317,10 @@ export function DraftProductManager({
               {product.id && prodSupportsAddons && (
                 <ServiceAddonsManager productId={product.id} />
               )}
+              {/* Slot calendar for saved service products */}
+              {product.id && prodIsService && (
+                <SlotCalendarManager productId={product.id} sellerId={sellerId} />
+              )}
             </CardContent>
           </Card>
         );
