@@ -228,7 +228,7 @@ export function useSellerProducts() {
       // Upsert service_listings if this is a service category
       const isService = isServiceCategory(formData.category, configs);
       if (isService && savedProductId) {
-        await supabase
+        const { error: slError } = await supabase
           .from('service_listings')
           .upsert({
             product_id: savedProductId,
@@ -240,6 +240,11 @@ export function useSellerProducts() {
             cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
             rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
           }, { onConflict: 'product_id' });
+        // [BUG FIX] Surface service listing errors instead of silent failure
+        if (slError) {
+          console.error('Service listing upsert failed:', slError);
+          toast.error('Product saved but service settings failed. Please try editing again.');
+        }
       }
       setIsDialogOpen(false);
       resetForm();
