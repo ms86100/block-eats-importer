@@ -103,8 +103,14 @@ export function useOrderDetail(id: string | undefined) {
   // A5 FIX: Include fetchOrder and fetchUnreadCount in deps via eslint-disable
   // These functions use `id` from closure which is stable per hook call
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // [BUG FIX] Add cleanup flag to prevent state updates on unmounted component
   useEffect(() => {
-    if (id) { fetchOrder(); fetchUnreadCount(); }
+    let cancelled = false;
+    if (id) {
+      fetchOrder(cancelled);
+      fetchUnreadCount();
+    }
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
@@ -121,7 +127,7 @@ export function useOrderDetail(id: string | undefined) {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (cancelled = false) => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -129,18 +135,19 @@ export function useOrderDetail(id: string | undefined) {
         .eq('id', id)
         .single();
       if (error) throw error;
+      if (cancelled) return;
       setOrder(data as any);
       // C8: Only fetch review status for terminal statuses where reviews are possible
       if (data?.status === 'completed' || data?.status === 'delivered') {
         const { data: reviewData } = await supabase.from('reviews').select('id').eq('order_id', id).single();
-        setHasReview(!!reviewData);
+        if (!cancelled) setHasReview(!!reviewData);
       } else {
-        setHasReview(false);
+        if (!cancelled) setHasReview(false);
       }
     } catch (error) {
       console.error('Error fetching order:', error);
     } finally {
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     }
   };
 
@@ -156,13 +163,24 @@ export function useOrderDetail(id: string | undefined) {
   };
 
   const updateOrderStatus = async (newStatus: OrderStatus, rejectionReason?: string) => {
-    if (!order) return;
+    if (!order || !user) return;
     setIsUpdating(true);
     try {
       const updateData: any = { status: newStatus, auto_cancel_at: null };
       if (rejectionReason) updateData.rejection_reason = rejectionReason;
-      const { error } = await supabase.from('orders').update(updateData).eq('id', order.id);
+
+      // [BUG FIX] Add ownership check: seller can only update their own orders
+      let query = supabase.from('orders').update(updateData).eq('id', order.id);
+      if (isSellerView) {
+        query = query.eq('seller_id', seller?.id);
+      } else {
+        // Buyer can only cancel their own orders
+        query = query.eq('buyer_id', user.id);
+      }
+
+      const { error, count } = await query;
       if (error) throw error;
+
       setOrder({ ...order, ...updateData });
       toast.success(`Order ${getOrderStatus(newStatus).label.toLowerCase()}`);
       supabase.functions.invoke('process-notification-queue').catch(() => {});

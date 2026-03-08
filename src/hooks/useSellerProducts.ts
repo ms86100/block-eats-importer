@@ -228,7 +228,7 @@ export function useSellerProducts() {
       // Upsert service_listings if this is a service category
       const isService = isServiceCategory(formData.category, configs);
       if (isService && savedProductId) {
-        await supabase
+        const { error: slError } = await supabase
           .from('service_listings')
           .upsert({
             product_id: savedProductId,
@@ -240,6 +240,11 @@ export function useSellerProducts() {
             cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
             rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
           }, { onConflict: 'product_id' });
+        // [BUG FIX] Surface service listing errors instead of silent failure
+        if (slError) {
+          console.error('Service listing upsert failed:', slError);
+          toast.error('Product saved but service settings failed. Please try editing again.');
+        }
       }
       setIsDialogOpen(false);
       resetForm();
@@ -253,6 +258,20 @@ export function useSellerProducts() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
+      // [BUG FIX] Check for active bookings before deleting
+      const { data: activeBookings } = await supabase
+        .from('service_bookings')
+        .select('id')
+        .eq('product_id', deleteTarget.id)
+        .not('status', 'in', '("cancelled","completed","no_show")')
+        .limit(1);
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error('Cannot delete: this product has active bookings. Cancel or complete them first.');
+        setDeleteTarget(null);
+        return;
+      }
+
       const { error } = await supabase.from('products').delete().eq('id', deleteTarget.id);
       if (error) throw error;
       toast.success('Product deleted');

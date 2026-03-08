@@ -76,6 +76,19 @@ app.post("/", async (c) => {
           console.error(`Error cancelling order ${order.id}:`, updateError);
           throw { id: order.id, error: updateError.message };
         }
+
+        // [BUG FIX] Notify buyer that their order was auto-cancelled
+        if (order.buyer_id) {
+          await supabase.from("notification_queue").insert({
+            user_id: order.buyer_id,
+            type: "order",
+            title: "⏰ Order Auto-Cancelled",
+            body: `Your order was automatically cancelled because the seller didn't respond in time. You were not charged.`,
+            reference_path: `/orders/${order.id}`,
+            payload: { orderId: order.id, status: "cancelled", type: "order" },
+          });
+        }
+
         console.log(`Order ${order.id} auto-cancelled`);
         return { id: order.id, success: true };
       })

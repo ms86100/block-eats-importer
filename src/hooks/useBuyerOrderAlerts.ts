@@ -30,14 +30,18 @@ function createBuyerAlertSound(audioContext: AudioContext) {
 
 const STATUS_MESSAGES: Record<string, { icon: string; title: string; description: string; haptic: 'success' | 'warning' | 'error' }> = {
   accepted: { icon: '✅', title: 'Order Accepted!', description: 'The seller has accepted your order.', haptic: 'success' },
+  confirmed: { icon: '✅', title: 'Booking Confirmed!', description: 'Your service booking has been confirmed.', haptic: 'success' },
   preparing: { icon: '👨‍🍳', title: 'Being Prepared', description: 'Your order is being prepared now.', haptic: 'success' },
   ready: { icon: '🎉', title: 'Order Ready!', description: 'Your order is ready for pickup!', haptic: 'success' },
   picked_up: { icon: '📦', title: 'Order Picked Up', description: 'Your order has been picked up for delivery.', haptic: 'success' },
   delivered: { icon: '🚚', title: 'Order Delivered!', description: 'Your order has been delivered.', haptic: 'success' },
+  in_progress: { icon: '🔧', title: 'Service Started', description: 'Your service appointment has started.', haptic: 'success' },
   completed: { icon: '⭐', title: 'Order Completed', description: 'Your order is complete. Leave a review!', haptic: 'success' },
   cancelled: { icon: '❌', title: 'Order Cancelled', description: 'Your order has been cancelled.', haptic: 'error' },
   quoted: { icon: '💰', title: 'Quote Received', description: 'The seller sent you a price quote.', haptic: 'success' },
-  scheduled: { icon: '📅', title: 'Booking Confirmed', description: 'Your booking has been confirmed.', haptic: 'success' },
+  scheduled: { icon: '📅', title: 'Booking Scheduled', description: 'Your booking has been scheduled.', haptic: 'success' },
+  rescheduled: { icon: '🔄', title: 'Appointment Rescheduled', description: 'Your appointment has been rescheduled.', haptic: 'warning' },
+  no_show: { icon: '⚠️', title: 'Marked No-Show', description: 'You were marked as a no-show for your appointment.', haptic: 'warning' },
 };
 
 export function useBuyerOrderAlerts() {

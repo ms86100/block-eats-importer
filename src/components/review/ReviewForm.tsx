@@ -30,17 +30,19 @@ export function ReviewForm({ orderId, sellerId, sellerName, category, onSuccess,
   // Fetch category-specific review dimensions from DB
   useEffect(() => {
     if (!category || !isOpen) return;
+    let cancelled = false;
     const fetchDimensions = async () => {
       const { data } = await supabase
         .from('category_config')
         .select('review_dimensions')
         .eq('category', category)
         .maybeSingle();
-      if (data?.review_dimensions && Array.isArray(data.review_dimensions)) {
+      if (!cancelled && data?.review_dimensions && Array.isArray(data.review_dimensions)) {
         setReviewDimensions(data.review_dimensions as string[]);
       }
     };
     fetchDimensions();
+    return () => { cancelled = true; };
   }, [category, isOpen]);
 
   const handleSubmit = async () => {
