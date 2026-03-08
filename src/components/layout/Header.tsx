@@ -40,13 +40,28 @@ function HeaderInner({
       navigate('/society');
     }
   }, [navigate]);
-  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, setViewAsSociety, isAdmin, isBuilderMember, isSeller } = useAuth();
+  const { profile, isApproved, society, user, viewAsSocietyId, effectiveSociety, effectiveSocietyId, setViewAsSociety, isAdmin, isBuilderMember, isSeller } = useAuth();
   const { itemCount } = useCart();
   const { selectionChanged } = useHaptics();
   const unreadCount = useUnreadNotificationCount();
 
   const displaySociety = effectiveSociety || society;
   const isViewingAs = viewAsSocietyId && (isAdmin || isBuilderMember);
+
+  // Inline society stats (replaces standalone SocietyTrustStrip)
+  const { data: societyStats } = useQuery({
+    queryKey: ['society-trust-strip', effectiveSocietyId],
+    queryFn: async () => {
+      if (!effectiveSocietyId) return null;
+      const [{ count: sellerCount }, { data: soc }] = await Promise.all([
+        supabase.from('seller_profiles').select('id', { count: 'exact', head: true }).eq('society_id', effectiveSocietyId).eq('verification_status', 'approved'),
+        supabase.from('societies').select('member_count, is_verified').eq('id', effectiveSocietyId).maybeSingle(),
+      ]);
+      return { families: soc?.member_count || 0, sellers: sellerCount || 0, isVerified: soc?.is_verified || false };
+    },
+    enabled: !!isApproved && !!effectiveSocietyId,
+    staleTime: 5 * 60_000,
+  });
 
   // Get initials for avatar
   const initials = profile?.name
