@@ -13,6 +13,16 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // [SECURITY FIX] Require service-role authorization (cron only)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || authHeader !== `Bearer ${supabaseServiceKey}`) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized — service role required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const now = new Date().toISOString();
@@ -33,7 +43,6 @@ Deno.serve(async (req) => {
       console.error("Error fetching old orders:", ordersFetchErr);
       results.orders = { error: ordersFetchErr.message };
     } else if (oldOrders && oldOrders.length > 0) {
-      // Insert into archive
       const archiveRows = oldOrders.map((o: any) => ({
         ...o,
         archived_at: now,
@@ -47,9 +56,8 @@ Deno.serve(async (req) => {
         console.error("Error archiving orders:", archiveErr);
         results.orders = { error: archiveErr.message };
       } else {
-        // Delete from orders
         const ids = oldOrders.map((o: any) => o.id);
-        // Delete order items first
+        // Delete order items first (FK constraint)
         for (const id of ids) {
           await supabase.from("order_items").delete().eq("order_id", id);
         }
@@ -131,6 +139,19 @@ Deno.serve(async (req) => {
 
     results.notification_queue = queueErr
       ? { error: queueErr.message }
+      : { cleaned: true };
+
+    // [BUG FIX] 5. Clean old push_logs older than 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { error: pushLogErr } = await supabase
+      .from("push_logs")
+      .delete()
+      .lt("created_at", thirtyDaysAgo.toISOString());
+
+    results.push_logs = pushLogErr
+      ? { error: pushLogErr.message }
       : { cleaned: true };
 
     console.log("Archive results:", results);

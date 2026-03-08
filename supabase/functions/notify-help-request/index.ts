@@ -15,6 +15,33 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // [SECURITY FIX] Validate caller identity
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === supabaseServiceKey;
+
+    if (!isServiceRole) {
+      // Verify user JWT
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authErr } = await userClient.auth.getUser();
+      if (authErr || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { helpRequestId, societyId, authorId, title, tag } = await req.json();
@@ -26,13 +53,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get all users in the same society (except the author)
+    // [BUG FIX] Add limit to prevent unbounded query
     const { data: societyMembers, error: membersError } = await supabase
       .from("profiles")
       .select("id")
       .eq("society_id", societyId)
       .neq("id", authorId)
-      .eq("verification_status", "approved");
+      .eq("verification_status", "approved")
+      .limit(1000);
 
     if (membersError) {
       throw new Error(`Failed to fetch members: ${membersError.message}`);
@@ -62,31 +90,33 @@ Deno.serve(async (req) => {
     const notifTitle = `${tagLabels[tag] || "Help"} Request`;
     const notifBody = `${author?.name || "A neighbor"}: ${title}`;
 
-    // Send push notification to each member
-    const sendUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
-    const results = await Promise.allSettled(
-      societyMembers.map(async (member) => {
-        const response = await fetch(sendUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            userId: member.id,
-            title: notifTitle,
-            body: notifBody,
-            data: { type: "help_request", helpRequestId },
-          }),
-        });
-        return response.json();
-      })
-    );
+    // [BUG FIX] Use notification queue instead of direct push calls
+    // This ensures in-app notifications are created AND push is delivered with retries
+    const notifications = societyMembers.map((member) => ({
+      user_id: member.id,
+      type: "help_request",
+      title: notifTitle,
+      body: notifBody,
+      reference_path: "/help",
+      payload: { type: "help_request", helpRequestId },
+    }));
 
-    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    // Batch insert into notification_queue
+    for (let i = 0; i < notifications.length; i += 200) {
+      const batch = notifications.slice(i, i + 200);
+      const { error: insertErr } = await supabase.from("notification_queue").insert(batch);
+      if (insertErr) {
+        console.error(`Failed to enqueue help notifications batch ${i}:`, insertErr);
+      }
+    }
+
+    // Trigger queue processor
+    try {
+      await supabase.functions.invoke("process-notification-queue");
+    } catch (_) {}
 
     return new Response(
-      JSON.stringify({ message: `Notified ${succeeded} members`, sent: succeeded }),
+      JSON.stringify({ message: `Enqueued notifications for ${societyMembers.length} members`, sent: societyMembers.length }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

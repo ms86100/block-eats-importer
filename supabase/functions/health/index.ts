@@ -14,6 +14,16 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // [SECURITY FIX] Require service-role authorization — internal system metrics should not be public
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || authHeader !== `Bearer ${serviceKey}`) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized — service role required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const checks: Record<string, unknown> = {};
@@ -35,7 +45,8 @@ Deno.serve(async (req) => {
     const { data: allSocieties } = await supabase
       .from('societies')
       .select('id')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .limit(500);
 
     const { data: adminedSocieties } = await supabase
       .from('society_admins')
@@ -55,11 +66,21 @@ Deno.serve(async (req) => {
     }
     checks.table_counts = counts;
 
-    // 5. Auth check
-    checks.auth = 'ok';
+    // 5. Notification queue health
+    const { count: pendingNotifs } = await supabase
+      .from('notification_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    checks.notification_queue_pending = pendingNotifs || 0;
+
+    const { count: failedNotifs } = await supabase
+      .from('notification_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'failed');
+    checks.notification_queue_failed = failedNotifs || 0;
 
     // 6. Overall status
-    checks.status = checks.db === 'ok' && checks.trigger_errors_24h === 0 && checks.orphaned_societies === 0
+    checks.status = checks.db === 'ok' && (triggerErrors || 0) === 0 && orphaned.length === 0
       ? 'healthy'
       : 'degraded';
 
@@ -68,7 +89,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(checks, null, 2), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (err) {
+  } catch (err: any) {
     return new Response(JSON.stringify({ status: 'error', error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
