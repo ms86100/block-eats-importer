@@ -9,6 +9,7 @@ import { SellerProfile } from '@/types/database';
 import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck, CalendarClock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { logAudit } from '@/lib/audit';
