@@ -50,9 +50,11 @@ export function DemandInsights({ societyId }: DemandInsightsProps) {
               </span>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs font-semibold text-primary">{item.search_count} searches</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(item.last_searched), { addSuffix: true })}
-                </span>
+                {item.last_searched && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNowStrict(new Date(item.last_searched), { addSuffix: true })}
+                  </span>
+                )}
               </div>
             </div>
           ))}

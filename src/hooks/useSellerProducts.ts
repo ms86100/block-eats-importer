@@ -263,7 +263,7 @@ export function useSellerProducts() {
         .from('service_bookings')
         .select('id')
         .eq('product_id', deleteTarget.id)
-        .not('status', 'in', '("cancelled","completed","no_show")')
+        .not('status', 'in', '(cancelled,completed,no_show)')
         .limit(1);
 
       if (activeBookings && activeBookings.length > 0) {
