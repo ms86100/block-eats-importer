@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCart } from '@/hooks/useCart';
 import { useSellerTrustSnapshot } from '@/hooks/queries/useProductTrustMetrics';
 import { ProductActionType } from '@/types/database';
-import { ACTION_CONFIG } from '@/lib/marketplace-constants';
+import { ACTION_CONFIG, deriveActionType } from '@/lib/marketplace-constants';
 import { useCurrency } from '@/hooks/useCurrency';
 import { hapticImpact } from '@/lib/haptics';
 
