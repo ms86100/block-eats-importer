@@ -82,21 +82,15 @@ async function generateSlotsForSeller(supabase: any, seller_id: string, product_
 
     const { data: serviceListings, error: slError } = await query;
     if (slError) throw slError;
-    if (!serviceListings?.length) {
-      return new Response(
-        JSON.stringify({ message: "No service listings found", slots_created: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!serviceListings?.length) return 0;
 
     // Get availability schedules
-    let schedQuery = supabase
+    const { data: schedules, error: schError } = await supabase
       .from("service_availability_schedules")
       .select("*")
       .eq("seller_id", seller_id)
       .eq("is_active", true);
 
-    const { data: schedules, error: schError } = await schedQuery;
     if (schError) throw schError;
 
     const today = new Date();
@@ -105,32 +99,23 @@ async function generateSlotsForSeller(supabase: any, seller_id: string, product_
     let totalCreated = 0;
 
     for (const listing of serviceListings) {
-      const productId = listing.product_id;
+      const prodId = listing.product_id;
       const duration = listing.duration_minutes;
       const buffer = listing.buffer_minutes;
       const maxCapacity = listing.max_bookings_per_slot;
 
-      // Get schedules for this product, or fall back to seller-default (product_id IS NULL)
-      const productSchedules = schedules?.filter(
-        (s: any) => s.product_id === productId
-      );
-      const defaultSchedules = schedules?.filter(
-        (s: any) => s.product_id === null
-      );
-      const activeSchedules =
-        productSchedules?.length ? productSchedules : defaultSchedules;
+      const productSchedules = schedules?.filter((s: any) => s.product_id === prodId);
+      const defaultSchedules = schedules?.filter((s: any) => s.product_id === null);
+      const activeSchedules = productSchedules?.length ? productSchedules : defaultSchedules;
 
       if (!activeSchedules?.length) continue;
 
-      // Generate slots for each day
       for (let d = 0; d < days_ahead; d++) {
         const date = new Date(today);
         date.setDate(date.getDate() + d);
-        const dayOfWeek = date.getDay(); // 0=Sun
+        const dayOfWeek = date.getDay();
 
-        const daySchedules = activeSchedules.filter(
-          (s: any) => s.day_of_week === dayOfWeek
-        );
+        const daySchedules = activeSchedules.filter((s: any) => s.day_of_week === dayOfWeek);
         if (!daySchedules.length) continue;
 
         const dateStr = date.toISOString().split("T")[0];
@@ -154,7 +139,7 @@ async function generateSlotsForSeller(supabase: any, seller_id: string, product_
             const endTime = `${String(slotEndH).padStart(2, "0")}:${String(slotEndM).padStart(2, "0")}`;
 
             slotsToInsert.push({
-              product_id: productId,
+              product_id: prodId,
               seller_id: seller_id,
               slot_date: dateStr,
               start_time: startTime,
@@ -185,15 +170,5 @@ async function generateSlotsForSeller(supabase: any, seller_id: string, product_
       }
     }
 
-    return new Response(
-      JSON.stringify({ success: true, slots_created: totalCreated }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("generate-service-slots error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
+    return totalCreated;
+}
