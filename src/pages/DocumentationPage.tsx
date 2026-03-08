@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { CategoryManagementDocs } from '@/components/docs/CategoryManagementDocs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -7,6 +8,7 @@ import {
   BookOpen, ChevronDown, ChevronRight, Users, Store, Shield, Calendar,
   Clock, MapPin, Bell, RefreshCw, XCircle, CheckCircle, UserPlus,
   Settings, Repeat, Sparkles, AlertTriangle, FileText, Zap, Sliders,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +18,7 @@ type SectionId =
   | 'seller-guide'
   | 'admin-guide'
   | 'category-config'
+  | 'category-management'
   | 'booking-lifecycle'
   | 'slot-management'
   | 'cancellation-policy'
@@ -40,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'seller-guide', label: 'Seller Guide', icon: Store, stakeholder: 'seller' },
   { id: 'admin-guide', label: 'Admin Guide', icon: Shield, stakeholder: 'admin' },
   { id: 'category-config', label: 'Category Configuration', icon: Sliders, stakeholder: 'admin' },
+  { id: 'category-management', label: 'Category Mgmt System', icon: Database, stakeholder: 'admin' },
   { id: 'booking-lifecycle', label: 'Booking Lifecycle', icon: Calendar, stakeholder: 'all' },
   { id: 'slot-management', label: 'Slot Management', icon: Clock, stakeholder: 'seller' },
   { id: 'cancellation-policy', label: 'Cancellation Policy', icon: XCircle, stakeholder: 'all' },
@@ -479,6 +483,10 @@ export default function DocumentationPage() {
                   </table>
                 </div>
               </SubSection>
+
+              {/* ─── CATEGORY MANAGEMENT SYSTEM ─── */}
+              <SectionHeader title="Category Management System" id="category-management" stakeholder="admin" />
+              <CategoryManagementDocs />
 
               {/* ─── BOOKING LIFECYCLE ─── */}
               <SectionHeader title="Booking Lifecycle" id="booking-lifecycle" stakeholder="all" />
