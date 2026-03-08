@@ -17,7 +17,7 @@ import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
 import { OrderItem, OrderStatus, PaymentStatus, ItemStatus } from '@/types/database';
 import { SERVICE_STATUS_LABELS } from '@/types/service';
-import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
