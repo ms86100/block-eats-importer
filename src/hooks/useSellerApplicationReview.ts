@@ -225,7 +225,13 @@ export function useSellerApplicationReview() {
   const updateProductStatus = async (productId: string, status: 'approved' | 'rejected') => {
     setProductActionId(productId);
     try {
-      const { error } = await supabase.from('products').update({ approval_status: status } as any).eq('id', productId);
+      const updateData: any = { approval_status: status };
+      if (status === 'rejected') {
+        updateData.rejection_note = productRejectionNote.trim() || null;
+      } else {
+        updateData.rejection_note = null;
+      }
+      const { error } = await supabase.from('products').update(updateData).eq('id', productId);
       if (error) { toast.error(`Failed to ${status} product`); return; }
       await logAudit(`product_${status}`, 'product', productId, '', { reason: productRejectionNote || undefined });
       toast.success(`Product ${status}`);
