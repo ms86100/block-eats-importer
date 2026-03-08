@@ -1,4 +1,5 @@
-import { Plus, Minus, Star, Award } from 'lucide-react';
+import { useMemo } from 'react';
+import { Plus, Minus, Star, Award, Clock } from 'lucide-react';
 import { hapticImpact } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { ACTION_CONFIG } from '@/lib/marketplace-constants';
 import { useCart } from '@/hooks/useCart';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +28,21 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
 
   const cartItem = isCartAction ? items.find((item) => item.product_id === product.id) : null;
   const quantity = cartItem?.quantity || 0;
+
+  // Store availability check
+  const seller = (product as any)?.seller;
+  const storeAvailability = useMemo(() => {
+    return computeStoreStatus(
+      seller?.availability_start,
+      seller?.availability_end,
+      seller?.operating_days,
+      seller?.is_available ?? true
+    );
+  }, [seller?.availability_start, seller?.availability_end, seller?.operating_days, seller?.is_available]);
+
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMessage = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
+  const isDisabled = !product.is_available || isStoreClosed;
 
   const handleAdd = () => {
     if (!isCartAction) {
@@ -48,7 +65,7 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
 
   if (variant === 'vertical') {
     return (
-      <Card className="overflow-hidden">
+      <Card className={cn('overflow-hidden', isStoreClosed && !product.is_available ? '' : isStoreClosed ? 'opacity-60 grayscale-[30%]' : '')}>
         <div className="relative aspect-square">
           {product.image_url ? (
              <img
@@ -65,6 +82,14 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
           {!product.is_available && (
             <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center">
               <span className="text-background text-sm font-medium">Unavailable</span>
+            </div>
+          )}
+          {isStoreClosed && product.is_available && (
+            <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+              <span className="text-[9px] font-bold text-muted-foreground bg-muted/90 px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Clock size={9} />
+                {storeClosedMessage || 'Closed'}
+              </span>
             </div>
           )}
           {/* Badges */}
@@ -94,7 +119,7 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
             </div>
           </div>
           <div className="mt-3">
-            {isCartAction && quantity > 0 ? (
+            {isCartAction && quantity > 0 && !isStoreClosed ? (
               <div className="flex items-center justify-center gap-3 border border-primary rounded-md">
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-primary" onClick={handleDecrement}>
                   <Minus size={16} />
@@ -110,10 +135,13 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
                 variant="outline"
                 className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 onClick={handleAdd}
-                disabled={!product.is_available}
+                disabled={isDisabled}
               >
-                {isCartAction && <Plus size={14} className="mr-1" />}
-                {actionConfig.shortLabel}
+                {isStoreClosed ? (
+                  <><Clock size={14} className="mr-1" /> {storeClosedMessage || 'Closed'}</>
+                ) : (
+                  <>{isCartAction && <Plus size={14} className="mr-1" />}{actionConfig.shortLabel}</>
+                )}
               </Button>
             )}
           </div>
@@ -123,7 +151,7 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
   }
 
   return (
-    <div className="flex gap-3 py-4 border-b border-border last:border-0">
+    <div className={cn("flex gap-3 py-4 border-b border-border last:border-0", isStoreClosed && 'opacity-60')}>
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
           <VegBadge isVeg={product.is_veg} size="sm" className="mt-0.5" />
@@ -148,6 +176,11 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
               </p>
             )}
             <p className="font-semibold mt-2 tabular-nums">{formatPrice(product.price)}</p>
+            {isStoreClosed && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                <Clock size={9} /> {storeClosedMessage || 'Store closed'}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -166,7 +199,7 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
             </div>
           )}
         </div>
-        {isCartAction && quantity > 0 ? (
+        {isCartAction && quantity > 0 && !isStoreClosed ? (
           <div className="flex items-center gap-2 -mt-4 relative z-10 bg-primary rounded-md px-2 shadow-sm">
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20" onClick={handleDecrement}>
               <Minus size={14} />
@@ -182,9 +215,9 @@ export function ProductCard({ product, variant = 'horizontal', onTap }: ProductC
             variant="outline"
             className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground -mt-4 relative z-10 bg-background shadow-sm"
             onClick={handleAdd}
-            disabled={!product.is_available}
+            disabled={isDisabled}
           >
-            {actionConfig.shortLabel} {isCartAction && '+'}
+            {isStoreClosed ? 'Closed' : `${actionConfig.shortLabel} ${isCartAction ? '+' : ''}`}
           </Button>
         )}
       </div>

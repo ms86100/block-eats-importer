@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CartItem, Product } from '@/types/database';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/query-utils';
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 
 interface SellerGroup {
   sellerId: string;
@@ -95,6 +96,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!user) {
       toast.error('Please sign in to add items to cart');
       return;
+    }
+
+    // Check store availability before allowing add-to-cart
+    const seller = (product as any)?.seller;
+    if (seller) {
+      const availability = computeStoreStatus(
+        seller.availability_start,
+        seller.availability_end,
+        seller.operating_days,
+        seller.is_available ?? true
+      );
+      if (availability.status !== 'open') {
+        const msg = formatStoreClosedMessage(availability);
+        toast.error(msg || 'This store is currently closed. Please try again later.');
+        return;
+      }
     }
 
     // Optimistic update

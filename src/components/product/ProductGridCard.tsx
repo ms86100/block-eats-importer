@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, Store } from 'lucide-react';
+import { useMemo } from 'react';
+import { Plus, Minus, Store, Clock } from 'lucide-react';
 import { hapticImpact, hapticSelection } from '@/lib/haptics';
 import { Badge } from '@/components/ui/badge';
 import { VegBadge } from '@/components/ui/veg-badge';
@@ -8,6 +9,7 @@ import { Product, ProductActionType } from '@/types/database';
 import { ACTION_CONFIG } from '@/lib/marketplace-constants';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
+import { computeStoreStatus, formatStoreClosedMessage } from '@/lib/store-availability';
 
 export interface ProductWithSeller extends Product {
   seller_name?: string;
@@ -15,6 +17,10 @@ export interface ProductWithSeller extends Product {
   seller_id: string;
   fulfillment_mode?: string | null;
   delivery_note?: string | null;
+  seller_availability_start?: string | null;
+  seller_availability_end?: string | null;
+  seller_operating_days?: string[] | null;
+  seller_is_available?: boolean | null;
 }
 
 interface ProductGridCardProps {
@@ -36,6 +42,19 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
 
   const cartItem = isCartAction ? items.find((item) => item.product_id === product.id) : null;
   const quantity = cartItem?.quantity || 0;
+
+  // Store availability check
+  const storeAvailability = useMemo(() => {
+    return computeStoreStatus(
+      product.seller_availability_start || (product as any)?.seller?.availability_start,
+      product.seller_availability_end || (product as any)?.seller?.availability_end,
+      product.seller_operating_days || (product as any)?.seller?.operating_days,
+      product.seller_is_available ?? (product as any)?.seller?.is_available ?? true
+    );
+  }, [product.seller_availability_start, product.seller_availability_end, product.seller_operating_days, product.seller_is_available]);
+
+  const isStoreClosed = storeAvailability.status !== 'open';
+  const storeClosedMessage = isStoreClosed ? formatStoreClosedMessage(storeAvailability) : '';
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,12 +90,16 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
     }
   };
 
+  const isOutOfStock = !product.is_available;
+
   return (
     <div
       onClick={handleCardClick}
       className={cn(
         'bg-card rounded-xl border border-border cursor-pointer flex flex-col h-full relative',
         'transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.98]',
+        isOutOfStock && 'opacity-50 grayscale-[40%]',
+        isStoreClosed && !isOutOfStock && 'opacity-60 grayscale-[30%]',
         className
       )}
     >
@@ -90,9 +113,19 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
             loading="lazy"
           />
 
-          {!product.is_available && (
+          {isOutOfStock && (
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center rounded-[10px]">
               <span className="text-[9px] font-bold text-muted-foreground uppercase">Out of stock</span>
+            </div>
+          )}
+
+          {/* Store closed overlay */}
+          {isStoreClosed && !isOutOfStock && (
+            <div className="absolute inset-0 bg-background/40 flex items-center justify-center rounded-[10px]">
+              <span className="text-[8px] font-bold text-muted-foreground bg-muted/90 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Clock size={8} />
+                {storeClosedMessage || 'Closed'}
+              </span>
             </div>
           )}
 
@@ -107,8 +140,8 @@ export function ProductGridCard({ product, behavior, onTap, className, viewOnly 
           </div>
         </div>
 
-        {/* Action button overlapping image bottom */}
-        {!viewOnly && product.is_available && (
+        {/* Action button overlapping image bottom — hidden when store closed */}
+        {!viewOnly && !isOutOfStock && !isStoreClosed && (
           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10">
             {isCartAction && quantity > 0 ? (
               <div className="flex items-center bg-primary rounded-lg overflow-hidden shadow-cta animate-stepper-pop">
