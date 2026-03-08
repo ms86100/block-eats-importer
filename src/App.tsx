@@ -44,13 +44,13 @@ import { NewOrderAlertOverlay } from "@/components/seller/NewOrderAlertOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Lazy-loaded pages for code splitting
-const AuthPage = lazy(() => import("./pages/AuthPage"));
-const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
-const HomePage = lazy(() => import("./pages/HomePage"));
-const LandingPage = lazy(() => import("./pages/LandingPage"));
-const WelcomeCarousel = lazy(() => import("./pages/WelcomeCarousel"));
-const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
-const SearchPage = lazy(() => import("./pages/SearchPage"));
+const AuthPage = lazyWithRetry(() => import("./pages/AuthPage"));
+const ResetPasswordPage = lazyWithRetry(() => import("./pages/ResetPasswordPage"));
+const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
+const LandingPage = lazyWithRetry(() => import("./pages/LandingPage"));
+const WelcomeCarousel = lazyWithRetry(() => import("./pages/WelcomeCarousel"));
+const RefundPolicyPage = lazyWithRetry(() => import("./pages/RefundPolicyPage"));
+const SearchPage = lazyWithRetry(() => import("./pages/SearchPage"));
 
 const SellerDetailPage = lazyWithRetry(() => import("./pages/SellerDetailPage"));
 const CartPage = lazyWithRetry(() => import("./pages/CartPage"));
