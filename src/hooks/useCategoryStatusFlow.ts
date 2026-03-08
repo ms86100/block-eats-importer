@@ -52,6 +52,9 @@ function resolveTransactionType(
   orderType: string | null | undefined,
   fulfillmentType?: string | null
 ): string {
+  if (orderType === 'booking') {
+    return 'service_booking';
+  }
   if (orderType === 'enquiry') {
     if (['classes', 'events'].includes(parentGroup)) return 'book_slot';
     return 'request_service';
