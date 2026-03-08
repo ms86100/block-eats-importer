@@ -1,5 +1,3 @@
-
-
 ## Category Configuration & Attribute Blocks — COMPLETED
 
 ### What Was Done
@@ -60,3 +58,42 @@ Existing `ProductAttributeBlocks`, `useAttributeBlocks`, and `CategoryManager` c
 | request_quote | request_quote | Quote |
 | contact_only | contact_seller | Contact |
 | schedule_visit | schedule_visit | Visit |
+
+---
+
+## Buyer & Seller Service Booking Experience — COMPLETED
+
+### What Was Done
+
+**1. Database: `session_feedback` table**
+- New table with RLS for per-session ratings (1-5 stars + comment)
+- Buyer can insert/read own; seller can read for their bookings
+- Validation trigger ensures rating 1-5
+
+**2. `useBuyerServiceBookings` hook** (`src/hooks/useServiceBookings.ts`)
+- Fetches upcoming bookings for buyer joined with product + seller info
+- Also added `useSessionFeedback` hook for checking existing feedback
+
+**3. `BuyerBookingsCalendar` component** (`src/components/booking/BuyerBookingsCalendar.tsx`)
+- Week strip day selector with dot indicators
+- "Next Appointment" highlight card with countdown ("in 2 days", "tomorrow")
+- Each booking card shows: service name, seller, time, location type, status badge
+- Tap navigates to order detail
+- Self-hides if no upcoming bookings
+
+**4. Orders Page Integration** (`src/pages/OrdersPage.tsx`)
+- `BuyerBookingsCalendar` added above order list in both buyer-only and tabbed views
+
+**5. Enriched Seller Booking Cards** (`src/components/seller/ServiceBookingsCalendar.tsx`)
+- Location type with icon (home visit / at seller / online)
+- Duration display (e.g., "60 min")
+- Buyer address when present (home visits)
+
+**6. Session Feedback Prompt** (`src/components/booking/SessionFeedbackPrompt.tsx`)
+- Inline 1-5 star rating with optional comment
+- Shows after booking is completed on order detail page
+- Shows "rated X/5" summary if already submitted
+
+**7. Appointment Countdown on Order Detail** (`src/pages/OrderDetailPage.tsx`)
+- Countdown badge ("Starts in 2h", "Starts in 3 days") for upcoming appointments
+- Session feedback prompt integrated below booking add-ons
