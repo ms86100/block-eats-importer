@@ -55,6 +55,7 @@ const DEFAULT_FORM: SellerSettingsFormData = {
   fulfillment_mode: 'self_pickup' as string,
   delivery_note: '',
   minimum_order_amount: '',
+  daily_order_limit: '',
 };
 
 export function useSellerSettings() {
