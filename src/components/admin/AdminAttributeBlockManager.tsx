@@ -228,6 +228,8 @@ export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?:
     );
   };
 
+  const categoryMap = Object.fromEntries(categories.map((c: any) => [c.category, c.display_name]));
+
   const textQuery = searchQuery.trim().toLowerCase();
   const filteredBlocks = (filterCategory === 'all'
     ? blocks
@@ -241,8 +243,6 @@ export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?:
       (b.category_hints || []).some(h => h.toLowerCase().includes(textQuery) || (categoryMap[h] || '').toLowerCase().includes(textQuery))
     );
   });
-
-  const categoryMap = Object.fromEntries(categories.map((c: any) => [c.category, c.display_name]));
 
   return (
     <div className="space-y-4">
