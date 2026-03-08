@@ -339,10 +339,17 @@ export default function DocumentationPage() {
               </SubSection>
               <SubSection title="Configuring Categories (Dynamic UI Control)">
                 <p>The most powerful admin capability is <strong>category-level configuration</strong>. Every service feature visible to sellers is controlled via flags in the Catalog Manager:</p>
-                <p>1. Navigate to <strong>Admin Panel → Catalog</strong>.</p>
-                <p>2. Select a category to edit.</p>
-                <p>3. Toggle the feature flags (see <strong>Category Configuration</strong> section below for details).</p>
-                <p>4. Save — changes take effect <strong>immediately</strong> for all sellers in that category.</p>
+                <p>1. Navigate to <strong>Admin Panel → Catalog</strong> tab, then select the <strong>Categories</strong> sub-tab.</p>
+                <p>2. Find the category you want to configure and click the <strong>Edit (pencil icon)</strong> button on that row.</p>
+                <p>3. In the <strong>Edit Category</strong> dialog that opens:</p>
+                <p className="pl-4">a. Set the <strong>Listing Type</strong> dropdown — choose a service type (<code className="text-[10px] bg-muted px-1 rounded">book_slot</code>, <code className="text-[10px] bg-muted px-1 rounded">request_service</code>, or <code className="text-[10px] bg-muted px-1 rounded">schedule_visit</code>) to unlock the service feature toggles.</p>
+                <p className="pl-4">b. Once a service listing type is selected, the <strong>Service Features</strong> section appears with toggles for: <strong>Add-ons</strong>, <strong>Recurring Bookings</strong>, and <strong>Staff Assignment</strong>.</p>
+                <p className="pl-4">c. The <strong>Show Veg/Non-Veg Toggle</strong> and <strong>Show Duration Field</strong> toggles are always visible regardless of listing type.</p>
+                <p className="pl-4">d. You can also customize <strong>Seller Form Hints</strong> — name/description placeholders, price label, duration label, price prefix, and the primary button label.</p>
+                <p>4. Click <strong>Save</strong> — changes take effect <strong>immediately</strong> for all sellers in that category.</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                  ⚠️ Service feature toggles (Add-ons, Recurring, Staff) are <strong>only visible</strong> when the Listing Type is set to a service type. If you don't see them, change the Listing Type first.
+                </p>
                 <p className="text-xs text-primary flex items-center gap-1">
                   <Sparkles size={12} />
                   No code changes or deployments needed. The seller UI adapts in real-time.
@@ -405,13 +412,18 @@ export default function DocumentationPage() {
                 </div>
               </SubSection>
               <SubSection title="Step-by-Step: Configuring a Category">
-                <p>1. Go to <strong>Admin Panel → Catalog → Categories</strong>.</p>
-                <p>2. Click on the category you want to configure (e.g. "Beauty").</p>
-                <p>3. In the edit panel, find the <strong>Feature Flags</strong> section.</p>
-                <p>4. Toggle the desired flags:</p>
-                <p className="pl-4">• Turn on <code className="text-[10px] bg-muted px-1 rounded">supports_addons</code> → sellers in this category will see the Add-ons Manager.</p>
-                <p className="pl-4">• Turn on <code className="text-[10px] bg-muted px-1 rounded">supports_staff_assignment</code> → sellers will see the Staff Manager in their settings.</p>
-                <p className="pl-4">• Set <code className="text-[10px] bg-muted px-1 rounded">layout_type</code> to "service" → the full service booking workflow activates.</p>
+                <p>1. Go to <strong>Admin Panel → Catalog</strong> tab → <strong>Categories</strong> sub-tab.</p>
+                <p>2. Find the category row (e.g. "Beauty") and click the <strong>✏️ Edit</strong> icon.</p>
+                <p>3. The <strong>Edit Category</strong> dialog opens with multiple sections:</p>
+                <p className="pl-4"><strong>Basic Info:</strong> Display Name, Icon, Color, Image URL, Parent Group.</p>
+                <p className="pl-4"><strong>Listing Type:</strong> Choose from Purchase, Book Slot, Request Service, Schedule Visit, Rental, or Enquiry. <em>This is the key setting that controls service features.</em></p>
+                <p className="pl-4"><strong>Always-Visible Toggles:</strong> Show Veg/Non-Veg toggle, Show Duration Field.</p>
+                <p className="pl-4"><strong>Service Features (only visible when Listing Type is a service type):</strong></p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_addons</code> — Enables the Add-ons Manager in the product editor.</p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_recurring</code> — Allows buyers to set up recurring appointments.</p>
+                <p className="pl-8">• <code className="text-[10px] bg-muted px-1 rounded">supports_staff_assignment</code> — Shows Staff Manager in seller settings.</p>
+                <p className="pl-4"><strong>Form Hints:</strong> Customize placeholder text and labels that sellers see when creating products (name placeholder, description placeholder, price label, duration label, price prefix, primary button label).</p>
+                <p>4. Toggle the desired flags.</p>
                 <p>5. Click <strong>Save</strong>.</p>
                 <p>6. The change is <strong>immediate</strong> — any seller with products in this category will see the updated UI on their next page load.</p>
               </SubSection>
