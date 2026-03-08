@@ -45,6 +45,8 @@ export default function SellerDashboardPage() {
 
   const activeSellerId = currentSellerId || (Array.isArray(sellerProfiles) && sellerProfiles.length > 0 ? sellerProfiles[0].id : null);
   const { pendingAlerts, dismiss: dismissAlert, snooze: snoozeAlert } = useNewOrderAlert(activeSellerId);
+  const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
+  const sellerFlags = useSellerCategoryFlags(sellerCategories);
 
   // Debug: log auth state for seller dashboard
   useEffect(() => {
