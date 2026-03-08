@@ -142,9 +142,31 @@ export default function OrderDetailPage() {
           </div>
 
           {/* Service Booking Details */}
-          {serviceBooking && (
+          {serviceBooking && (() => {
+            // Calculate countdown for upcoming appointments
+            const isUpcoming = ['confirmed', 'scheduled', 'rescheduled', 'requested'].includes(serviceBooking.status);
+            const appointmentTime = serviceBooking.booking_date && serviceBooking.start_time
+              ? new Date(`${serviceBooking.booking_date}T${serviceBooking.start_time}`)
+              : null;
+            const now = new Date();
+            const hoursUntil = appointmentTime ? Math.floor((appointmentTime.getTime() - now.getTime()) / (1000 * 60 * 60)) : null;
+            const minutesUntil = appointmentTime ? Math.floor((appointmentTime.getTime() - now.getTime()) / (1000 * 60)) : null;
+            const countdownText = minutesUntil != null && minutesUntil > 0
+              ? minutesUntil < 60 ? `Starts in ${minutesUntil}m`
+                : hoursUntil! < 24 ? `Starts in ${hoursUntil}h`
+                  : `Starts in ${Math.ceil(hoursUntil! / 24)} day${Math.ceil(hoursUntil! / 24) > 1 ? 's' : ''}`
+              : null;
+
+            return (
             <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Appointment Details</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Appointment Details</p>
+                {isUpcoming && countdownText && o.isBuyerView && (
+                  <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    ⏱ {countdownText}
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-primary" />
