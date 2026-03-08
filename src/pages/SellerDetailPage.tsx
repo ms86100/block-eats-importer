@@ -468,6 +468,11 @@ export default function SellerDetailPage() {
         </div>
       )}
 
+      {/* Seller Trust Stats */}
+      <div className="px-4 mt-3">
+        <SellerStatsCard sellerId={seller.id} />
+      </div>
+
       {/* Tabs */}
       <div className="px-4 mt-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
