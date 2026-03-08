@@ -157,6 +157,31 @@ export function DraftProductManager({
           console.error('Service listing upsert error:', slError);
           toast.error('Service details could not be saved. Please try editing the product later.');
         }
+
+        // Save availability schedule for service products
+        if (isServiceCategory && data.id) {
+          const activeSchedules = availabilitySchedule.filter(s => s.is_active || !s.is_active); // save all days
+          const scheduleRows = activeSchedules.map(s => ({
+            seller_id: sellerId,
+            product_id: data.id,
+            day_of_week: s.day_of_week,
+            start_time: s.start_time,
+            end_time: s.end_time,
+            is_active: s.is_active,
+          }));
+
+          const { error: schedError } = await supabase
+            .from('service_availability_schedules')
+            .insert(scheduleRows);
+          if (schedError) {
+            console.error('Availability schedule save error:', schedError);
+          } else {
+            // Trigger slot generation in background (don't block save)
+            supabase.functions.invoke('generate-service-slots', {
+              body: { seller_id: sellerId, product_id: data.id },
+            }).catch(err => console.error('Slot generation error:', err));
+          }
+        }
       }
 
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
@@ -169,8 +194,9 @@ export function DraftProductManager({
         },
         attributeBlocks: [],
         serviceFields: INITIAL_SERVICE_FIELDS,
+        availabilitySchedule: INITIAL_AVAILABILITY_SCHEDULE,
       });
-      toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
+      toast.success(isServiceCategory ? 'Service added with availability schedule! Slots are being generated.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);
       toast.error(friendlyError(error));
