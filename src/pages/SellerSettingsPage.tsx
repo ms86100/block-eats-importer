@@ -22,10 +22,7 @@ import { useSellerSettings } from '@/hooks/useSellerSettings';
 import { ServiceAvailabilityConfig } from '@/components/seller/ServiceAvailabilityConfig';
 import { ServiceStaffManager } from '@/components/seller/ServiceStaffManager';
 
-const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
-function isServiceGroup(group: string) {
-  return SERVICE_PARENT_GROUPS.includes(group);
-}
+import { useSellerCategoryFlags } from '@/hooks/useCategoryFeatureFlags';
 
 function LicenseUploadSection({ sellerId, primaryGroup }: { sellerId: string; primaryGroup: string }) {
   const [groupId, setGroupId] = useState<string | null>(null);
