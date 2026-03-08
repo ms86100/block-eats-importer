@@ -126,6 +126,10 @@ export default function OrderDetailPage() {
                 {order.status === 'delivered' && '🎉 Delivered. Enjoy!'}
                 {order.status === 'completed' && '⭐ Completed. Thank you!'}
                 {order.status === 'scheduled' && '📅 Your booking is confirmed.'}
+                {order.status === 'requested' && '📋 Booking request sent. Awaiting confirmation.'}
+                {order.status === 'confirmed' && '✅ Your appointment is confirmed.'}
+                {order.status === 'rescheduled' && '🔄 Your appointment has been rescheduled.'}
+                {order.status === 'no_show' && '⚠️ You were marked as a no-show.'}
               </p>
             )}
             {o.isBuyerView && (
