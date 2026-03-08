@@ -212,14 +212,34 @@ export function useSellerProducts() {
               approval_status: (sellerProfile as any)?.verification_status === 'approved' ? 'approved' : 'draft',
             }),
       };
+      let savedProductId: string;
       if (editingProduct) {
         const { error } = await supabase.from('products').update(productData as any).eq('id', editingProduct.id);
         if (error) throw error;
+        savedProductId = editingProduct.id;
         toast.success('Product updated');
       } else {
-        const { error } = await supabase.from('products').insert(productData as any);
+        const { data: inserted, error } = await supabase.from('products').insert(productData as any).select('id').single();
         if (error) throw error;
+        savedProductId = inserted.id;
         toast.success('Product added');
+      }
+
+      // Upsert service_listings if this is a service category
+      const isService = isServiceCategory(formData.category, configs);
+      if (isService && savedProductId) {
+        await supabase
+          .from('service_listings')
+          .upsert({
+            product_id: savedProductId,
+            service_type: serviceFields.service_type,
+            location_type: serviceFields.location_type,
+            duration_minutes: parseInt(serviceFields.duration_minutes) || 60,
+            buffer_minutes: parseInt(serviceFields.buffer_minutes) || 0,
+            max_bookings_per_slot: parseInt(serviceFields.max_bookings_per_slot) || 1,
+            cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
+            rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
+          }, { onConflict: 'product_id' });
       }
       setIsDialogOpen(false);
       resetForm();
@@ -249,12 +269,21 @@ export function useSellerProducts() {
     } catch (error) { console.error('Error updating availability:', error); toast.error('Failed to update'); }
   };
 
+  // Determine if current category is a service type
+  const isCurrentCategoryService = useMemo(() => isServiceCategory(formData.category, configs), [formData.category, configs]);
+
   return {
     user, sellerProfile, primaryGroup, products, isLoading, isDialogOpen, setIsDialogOpen,
     editingProduct, isSaving, licenseBlocked, isBulkOpen, setIsBulkOpen,
     attributeBlocks, setAttributeBlocks, formData, setFormData, deleteTarget, setDeleteTarget,
     activeCategoryConfig, showVegToggle, showDurationField, allowedCategories, subcategories,
     configs, sellerProfiles, resetForm, openEditDialog, handleSave, confirmDelete,
-    toggleAvailability, fetchData,
+    toggleAvailability, fetchData, serviceFields, setServiceFields, isCurrentCategoryService,
   };
+}
+
+function isServiceCategory(category: ProductCategory | '', configs: any[]): boolean {
+  if (!category) return false;
+  const config = configs.find((c: any) => c.category === category);
+  return config?.layoutType === 'service';
 }
