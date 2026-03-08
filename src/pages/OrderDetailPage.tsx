@@ -176,6 +176,12 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
               )}
+              {(serviceBooking as any).staff_id && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                  <User size={12} />
+                  <span>Assigned technician: <span className="font-medium text-foreground">{(serviceBooking as any).staff_name || 'Staff member'}</span></span>
+                </div>
+              )}
               {/* Reschedule / Cancel actions for buyer */}
               {o.isBuyerView && !['completed', 'cancelled', 'no_show'].includes(order.status) && serviceBooking.booking_date && serviceBooking.start_time && (
                 <div className="pt-2 border-t border-border mt-2">
