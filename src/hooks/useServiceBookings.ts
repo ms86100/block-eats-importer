@@ -34,13 +34,16 @@ export function useSellerServiceBookings(sellerId: string | null) {
 
       // BUG FIX: Include 'rescheduled' status in results (was being filtered by excluding cancelled only,
       // but rescheduled bookings should show). Also show cancelled for historical context.
+      // [BUG FIX] Add .limit(500) to prevent hitting 1000-row default cap silently
       const { data, error } = await supabase
         .from('service_bookings')
         .select('*, buyer:profiles!service_bookings_buyer_id_fkey(name), product:products!service_bookings_product_id_fkey(name), staff:service_staff(name)')
         .eq('seller_id', sellerId)
         .not('status', 'in', '("cancelled","no_show")')
+        .gte('booking_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
         .order('booking_date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .order('start_time', { ascending: true })
+        .limit(500);
 
       if (error) throw error;
       return (data || []).map((row: any) => ({

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
@@ -68,13 +68,16 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
     toast.success(staffId ? 'Staff assigned' : 'Staff unassigned');
   }, [sellerId, refetch]);
 
+  // [BUG FIX] Use ref instead of state for guard to avoid stale closure
+  const actionLoadingRef = useRef<BookingAction>(null);
+
   const updateBookingStatus = useCallback(async (bookingId: string, orderId: string, newStatus: string) => {
-    // [FIX] Use functional ref to avoid stale closure on actionLoading
-    if (actionLoading) {
+    if (actionLoadingRef.current) {
       toast.info('Please wait for the current action to complete');
       return;
     }
 
+    actionLoadingRef.current = { id: bookingId, action: newStatus };
     setActionLoading({ id: bookingId, action: newStatus });
     try {
       const booking = bookings.find(b => b.id === bookingId);
@@ -178,9 +181,10 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
       console.error('Update booking error:', err);
       toast.error('Failed to update booking');
     } finally {
+      actionLoadingRef.current = null;
       setActionLoading(null);
     }
-  }, [bookings, sellerId, actionLoading, refetch, queryClient]);
+  }, [bookings, sellerId, refetch, queryClient]);
 
   const weekDates = useMemo(() => {
     const dates = [];

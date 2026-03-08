@@ -39,7 +39,9 @@ export function TimeSlotPicker({
   maxBookingDays = 30,
   className,
 }: TimeSlotPickerProps) {
-  const today = startOfToday();
+  // [BUG FIX] Memoize today so it doesn't create a new ref on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const today = useMemo(() => startOfToday(), []);
   const maxDate = addDays(today, maxBookingDays);
 
   // Generate time slots based on availability

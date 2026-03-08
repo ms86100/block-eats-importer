@@ -29,16 +29,22 @@ export function ServiceAddonPicker({ productId, selectedAddons, onAddonsChange }
   const { formatPrice } = useCurrency();
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('service_addons')
         .select('id, name, description, price')
         .eq('product_id', productId)
         .eq('is_active', true)
         .order('display_order');
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to load addons:', error);
+      }
       setAddons((data || []) as AddonRow[]);
       setIsLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [productId]);
 
   if (isLoading || addons.length === 0) return null;

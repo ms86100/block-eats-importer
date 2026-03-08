@@ -264,6 +264,7 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
           category={product.category || ''}
           imageUrl={product.image_url}
           durationMinutes={product.prep_time_minutes || undefined}
+          locationType={(product as any).location_type || undefined}
         />
       )}
       <ReportSheet open={d.reportOpen} onOpenChange={d.setReportOpen} targetType="product" targetId={product.product_id} targetName={product.product_name} />
