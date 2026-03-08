@@ -5,6 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Plus, Edit2, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -59,29 +70,36 @@ export function ServiceAddonsManager({ productId }: ServiceAddonsManagerProps) {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
+    const parsedPrice = parseFloat(form.price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      toast.error('Price must be 0 or greater');
+      return;
+    }
     setIsSaving(true);
     try {
       if (editingAddon) {
-        await supabase.from('service_addons').update({
+        const { error } = await supabase.from('service_addons').update({
           name: form.name.trim(),
           description: form.description.trim() || null,
-          price: parseFloat(form.price) || 0,
+          price: parsedPrice,
         }).eq('id', editingAddon.id);
+        if (error) throw error;
         toast.success('Add-on updated');
       } else {
-        await supabase.from('service_addons').insert({
+        const { error } = await supabase.from('service_addons').insert({
           product_id: productId,
           name: form.name.trim(),
           description: form.description.trim() || null,
-          price: parseFloat(form.price) || 0,
+          price: parsedPrice,
           display_order: addons.length,
         });
+        if (error) throw error;
         toast.success('Add-on created');
       }
       setIsDialogOpen(false);
       fetchAddons();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || 'Failed to save add-on');
     } finally {
       setIsSaving(false);
     }
@@ -93,7 +111,11 @@ export function ServiceAddonsManager({ productId }: ServiceAddonsManagerProps) {
   };
 
   const deleteAddon = async (a: ServiceAddon) => {
-    await supabase.from('service_addons').delete().eq('id', a.id);
+    const { error } = await supabase.from('service_addons').delete().eq('id', a.id);
+    if (error) {
+      toast.error('Failed to delete add-on');
+      return;
+    }
     setAddons(addons.filter(ad => ad.id !== a.id));
     toast.success('Add-on deleted');
   };
@@ -126,9 +148,30 @@ export function ServiceAddonsManager({ productId }: ServiceAddonsManagerProps) {
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(a)}>
                   <Edit2 size={10} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteAddon(a)}>
-                  <Trash2 size={10} />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
+                      <Trash2 size={10} />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Add-on?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "<strong>{a.name}</strong>"? This cannot be undone. Existing bookings with this add-on won't be affected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteAddon(a)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Switch checked={a.is_active} onCheckedChange={() => toggleActive(a)} />
               </div>
             </div>
@@ -152,7 +195,7 @@ export function ServiceAddonsManager({ productId }: ServiceAddonsManagerProps) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Price</Label>
-              <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" />
+              <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" />
             </div>
             <Button className="w-full" onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="animate-spin mr-2" size={16} />}
