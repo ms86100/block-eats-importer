@@ -162,6 +162,21 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // [FIX] Look up the original booking's location_type instead of hardcoding
+        let locationTypeForRecurring = "at_seller";
+        const { data: originalBooking } = await supabase
+          .from("service_bookings")
+          .select("location_type")
+          .eq("buyer_id", config.buyer_id)
+          .eq("product_id", config.product_id)
+          .not("status", "in", '("cancelled","no_show")')
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (originalBooking?.location_type) {
+          locationTypeForRecurring = originalBooking.location_type;
+        }
+
         // Use atomic book_service_slot RPC to prevent race conditions
         const { data: bookResult, error: bookErr } = await supabase.rpc("book_service_slot", {
           _slot_id: slot.id,
@@ -172,7 +187,7 @@ Deno.serve(async (req) => {
           _booking_date: nextDateStr,
           _start_time: slot.start_time,
           _end_time: slot.end_time,
-          _location_type: "at_seller",
+          _location_type: locationTypeForRecurring,
         });
 
         if (bookErr || !(bookResult as any)?.success) {
