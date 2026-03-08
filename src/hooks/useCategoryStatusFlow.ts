@@ -77,13 +77,13 @@ export function getNextStatusForActor(
   const currentIndex = flow.findIndex(s => s.status_key === currentStatus);
   if (currentIndex === -1) return null;
 
-  const next = flow[currentIndex + 1];
-  if (!next) return null;
-
-  // Seller can only advance to seller-actionable steps
-  if (actor === 'seller' && next.actor !== 'seller') return null;
-
-  return next.status_key;
+  // Scan forward for the next step this actor can perform
+  for (let i = currentIndex + 1; i < flow.length; i++) {
+    const step = flow[i];
+    if (step.is_terminal) return step.actor === actor ? step.status_key : null;
+    if (step.actor === actor) return step.status_key;
+  }
+  return null;
 }
 
 /**
