@@ -351,16 +351,39 @@ Deno.serve(async (req) => {
           .replace("{expiry_minutes}", String(expiryMinutes));
 
         try {
+          const webhookPayload: Record<string, unknown> = {
+            phone_number: phoneNumber,
+            otp_code: otp,
+            user_type: "user",
+            message,
+            expiry_minutes: expiryMinutes,
+          };
+
+          // [BUG FIX] Add HMAC signing for resend (was missing, unlike send action)
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          const hmacSecret = Deno.env.get("N8N_OTP_WEBHOOK_SECRET");
+          if (hmacSecret) {
+            const key = await crypto.subtle.importKey(
+              "raw",
+              new TextEncoder().encode(hmacSecret),
+              { name: "HMAC", hash: "SHA-256" },
+              false,
+              ["sign"]
+            );
+            const sig = await crypto.subtle.sign(
+              "HMAC",
+              key,
+              new TextEncoder().encode(JSON.stringify(webhookPayload))
+            );
+            headers["X-Webhook-Signature"] = Array.from(new Uint8Array(sig))
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("");
+          }
+
           const resp = await fetch(n8nWebhookUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone_number: phoneNumber,
-              otp_code: otp,
-              user_type: "user",
-              message,
-              expiry_minutes: expiryMinutes,
-            }),
+            headers,
+            body: JSON.stringify(webhookPayload),
           });
           deliveryStatus = resp.ok ? "sent" : "failed";
         } catch (e) {
