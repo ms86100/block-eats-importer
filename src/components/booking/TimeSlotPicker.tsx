@@ -83,8 +83,7 @@ export function TimeSlotPicker({
     const endTime = setMinutes(setHours(selectedDate, endHour), endMin);
 
     let currentSlot = startTime;
-    const now = new Date();
-    const isToday = isSameDay(selectedDate, today);
+    const isTodayFallback = isSameDay(selectedDate, today);
 
     while (currentSlot < endTime) {
       const slotTime = format(currentSlot, 'HH:mm');
