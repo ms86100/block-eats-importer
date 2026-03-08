@@ -118,6 +118,8 @@ export default function SellerProductsPage() {
             {sp.products.map((product) => {
               const approvalStatus = (product as any).approval_status || 'draft';
               const showPendingHint = approvalStatus === 'pending';
+              const showDraftHint = approvalStatus === 'draft';
+              const showRejectedHint = approvalStatus === 'rejected';
               return (
                 <div key={product.id} className={`bg-card rounded-xl p-4 shadow-sm transition-opacity ${!product.is_available ? 'opacity-60' : ''}`}>
                   <div className="flex items-start gap-3">
@@ -151,7 +153,9 @@ export default function SellerProductsPage() {
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => sp.setDeleteTarget(product)}><Trash2 size={14} /></Button>
                         {approvalStatus === 'draft' && <Button size="sm" variant="secondary" onClick={async () => { const { error } = await supabase.from('products').update({ approval_status: 'pending' } as any).eq('id', product.id); if (error) { toast.error('Failed to submit'); return; } toast.success('Submitted for approval'); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Submit for Review</Button>}
                         {approvalStatus === 'rejected' && <Button size="sm" variant="secondary" onClick={async () => { const { error } = await supabase.from('products').update({ approval_status: 'pending', rejection_note: null } as any).eq('id', product.id); if (error) { toast.error('Failed to resubmit'); return; } toast.success('Resubmitted for approval'); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Resubmit for Review</Button>}
-                        {approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">Under review — edits are still allowed</span>}
+                         {approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">Under review — edits are still allowed</span>}
+                         {showDraftHint && <span className="text-xs text-muted-foreground italic">Tap "Submit for Review" to send for admin approval</span>}
+                         {showRejectedHint && !((product as any).rejection_note) && <span className="text-xs text-muted-foreground italic">Edit and resubmit to get approved</span>}
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-1">

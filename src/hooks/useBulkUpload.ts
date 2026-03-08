@@ -135,14 +135,17 @@ export function useBulkUpload(sellerId: string, allowedCategories: CategoryConfi
       if (error) throw error;
 
       setSaveResult({ success: products.length, errors: 0 });
-      toast.success(`${products.length} products added as drafts`);
+      toast.success(`${products.length} products saved as drafts. Submit them for review from your Products page.`, {
+        duration: 5000,
+        action: { label: 'Got it', onClick: () => {} },
+      });
       onSuccess();
 
       setTimeout(() => {
         setRows([{ ...EMPTY_ROW, category: allowedCategories[0]?.category || '' }]);
         setSaveResult(null);
         onClose();
-      }, 1500);
+      }, 2000);
     } catch (error: any) {
       console.error('Bulk save error:', error);
       toast.error(friendlyError(error));

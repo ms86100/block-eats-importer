@@ -22,6 +22,7 @@ interface PendingProduct {
   is_veg: boolean;
   specifications: Record<string, any> | null;
   approval_status: string;
+  rejection_note: string | null;
   seller: {
     business_name: string;
     society_id: string;
@@ -36,23 +37,26 @@ export function AdminProductApprovals() {
   const [rejectionNote, setRejectionNote] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
+  const [showRejected, setShowRejected] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
 
   useEffect(() => {
     fetchPending();
-  }, [showDrafts]);
+  }, [showDrafts, showRejected]);
 
   const fetchPending = async () => {
     setIsLoading(true);
-    const statuses = showDrafts ? ['pending', 'draft'] : ['pending'];
+    let statuses = ['pending'];
+    if (showDrafts) statuses.push('draft');
+    if (showRejected) statuses = ['rejected'];
     const { data } = await supabase
       .from('products')
-      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
+      .select('id, name, price, category, description, image_url, is_veg, approval_status, created_at, specifications, rejection_note, seller:seller_profiles!products_seller_id_fkey(business_name, society_id)')
       .in('approval_status', statuses)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: showRejected ? false : true });
     setProducts((data as any) || []);
     // PA-05: Always fetch draft count for badge
-    if (!showDrafts) {
+    if (!showDrafts && !showRejected) {
       const { count } = await supabase.from('products').select('id', { count: 'exact', head: true }).eq('approval_status', 'draft');
       setDraftCount(count || 0);
     }
@@ -119,6 +123,12 @@ export function AdminProductApprovals() {
           <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setShowDrafts(!showDrafts)}>
             {showDrafts ? 'Pending only' : 'Show drafts'}
           </Button>
+          <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => {
+            // PA-14: Toggle to show rejected products
+            setShowRejected(!showRejected);
+          }}>
+            {showRejected ? 'Hide rejected' : 'Rejected'}
+          </Button>
         </div>
       </div>
 
@@ -146,6 +156,7 @@ export function AdminProductApprovals() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-bold text-sm truncate">{product.name}</h4>
                       <Badge variant="outline" className="text-[10px] rounded-md">{product.category}</Badge>
+                      {product.approval_status === 'draft' && <Badge variant="outline" className="text-[10px] rounded-md text-muted-foreground border-muted-foreground/40">Draft</Badge>}
                     </div>
                     <p className="text-sm font-extrabold text-primary mt-0.5">{formatPrice(product.price)}</p>
                     {product.seller && (
@@ -160,38 +171,48 @@ export function AdminProductApprovals() {
                         <ProductAttributeBlocks specifications={product.specifications} />
                       </div>
                     )}
+                    {/* PA-14: Show rejection note for rejected products */}
+                    {product.approval_status === 'rejected' && product.rejection_note && (
+                      <div className="mt-2 p-2 bg-destructive/5 border border-destructive/20 rounded-lg">
+                        <p className="text-[10px] font-semibold text-destructive">Rejection reason:</p>
+                        <p className="text-xs text-muted-foreground">{product.rejection_note}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {rejectingId === product.id ? (
-                  <div className="space-y-2.5">
-                    <Textarea
-                      placeholder="Rejection reason (optional)..."
-                      value={rejectionNote}
-                      onChange={(e) => setRejectionNote(e.target.value)}
-                      rows={2}
-                      className="rounded-xl"
-                    />
+                {/* Hide action buttons for already rejected products */}
+                {product.approval_status !== 'rejected' && (
+                  rejectingId === product.id ? (
+                    <div className="space-y-2.5">
+                      <Textarea
+                        placeholder="Rejection reason (optional)..."
+                        value={rejectionNote}
+                        onChange={(e) => setRejectionNote(e.target.value)}
+                        rows={2}
+                        className="rounded-xl"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNote(''); }}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" variant="destructive" className="rounded-xl font-semibold" disabled={actionId === product.id} onClick={() => handleReject(product.id)}>
+                          {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
+                          Confirm Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setRejectingId(null); setRejectionNote(''); }}>
-                        Cancel
+                      <Button size="sm" variant="outline" className="text-destructive rounded-xl font-semibold" onClick={() => setRejectingId(product.id)} disabled={!!actionId}>
+                        <X size={14} className="mr-1" /> Reject
                       </Button>
-                      <Button size="sm" variant="destructive" className="rounded-xl font-semibold" disabled={actionId === product.id} onClick={() => handleReject(product.id)}>
+                      <Button size="sm" className="rounded-xl font-semibold shadow-sm" onClick={() => handleApprove(product.id)} disabled={!!actionId}>
                         {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
-                        Confirm Reject
+                        <Check size={14} className="mr-1" /> Approve
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="text-destructive rounded-xl font-semibold" onClick={() => setRejectingId(product.id)} disabled={!!actionId}>
-                      <X size={14} className="mr-1" /> Reject
-                    </Button>
-                    <Button size="sm" className="rounded-xl font-semibold shadow-sm" onClick={() => handleApprove(product.id)} disabled={!!actionId}>
-                      {actionId === product.id && <Loader2 size={14} className="animate-spin mr-1" />}
-                      <Check size={14} className="mr-1" /> Approve
-                    </Button>
-                  </div>
+                  )
                 )}
               </CardContent>
             </Card>

@@ -307,7 +307,10 @@ export function useSellerApplication() {
       } as any).eq('id', draftSellerId);
       if (error) throw error;
       const { error: prodError } = await supabase.from('products').update({ approval_status: 'pending' } as any).eq('seller_id', draftSellerId).eq('approval_status', 'draft');
-      if (prodError) console.error('Failed to transition products:', prodError);
+      if (prodError) {
+        console.error('Failed to transition products:', prodError);
+        toast.error('Some products couldn\'t be submitted for review. Please try again from your Products page.');
+      }
       await refreshProfile();
       localStorage.setItem('seller_onboarding_completed', 'true');
       toast.success('Application submitted! Awaiting admin approval.');
