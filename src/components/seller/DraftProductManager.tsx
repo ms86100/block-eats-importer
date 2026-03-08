@@ -264,6 +264,7 @@ export function DraftProductManager({
         const prodConfig = configs.find(c => c.category === product.category);
         const showVeg = prodConfig?.formHints.showVegToggle ?? false;
         const prodSupportsAddons = prodConfig?.supportsAddons ?? false;
+        const prodIsService = prodConfig?.layoutType === 'service';
         return (
           <Card key={product.id || index} className="bg-muted/30">
             <CardContent className="p-3 space-y-2">
