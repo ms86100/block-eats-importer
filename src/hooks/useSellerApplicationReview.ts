@@ -154,7 +154,8 @@ export function useSellerApplicationReview() {
 
       if (status === 'approved') {
         await supabase.from('user_roles').insert({ user_id: seller.user_id, role: 'seller' });
-        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', seller.id).in('approval_status', ['pending', 'draft']);
+        // PA-06 fix: Set to 'pending' so admin must individually review each product
+        await supabase.from('products').update({ approval_status: 'pending' } as any).eq('seller_id', seller.id).eq('approval_status', 'draft');
         await supabase.from('user_notifications').insert({
           user_id: seller.user_id,
           title: '🎉 Congratulations! Your store is approved!',
