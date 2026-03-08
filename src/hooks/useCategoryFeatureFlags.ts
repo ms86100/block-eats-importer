@@ -48,9 +48,9 @@ export function useSellerCategoryFlags(categories: string[]): CategoryFeatureFla
 
     return {
       hasServiceLayout: matched.some(c => c.layoutType === 'service'),
-      supportsAddons: matched.some(c => (c as any).behavior?.supportsAddons ?? lookupRaw(c, 'supports_addons')),
-      supportsRecurring: matched.some(c => lookupRaw(c, 'supports_recurring')),
-      supportsStaffAssignment: matched.some(c => lookupRaw(c, 'supports_staff_assignment')),
+      supportsAddons: matched.some(c => c.supportsAddons),
+      supportsRecurring: matched.some(c => c.supportsRecurring),
+      supportsStaffAssignment: matched.some(c => c.supportsStaffAssignment),
       showVegToggle: matched.some(c => c.formHints.showVegToggle),
       showDurationField: matched.some(c => c.formHints.showDurationField),
     };
@@ -60,19 +60,10 @@ export function useSellerCategoryFlags(categories: string[]): CategoryFeatureFla
 function configToFlags(config: CategoryConfig): CategoryFeatureFlags {
   return {
     hasServiceLayout: config.layoutType === 'service',
-    supportsAddons: lookupRaw(config, 'supports_addons'),
-    supportsRecurring: lookupRaw(config, 'supports_recurring'),
-    supportsStaffAssignment: lookupRaw(config, 'supports_staff_assignment'),
+    supportsAddons: config.supportsAddons,
+    supportsRecurring: config.supportsRecurring,
+    supportsStaffAssignment: config.supportsStaffAssignment,
     showVegToggle: config.formHints.showVegToggle,
     showDurationField: config.formHints.showDurationField,
   };
-}
-
-/**
- * The CategoryConfig type doesn't expose every DB column.
- * These flags exist on the raw row but aren't mapped into the typed config.
- * We access them via the original object which retains all properties at runtime.
- */
-function lookupRaw(config: any, key: string): boolean {
-  return config[key] === true;
 }

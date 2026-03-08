@@ -295,8 +295,8 @@ export function useSellerProducts() {
   const currentCategorySupportsAddons = useMemo(() => {
     if (!formData.category) return false;
     const config = configs.find((c: any) => c.category === formData.category);
-    return (config as any)?.supports_addons === true || (isCurrentCategoryService && (config as any)?.supports_addons !== false);
-  }, [formData.category, configs, isCurrentCategoryService]);
+    return config?.supportsAddons === true;
+  }, [formData.category, configs]);
 
   return {
     user, sellerProfile, primaryGroup, products, isLoading, isDialogOpen, setIsDialogOpen,
