@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
-import { ChevronRight, Shield } from 'lucide-react';
+import { ArrowRight, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function LandingHero() {
@@ -39,7 +39,7 @@ export function LandingHero() {
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Stop relying on unknown delivery apps. {platformName} is the private, GPS-verified marketplace where you buy, sell, and book services — only from people who live in your society.
+            Stop relying on unknown delivery apps. {platformName} is the private marketplace where you buy, sell, and book services — only from people who live in your society.
           </p>
 
           <motion.div
@@ -49,8 +49,8 @@ export function LandingHero() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link to="/welcome">
-              <Button size="lg" className="font-semibold px-10 h-13 text-base shadow-cta">
-                Join Your Society <ChevronRight size={18} className="ml-1" />
+              <Button size="lg" className="font-bold px-10 h-14 text-base shadow-cta rounded-2xl">
+                Join Your Society <ArrowRight size={18} className="ml-2" />
               </Button>
             </Link>
           </motion.div>

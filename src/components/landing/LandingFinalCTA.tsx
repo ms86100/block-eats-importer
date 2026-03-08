@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 
@@ -26,8 +26,8 @@ export function LandingFinalCTA() {
         </p>
 
         <Link to="/welcome">
-          <Button size="lg" className="font-semibold px-10 h-13 text-base shadow-cta">
-            Join Your Society <ChevronRight size={18} className="ml-1" />
+          <Button size="lg" className="font-bold px-10 h-14 text-base shadow-cta rounded-2xl">
+            Join Your Society <ArrowRight size={18} className="ml-2" />
           </Button>
         </Link>
 
