@@ -154,7 +154,10 @@ export default function SellerProductsPage() {
                         {approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">Under review — edits are still allowed</span>}
                       </div>
                     </div>
-                    <div className="flex flex-col items-center gap-1"><Switch checked={product.is_available} onCheckedChange={() => sp.toggleAvailability(product)} /><span className="text-[10px] text-muted-foreground">{product.is_available ? 'In Stock' : 'Out'}</span></div>
+                    <div className="flex flex-col items-center gap-1">
+                      <Switch checked={product.is_available} onCheckedChange={() => sp.toggleAvailability(product)} disabled={approvalStatus !== 'approved'} />
+                      <span className="text-[10px] text-muted-foreground">{approvalStatus !== 'approved' ? 'N/A' : product.is_available ? 'In Stock' : 'Out'}</span>
+                    </div>
                   </div>
                 </div>
               );

@@ -295,6 +295,12 @@ export function useSellerProducts() {
   };
 
   const toggleAvailability = async (product: Product) => {
+    // PA-02 fix: Block availability toggle for non-approved products
+    const status = (product as any).approval_status || 'draft';
+    if (status !== 'approved') {
+      toast.error('Submit for review first — only approved products can be toggled.');
+      return;
+    }
     try {
       const { error } = await supabase.from('products').update({ is_available: !product.is_available }).eq('id', product.id);
       if (error) throw error;

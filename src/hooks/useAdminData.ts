@@ -163,7 +163,7 @@ export function useAdminData() {
       await logAudit(`seller_${status}`, 'seller_profile', id, '', { status });
       if (status === 'approved') {
         await supabase.from('user_roles').insert({ user_id: seller.user_id, role: 'seller' });
-        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', id).eq('approval_status', 'pending');
+        await supabase.from('products').update({ approval_status: 'approved' } as any).eq('seller_id', id).in('approval_status', ['pending', 'draft']);
         await supabase.from('user_notifications').insert({ user_id: seller.user_id, title: '🎉 Congratulations! Your store is approved!', body: 'Your store has been approved and is now live.', type: 'seller_approved', is_read: false });
       } else if (status === 'rejected' || status === 'suspended') {
         await supabase.from('user_roles').delete().eq('user_id', seller.user_id).eq('role', 'seller');

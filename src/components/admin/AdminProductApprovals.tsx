@@ -103,13 +103,23 @@ export function AdminProductApprovals() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center">
-          <Package size={15} className="text-amber-600" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Package size={15} className="text-amber-600" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground">
+            {showDrafts ? 'Pending & Draft' : 'Pending'} Products <span className="text-muted-foreground font-normal text-xs">({products.length})</span>
+          </h3>
         </div>
-        <h3 className="text-sm font-bold text-foreground">
-          Pending Products <span className="text-muted-foreground font-normal text-xs">({products.length})</span>
-        </h3>
+        <div className="flex items-center gap-2">
+          {!showDrafts && draftCount > 0 && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">{draftCount} drafts</Badge>
+          )}
+          <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setShowDrafts(!showDrafts)}>
+            {showDrafts ? 'Pending only' : 'Show drafts'}
+          </Button>
+        </div>
       </div>
 
       {products.length === 0 ? (

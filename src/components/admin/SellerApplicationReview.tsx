@@ -19,6 +19,7 @@ import { DynamicIcon } from '@/components/ui/DynamicIcon';
 
 function statusBadge(status: string) {
   switch (status) {
+    case 'draft': return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/40 rounded-md text-[10px]"><Clock size={10} className="mr-1" /> Draft</Badge>;
     case 'pending': return <Badge variant="outline" className="text-warning border-warning rounded-md text-[10px]"><Clock size={10} className="mr-1" /> Pending</Badge>;
     case 'approved': return <Badge variant="outline" className="text-success border-success rounded-md text-[10px]"><Check size={10} className="mr-1" /> Approved</Badge>;
     case 'rejected': return <Badge variant="outline" className="text-destructive border-destructive rounded-md text-[10px]"><X size={10} className="mr-1" /> Rejected</Badge>;
