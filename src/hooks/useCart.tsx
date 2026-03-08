@@ -98,9 +98,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [queryClient, user?.id]);
 
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: [...CART_QUERY_KEY, user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['cart-count', user?.id] });
-  }, [queryClient, user?.id]);
+    // Use exact: false to clear all cart-items/cart-count variants (handles undefined→real userId transition)
+    queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY, exact: false });
+    queryClient.invalidateQueries({ queryKey: ['cart-count'], exact: false });
+  }, [queryClient]);
 
   const itemCount = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
