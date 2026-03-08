@@ -228,9 +228,19 @@ export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?:
     );
   };
 
-  const filteredBlocks = filterCategory === 'all'
+  const textQuery = searchQuery.trim().toLowerCase();
+  const filteredBlocks = (filterCategory === 'all'
     ? blocks
-    : blocks.filter(b => (b.category_hints || []).includes(filterCategory));
+    : blocks.filter(b => (b.category_hints || []).includes(filterCategory))
+  ).filter(b => {
+    if (!textQuery) return true;
+    return (
+      b.display_name.toLowerCase().includes(textQuery) ||
+      b.block_type.toLowerCase().includes(textQuery) ||
+      (b.description || '').toLowerCase().includes(textQuery) ||
+      (b.category_hints || []).some(h => h.toLowerCase().includes(textQuery) || (categoryMap[h] || '').toLowerCase().includes(textQuery))
+    );
+  });
 
   const categoryMap = Object.fromEntries(categories.map((c: any) => [c.category, c.display_name]));
 
