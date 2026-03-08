@@ -7506,12 +7506,32 @@ export type Database = {
       apply_maintenance_late_fees: { Args: never; Returns: undefined }
       auto_checkout_visitors: { Args: never; Returns: undefined }
       auto_escalate_overdue_disputes: { Args: never; Returns: undefined }
+      book_service_slot: {
+        Args: {
+          _booking_date: string
+          _buyer_address?: string
+          _buyer_id: string
+          _end_time: string
+          _location_type?: string
+          _notes?: string
+          _order_id: string
+          _product_id: string
+          _seller_id: string
+          _slot_id: string
+          _start_time: string
+        }
+        Returns: Json
+      }
       calculate_society_trust_score: {
         Args: { _society_id: string }
         Returns: number
       }
       calculate_trust_score: { Args: { _user_id: string }; Returns: number }
       can_access_feature: { Args: { _feature_key: string }; Returns: boolean }
+      can_cancel_booking: {
+        Args: { _actor_id: string; _booking_id: string }
+        Returns: Json
+      }
       can_manage_society: {
         Args: { _society_id: string; _user_id: string }
         Returns: boolean
@@ -7716,6 +7736,7 @@ export type Database = {
         Returns: undefined
       }
       refresh_all_trust_scores: { Args: never; Returns: undefined }
+      release_service_slot: { Args: { _slot_id: string }; Returns: undefined }
       search_marketplace: {
         Args: { search_term: string; user_society_id?: string }
         Returns: {
