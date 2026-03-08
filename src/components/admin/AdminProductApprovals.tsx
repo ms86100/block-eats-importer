@@ -23,6 +23,7 @@ interface PendingProduct {
   specifications: Record<string, any> | null;
   approval_status: string;
   rejection_note: string | null;
+  updated_while_pending: boolean;
   seller: {
     business_name: string;
     society_id: string;
