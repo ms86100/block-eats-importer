@@ -98,6 +98,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Check store availability before allowing add-to-cart
+    const seller = (product as any)?.seller;
+    if (seller) {
+      const availability = computeStoreStatus(
+        seller.availability_start,
+        seller.availability_end,
+        seller.operating_days,
+        seller.is_available ?? true
+      );
+      if (availability.status !== 'open') {
+        const msg = formatStoreClosedMessage(availability);
+        toast.error(msg || 'This store is currently closed. Please try again later.');
+        return;
+      }
+    }
+
     // Optimistic update
     setOptimistic(prev => {
       const existing = prev.find(item => item.product_id === product.id);

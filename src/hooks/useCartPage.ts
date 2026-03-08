@@ -213,6 +213,30 @@ export function useCartPage() {
         setIsPlacingOrder(false);
         return;
       }
+
+      // Validate store availability for all sellers at checkout time
+      const closedSellers: string[] = [];
+      for (const group of sellerGroups) {
+        const seller = group.items[0]?.product?.seller as any;
+        if (seller) {
+          const availability = computeStoreStatus(
+            seller.availability_start,
+            seller.availability_end,
+            seller.operating_days,
+            seller.is_available ?? true
+          );
+          if (availability.status !== 'open') {
+            const msg = formatStoreClosedMessage(availability);
+            closedSellers.push(`${group.sellerName} (${msg || 'closed'})`);
+          }
+        }
+      }
+
+      if (closedSellers.length > 0) {
+        toast.error(`Cannot place order — ${closedSellers.join(', ')} ${closedSellers.length === 1 ? 'is' : 'are'} currently closed. Please remove those items or try again later.`);
+        setIsPlacingOrder(false);
+        return;
+      }
     } catch (err) {
       console.error('Pre-checkout validation failed:', err);
       toast.error('Could not verify item availability. Please try again.');
