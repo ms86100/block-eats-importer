@@ -145,20 +145,16 @@ export function DraftProductManager({
       }
 
       onProductsChange([...products, { ...newProduct, id: data.id, discount_percentage: computedDiscount }]);
-      setNewProduct({
-        name: '',
-        price: 0,
-        mrp: null,
-        discount_percentage: null,
-        description: '',
-        category: categories[0] || '',
-        is_veg: true,
-        image_url: '',
-        prep_time_minutes: null,
+      onFormStateChange({
+        isAdding: false,
+        product: {
+          name: '', price: 0, mrp: null, discount_percentage: null,
+          description: '', category: categories[0] || '', is_veg: true,
+          image_url: '', prep_time_minutes: null,
+        },
+        attributeBlocks: [],
+        serviceFields: INITIAL_SERVICE_FIELDS,
       });
-      setIsAdding(false);
-      setAttributeBlocks([]);
-      setServiceFields(INITIAL_SERVICE_FIELDS);
       toast.success(isServiceCategory ? 'Service added! Set your availability schedule in Seller Settings after approval.' : 'Product added');
     } catch (error: any) {
       console.error('Error adding product:', error);
