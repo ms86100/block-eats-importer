@@ -18,6 +18,7 @@ type SectionId =
   | 'seller-guide'
   | 'admin-guide'
   | 'category-config'
+  | 'category-management'
   | 'booking-lifecycle'
   | 'slot-management'
   | 'cancellation-policy'
