@@ -35,7 +35,7 @@ export function AdminProductApprovals() {
   const [products, setProducts] = useState<PendingProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [rejectionNote, setRejectionNote] = useState('');
+  const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
