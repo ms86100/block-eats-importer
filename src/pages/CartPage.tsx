@@ -236,7 +236,7 @@ export default function CartPage() {
           {/* #7: Removed misleading ChevronRight — address card is not interactive */}
         </div>
 
-        {c.sellerGroups.length > 1 && (<p className="text-xs text-muted-foreground text-center mt-4 px-4">Your cart has items from {c.sellerGroups.length} sellers. Separate orders will be created for each.</p>)}
+        
 
         {/* Refund Promise */}
         <div className="mx-4 mt-4 flex items-center gap-3 bg-primary/5 border border-primary/15 rounded-xl p-3">
