@@ -7690,6 +7690,14 @@ export type Database = {
           name: string
         }[]
       }
+      get_price_stability: {
+        Args: { _product_id: string }
+        Returns: {
+          days_stable: number
+          direction: string
+          price_change: number
+        }[]
+      }
       get_product_trust_metrics: {
         Args: { _product_ids: string[] }
         Returns: {
@@ -7698,6 +7706,16 @@ export type Database = {
           repeat_buyer_count: number
           total_orders: number
           unique_buyers: number
+        }[]
+      }
+      get_refund_tier: { Args: { _amount: number }; Returns: Json }
+      get_seller_delivery_score: {
+        Args: { _seller_id: string }
+        Returns: {
+          avg_delay_minutes: number
+          completion_rate: number
+          on_time_pct: number
+          total_deliveries: number
         }[]
       }
       get_seller_demand_stats: { Args: { _seller_id: string }; Returns: Json }
