@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Store, Users, Building2, AlertCircle, LayoutGrid, Flag,
   CreditCard, Star, Megaphone, Layers, Settings2, Bot, Navigation,
-  Menu, ChevronRight, FileCode, Send, CalendarCheck,
+  Menu, ChevronRight, FileCode, Send, CalendarCheck, Package,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,7 +14,8 @@ const NAV_GROUPS = [
   {
     label: 'Commerce',
     items: [
-      { value: 'sellers', label: 'Sellers & Products', icon: Store },
+      { value: 'sellers', label: 'Sellers', icon: Store },
+      { value: 'products', label: 'Products', icon: Package },
       { value: 'payments', label: 'Payments', icon: CreditCard },
       { value: 'services', label: 'Services', icon: CalendarCheck },
       { value: 'catalog', label: 'Catalog', icon: LayoutGrid },
@@ -47,9 +48,10 @@ const NAV_GROUPS = [
 interface AdminSidebarNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  badges?: Record<string, number>;
 }
 
-export function AdminSidebarNav({ activeTab, onTabChange }: AdminSidebarNavProps) {
+export function AdminSidebarNav({ activeTab, onTabChange, badges = {} }: AdminSidebarNavProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -68,6 +70,7 @@ export function AdminSidebarNav({ activeTab, onTabChange }: AdminSidebarNavProps
               {group.items.map(item => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.value;
+                const badgeCount = badges[item.value] || 0;
                 return (
                   <button
                     key={item.value}
@@ -88,7 +91,12 @@ export function AdminSidebarNav({ activeTab, onTabChange }: AdminSidebarNavProps
                   >
                     <Icon size={16} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="truncate">{item.label}</span>
-                    {isActive && <ChevronRight size={14} className="ml-auto text-primary/60" />}
+                    {badgeCount > 0 && (
+                      <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold tabular-nums">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                    {isActive && badgeCount === 0 && <ChevronRight size={14} className="ml-auto text-primary/60" />}
                   </button>
                 );
               })}

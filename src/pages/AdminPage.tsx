@@ -18,9 +18,11 @@ import { ApiKeySettings } from '@/components/admin/ApiKeySettings';
 import { AppNavigator } from '@/components/admin/AppNavigator';
 import { AdminAIReviewLog } from '@/components/admin/AdminAIReviewLog';
 import { CampaignSender } from '@/components/admin/CampaignSender';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AdminSidebarNav } from '@/components/admin/AdminSidebarNav';
 import { SellerApplicationReview } from '@/components/admin/SellerApplicationReview';
 import { AdminProductApprovals } from '@/components/admin/AdminProductApprovals';
+import { LicenseConfigSection } from '@/components/admin/LicenseConfigSection';
 import { AdminDisputesTab } from '@/components/admin/AdminDisputesTab';
 import { EmergencyBroadcastSheet } from '@/components/admin/EmergencyBroadcastSheet';
 import { SocietySwitcher } from '@/components/admin/SocietySwitcher';
@@ -130,16 +132,26 @@ export default function AdminPage() {
 
         {/* ═══ SIDEBAR NAV — sticky so section label persists while scrolling ═══ */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/30 px-4 py-2.5">
-          <AdminSidebarNav activeTab={admin.activeTab} onTabChange={admin.setActiveTab} />
+          <AdminSidebarNav
+            activeTab={admin.activeTab}
+            onTabChange={admin.setActiveTab}
+            badges={{
+              sellers: admin.pendingSellers.length,
+              products: 0,
+              users: admin.pendingUsers.length,
+              reports: admin.stats.pendingReports,
+            }}
+          />
         </div>
 
         {/* ═══ CONTENT ═══ */}
         <div className="px-4">
           {admin.activeTab === 'sellers' && (
-            <div className="space-y-6">
-              <SellerApplicationReview />
-              <AdminProductApprovals />
-            </div>
+            <SellerApplicationReview />
+          )}
+
+          {admin.activeTab === 'products' && (
+            <AdminProductApprovals />
           )}
 
           {admin.activeTab === 'users' && (
@@ -429,14 +441,26 @@ export default function AdminPage() {
           {admin.activeTab === 'catalog' && <AdminCatalogManager />}
 
           {admin.activeTab === 'settings' && (
-            <div className="space-y-5">
-              <NotificationDiagnostics />
-              <PlatformSettingsManager />
-              <OtpSettings />
-              <ApiKeySettings />
-              <PurgeDataButton />
-              <ResetAndSeedButton />
-            </div>
+            <Tabs defaultValue="platform" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 rounded-xl h-9 mb-4">
+                <TabsTrigger value="platform" className="text-xs rounded-lg font-semibold">Platform</TabsTrigger>
+                <TabsTrigger value="notifications" className="text-xs rounded-lg font-semibold">Notifications</TabsTrigger>
+                <TabsTrigger value="system" className="text-xs rounded-lg font-semibold">System</TabsTrigger>
+              </TabsList>
+              <TabsContent value="platform" className="space-y-5">
+                <PlatformSettingsManager />
+                <LicenseConfigSection />
+              </TabsContent>
+              <TabsContent value="notifications" className="space-y-5">
+                <NotificationDiagnostics />
+                <OtpSettings />
+              </TabsContent>
+              <TabsContent value="system" className="space-y-5">
+                <ApiKeySettings />
+                <PurgeDataButton />
+                <ResetAndSeedButton />
+              </TabsContent>
+            </Tabs>
           )}
 
           {admin.activeTab === 'campaigns' && <CampaignSender />}
