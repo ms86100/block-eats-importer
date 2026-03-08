@@ -81,20 +81,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Atomically book the slot (prevents overbooking)
-        const { data: slotUpdate } = await supabase
-          .from("service_slots")
-          .update({ booked_count: slot.booked_count + 1 })
-          .eq("id", slot.id)
-          .lt("booked_count", slot.max_capacity)
-          .eq("is_blocked", false)
-          .select("id")
+        // Get product info for order_items
+        const { data: product } = await supabase
+          .from("products")
+          .select("name, price")
+          .eq("id", config.product_id)
           .single();
 
-        if (!slotUpdate) {
-          console.log(`Slot race condition for recurring ${config.id}`);
-          continue;
-        }
+        const productPrice = product?.price || 0;
+        const productName = product?.name || "Recurring Service";
 
         // Create order
         const { data: order, error: orderErr } = await supabase
@@ -103,7 +98,7 @@ Deno.serve(async (req) => {
             buyer_id: config.buyer_id,
             seller_id: config.seller_id,
             status: "confirmed",
-            total_amount: 0,
+            total_amount: productPrice,
             payment_type: "cod",
             payment_status: "pending",
             order_type: "booking",
@@ -113,38 +108,52 @@ Deno.serve(async (req) => {
           .single();
 
         if (orderErr || !order) {
-          // Rollback slot
-          await supabase
-            .from("service_slots")
-            .update({ booked_count: Math.max(0, slot.booked_count) })
-            .eq("id", slot.id);
           console.error("Failed to create order for recurring", config.id, orderErr);
           errors++;
           continue;
         }
 
-        // Create service booking
-        const { error: bookErr } = await supabase.from("service_bookings").insert({
+        // Create order item (was missing before!)
+        await supabase.from("order_items").insert({
           order_id: order.id,
-          slot_id: slot.id,
-          buyer_id: config.buyer_id,
-          seller_id: config.seller_id,
           product_id: config.product_id,
-          booking_date: nextDateStr,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          status: "confirmed",
-          location_type: "at_seller",
+          product_name: productName,
+          quantity: 1,
+          unit_price: productPrice,
         });
 
-        if (bookErr) {
-          // Rollback order and slot
+        // Use atomic book_service_slot RPC to prevent race conditions
+        const { data: bookResult, error: bookErr } = await supabase.rpc("book_service_slot", {
+          _slot_id: slot.id,
+          _buyer_id: config.buyer_id,
+          _seller_id: config.seller_id,
+          _product_id: config.product_id,
+          _order_id: order.id,
+          _booking_date: nextDateStr,
+          _start_time: slot.start_time,
+          _end_time: slot.end_time,
+          _location_type: "at_seller",
+        });
+
+        if (bookErr || !(bookResult as any)?.success) {
+          // Rollback order
+          await supabase.from("order_items").delete().eq("order_id", order.id);
           await supabase.from("orders").delete().eq("id", order.id);
-          await supabase.rpc("release_service_slot", { _slot_id: slot.id });
-          console.error("Failed to create booking for recurring", config.id, bookErr);
+          console.error("Failed to book slot for recurring", config.id, bookErr || (bookResult as any)?.error);
           errors++;
           continue;
         }
+
+        // Override status to confirmed (book_service_slot sets it to 'requested')
+        await supabase
+          .from("service_bookings")
+          .update({ status: "confirmed" })
+          .eq("id", (bookResult as any).booking_id);
+
+        await supabase
+          .from("orders")
+          .update({ status: "confirmed" })
+          .eq("id", order.id);
 
         // Update last generated date
         await supabase
@@ -157,7 +166,7 @@ Deno.serve(async (req) => {
           user_id: config.buyer_id,
           type: "appointment_reminder",
           title: "🔄 Recurring Booking Created",
-          body: `Your recurring appointment has been scheduled for ${nextDateStr} at ${timeStr.slice(0, 5)}`,
+          body: `Your recurring ${productName} has been scheduled for ${nextDateStr} at ${timeStr.slice(0, 5)}`,
           reference_path: `/orders/${order.id}`,
           payload: { orderId: order.id, type: "recurring_booking_created" },
         });
