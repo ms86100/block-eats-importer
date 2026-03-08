@@ -6823,6 +6823,8 @@ export type Database = {
           badge_color: string
           created_at: string
           display_order: number
+          growth_icon: string | null
+          growth_label: string | null
           icon_name: string
           id: string
           is_active: boolean
@@ -6835,6 +6837,8 @@ export type Database = {
           badge_color?: string
           created_at?: string
           display_order?: number
+          growth_icon?: string | null
+          growth_label?: string | null
           icon_name?: string
           id?: string
           is_active?: boolean
@@ -6847,6 +6851,8 @@ export type Database = {
           badge_color?: string
           created_at?: string
           display_order?: number
+          growth_icon?: string | null
+          growth_label?: string | null
           icon_name?: string
           id?: string
           is_active?: boolean
@@ -7847,6 +7853,7 @@ export type Database = {
         Args: { _seller_id: string }
         Returns: {
           avg_response_min: number
+          cancelled_orders: number
           completed_orders: number
           recent_order_count: number
           repeat_customer_pct: number
@@ -7857,6 +7864,8 @@ export type Database = {
         Args: { _seller_id: string }
         Returns: {
           badge_color: string
+          growth_icon: string
+          growth_label: string
           icon_name: string
           tier_key: string
           tier_label: string
@@ -7867,6 +7876,13 @@ export type Database = {
         Returns: {
           families_this_week: number
           product_id: string
+        }[]
+      }
+      get_society_search_suggestions: {
+        Args: { _limit?: number; _society_id: string }
+        Returns: {
+          count: number
+          term: string
         }[]
       }
       get_society_top_products: {
