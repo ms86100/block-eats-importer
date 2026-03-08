@@ -11,6 +11,7 @@ export interface ServiceFieldsData {
   max_bookings_per_slot: string;
   cancellation_notice_hours: string;
   rescheduling_notice_hours: string;
+  preparation_instructions: string;
 }
 
 export const INITIAL_SERVICE_FIELDS: ServiceFieldsData = {
@@ -21,6 +22,7 @@ export const INITIAL_SERVICE_FIELDS: ServiceFieldsData = {
   max_bookings_per_slot: '1',
   cancellation_notice_hours: '24',
   rescheduling_notice_hours: '12',
+  preparation_instructions: '',
 };
 
 interface ServiceFieldsSectionProps {
