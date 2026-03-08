@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { ContactSellerModal } from './ContactSellerModal';
 import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { ProductEnquirySheet } from './ProductEnquirySheet';
 import { ReportSheet } from '@/components/report/ReportSheet';
+import { ServiceBookingFlow } from '@/components/booking/ServiceBookingFlow';
 import { ProductAttributeBlocks } from './ProductAttributeBlocks';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { Plus, Minus, Store, MapPin, Home, Clock, Truck, Users, Zap, RotateCcw, ChevronRight, ChevronDown, Shield, Flag, X } from 'lucide-react';
@@ -44,6 +46,10 @@ export { type ProductDetail };
 export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduct, categoryIcon, categoryName }: ProductDetailSheetProps) {
   const d = useProductDetail(product, open, onOpenChange);
   const ml = useMarketplaceLabels();
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const isServiceLayout = d.config && (d as any).config?.layoutType === 'service';
+  // Check if this product's category is service-type by checking the action
+  const isServiceBookingAction = d.actionType === 'book' || d.actionType === 'request_service';
 
   // Compute store availability from product's seller data
   const storeAvailability: StoreAvailability = product
@@ -229,7 +235,14 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
                 </div>
               )
             ) : (
-              <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => { hapticImpact('medium'); d.handleAdd(); }}>
+              <Button className="w-full h-12 text-base font-bold bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl" onClick={() => {
+                hapticImpact('medium');
+                if (isServiceBookingAction && product) {
+                  setBookingOpen(true);
+                } else {
+                  d.handleAdd();
+                }
+              }}>
                 <d.ActionIcon size={18} className="mr-2" />{d.config.label}
               </Button>
             )}
@@ -238,7 +251,21 @@ export function ProductDetailSheet({ product, open, onOpenChange, onSelectProduc
       </Drawer>
 
       {d.actionType === 'contact_seller' && <ContactSellerModal open={d.contactOpen} onOpenChange={d.setContactOpen} sellerName={product.seller_name} phone={product.contact_phone || ''} />}
-      {!d.isCartAction && d.actionType !== 'contact_seller' && <ProductEnquirySheet open={d.enquiryOpen} onOpenChange={d.setEnquiryOpen} productId={product.product_id} productName={product.product_name} sellerId={product.seller_id} sellerName={product.seller_name} actionType={d.actionType} price={product.price} />}
+      {!d.isCartAction && d.actionType !== 'contact_seller' && !isServiceBookingAction && <ProductEnquirySheet open={d.enquiryOpen} onOpenChange={d.setEnquiryOpen} productId={product.product_id} productName={product.product_name} sellerId={product.seller_id} sellerName={product.seller_name} actionType={d.actionType} price={product.price} />}
+      {isServiceBookingAction && product && (
+        <ServiceBookingFlow
+          open={bookingOpen}
+          onOpenChange={setBookingOpen}
+          productId={product.product_id}
+          productName={product.product_name}
+          sellerId={product.seller_id}
+          sellerName={product.seller_name}
+          price={product.price}
+          category={product.category || ''}
+          imageUrl={product.image_url}
+          durationMinutes={product.prep_time_minutes || undefined}
+        />
+      )}
       <ReportSheet open={d.reportOpen} onOpenChange={d.setReportOpen} targetType="product" targetId={product.product_id} targetName={product.product_name} />
     </>
   );

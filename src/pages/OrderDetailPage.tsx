@@ -17,7 +17,7 @@ import { useOrderDetail } from '@/hooks/useOrderDetail';
 import { useServiceBookingForOrder } from '@/hooks/useServiceBookings';
 import { OrderItem, OrderStatus, PaymentStatus, ItemStatus } from '@/types/database';
 import { SERVICE_STATUS_LABELS } from '@/types/service';
-import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Phone, MapPin, Check, Star, MessageCircle, CreditCard, XCircle, Package, ChevronRight, Copy, Truck, Calendar, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { getString, setString } from '@/lib/persistent-kv';
@@ -174,6 +174,12 @@ export default function OrderDetailPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${SERVICE_STATUS_LABELS[serviceBooking.status]?.color || 'bg-muted text-muted-foreground'}`}>
                     {SERVICE_STATUS_LABELS[serviceBooking.status]?.label || serviceBooking.status}
                   </span>
+                </div>
+              )}
+              {(serviceBooking as any).staff_id && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                  <User size={12} />
+                  <span>Assigned technician: <span className="font-medium text-foreground">{(serviceBooking as any).staff_name || 'Staff member'}</span></span>
                 </div>
               )}
               {/* Reschedule / Cancel actions for buyer */}
