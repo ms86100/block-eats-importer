@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, isBefore, startOfToday } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,9 @@ interface ServiceBookingFlowProps {
   durationMinutes?: number;
 }
 
+const MAX_NOTES_LENGTH = 500;
+const MAX_ADDRESS_LENGTH = 300;
+
 export function ServiceBookingFlow({
   open, onOpenChange, productId, productName, sellerId, sellerName,
   price, category, imageUrl, durationMinutes,
@@ -41,7 +44,7 @@ export function ServiceBookingFlow({
   const queryClient = useQueryClient();
   const { config } = useCategoryBehavior(category as ServiceCategory);
 
-  const { data: serviceSlots = [] } = useServiceSlots(open ? productId : undefined);
+  const { data: serviceSlots = [], refetch: refetchSlots } = useServiceSlots(open ? productId : undefined);
   const availableSlots = useMemo(
     () => (serviceSlots.length > 0 ? slotsToPickerFormat(serviceSlots) : undefined),
     [serviceSlots]
@@ -57,19 +60,24 @@ export function ServiceBookingFlow({
 
   const supportsAddons = (config as any)?.supports_addons ?? false;
   const supportsRecurring = (config as any)?.supports_recurring ?? false;
-  const isServiceLayout = config?.layoutType === 'service';
 
-  // Check if location_type needs address (would need service_listings data)
-  const needsAddress = false; // simplified — can be enhanced
+  const needsAddress = false; // simplified — can be enhanced from service_listings
 
   const addonTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
   const totalAmount = price + addonTotal;
 
-  const isValid = selectedDate && selectedTime;
+  // Validate date is not in the past
+  const isDateValid = selectedDate && !isBefore(selectedDate, startOfToday());
+  const isValid = isDateValid && selectedTime;
 
   const handleConfirm = async () => {
-    if (!user || !selectedDate || !selectedTime) {
-      if (!user) { toast.error('Please sign in first'); navigate('/auth'); }
+    if (!user) {
+      toast.error('Please sign in first');
+      navigate('/auth');
+      return;
+    }
+    if (!selectedDate || !selectedTime || !isDateValid) {
+      toast.error('Please select a valid date and time');
       return;
     }
 
@@ -77,34 +85,16 @@ export function ServiceBookingFlow({
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Find matching slot
-      const slot = serviceSlots.length > 0
-        ? findSlot(serviceSlots, dateStr, selectedTime)
-        : null;
-
+      // Find matching slot from fresh data
+      const slot = findSlot(serviceSlots, dateStr, selectedTime);
       if (!slot) {
-        toast.error('Selected slot is no longer available');
+        toast.error('Selected slot is no longer available. Refreshing...');
+        refetchSlots();
         setIsLoading(false);
         return;
       }
 
-      // Atomically book the slot
-      const { data: slotUpdate } = await supabase
-        .from('service_slots')
-        .update({ booked_count: slot.booked_count + 1 })
-        .eq('id', slot.id)
-        .lt('booked_count', slot.max_capacity)
-        .eq('is_blocked', false)
-        .select('id')
-        .single();
-
-      if (!slotUpdate) {
-        toast.error('Slot is fully booked. Please choose another time.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Create order
+      // Create order first
       const { data: order, error: orderErr } = await supabase
         .from('orders')
         .insert({
@@ -115,7 +105,7 @@ export function ServiceBookingFlow({
           status: 'requested',
           payment_type: 'cod',
           payment_status: 'pending',
-          notes: notes || null,
+          notes: notes.trim().slice(0, MAX_NOTES_LENGTH) || null,
         })
         .select('id')
         .single();
@@ -131,26 +121,40 @@ export function ServiceBookingFlow({
         unit_price: price,
       });
 
-      // Create service booking
-      const { data: booking } = await supabase.from('service_bookings').insert({
-        order_id: order.id,
-        slot_id: slot.id,
-        buyer_id: user.id,
-        seller_id: sellerId,
-        product_id: productId,
-        booking_date: dateStr,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        status: 'requested',
-        location_type: 'at_seller',
-        buyer_address: buyerAddress || null,
-      }).select('id').single();
+      // Use atomic DB function to book slot + create booking
+      const { data: bookResult, error: bookErr } = await supabase
+        .rpc('book_service_slot', {
+          _slot_id: slot.id,
+          _buyer_id: user.id,
+          _seller_id: sellerId,
+          _product_id: productId,
+          _order_id: order.id,
+          _booking_date: dateStr,
+          _start_time: slot.start_time,
+          _end_time: slot.end_time,
+          _location_type: 'at_seller',
+          _buyer_address: buyerAddress.trim().slice(0, MAX_ADDRESS_LENGTH) || null,
+        });
+
+      if (bookErr) throw bookErr;
+
+      const result = bookResult as any;
+      if (!result?.success) {
+        // Rollback: delete the order since booking failed
+        await supabase.from('orders').delete().eq('id', order.id);
+        toast.error(result?.error || 'Failed to book slot');
+        refetchSlots();
+        setIsLoading(false);
+        return;
+      }
+
+      const bookingId = result.booking_id;
 
       // Persist selected addons
-      if (selectedAddons.length > 0 && booking) {
+      if (selectedAddons.length > 0 && bookingId) {
         await supabase.from('service_booking_addons').insert(
           selectedAddons.map(a => ({
-            booking_id: booking.id,
+            booking_id: bookingId,
             addon_id: a.id,
             price_at_booking: a.price,
           }))
@@ -158,9 +162,9 @@ export function ServiceBookingFlow({
       }
 
       // Persist recurring config
-      if (recurringConfig.enabled && booking) {
+      if (recurringConfig.enabled && bookingId) {
         await supabase.from('service_recurring_configs').insert({
-          booking_id: booking.id,
+          booking_id: bookingId,
           buyer_id: user.id,
           seller_id: sellerId,
           product_id: productId,
@@ -173,7 +177,7 @@ export function ServiceBookingFlow({
       // Trigger notification processing
       supabase.functions.invoke('process-notification-queue').catch(() => {});
 
-      // Invalidate slot queries so other buyers see updated availability
+      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['service-slots', productId] });
       queryClient.invalidateQueries({ queryKey: ['seller-service-bookings'] });
 
@@ -232,7 +236,8 @@ export function ServiceBookingFlow({
               <Input
                 placeholder="Enter your full address..."
                 value={buyerAddress}
-                onChange={(e) => setBuyerAddress(e.target.value)}
+                onChange={(e) => setBuyerAddress(e.target.value.slice(0, MAX_ADDRESS_LENGTH))}
+                maxLength={MAX_ADDRESS_LENGTH}
               />
             </div>
           )}
@@ -262,9 +267,11 @@ export function ServiceBookingFlow({
             <Textarea
               placeholder="Any specific requirements or requests..."
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value.slice(0, MAX_NOTES_LENGTH))}
               rows={3}
+              maxLength={MAX_NOTES_LENGTH}
             />
+            <p className="text-[10px] text-muted-foreground text-right">{notes.length}/{MAX_NOTES_LENGTH}</p>
           </div>
         </div>
 
