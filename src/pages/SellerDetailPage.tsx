@@ -8,6 +8,8 @@ import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewList } from '@/components/review/ReviewList';
 import { FavoriteButton } from '@/components/favorite/FavoriteButton';
 import { SellerReputationTab } from '@/components/seller/SellerReputationTab';
+import { SellerTrustBadge } from '@/components/trust/SellerTrustBadge';
+import { SellerStatsCard } from '@/components/trust/SellerStatsCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
