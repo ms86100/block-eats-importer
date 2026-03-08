@@ -1,10 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
 import { useSellerServiceBookings } from '@/hooks/useServiceBookings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, Clock, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, UserCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -25,8 +30,30 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarProps) {
-  const { data: bookings = [], isLoading } = useSellerServiceBookings(sellerId);
+  const { data: bookings = [], isLoading, refetch } = useSellerServiceBookings(sellerId);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
+  const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('service_staff')
+        .select('id, name')
+        .eq('seller_id', sellerId)
+        .eq('is_active', true)
+        .order('name');
+      setStaffList((data || []) as { id: string; name: string }[]);
+    })();
+  }, [sellerId]);
+
+  const assignStaff = async (bookingId: string, staffId: string | null) => {
+    await supabase
+      .from('service_bookings')
+      .update({ staff_id: staffId })
+      .eq('id', bookingId);
+    refetch();
+    toast.success(staffId ? 'Staff assigned' : 'Staff unassigned');
+  };
 
   const weekDates = useMemo(() => {
     const dates = [];
@@ -147,6 +174,26 @@ export function ServiceBookingsCalendar({ sellerId }: ServiceBookingsCalendarPro
                     <User size={10} />
                     {(booking as any).buyer_name || 'Customer'}
                   </p>
+                  {/* Staff assignment */}
+                  {staffList.length > 0 && (
+                    <div className="mt-1">
+                      <Select
+                        value={(booking as any).staff_id || 'none'}
+                        onValueChange={(v) => assignStaff(booking.id, v === 'none' ? null : v)}
+                      >
+                        <SelectTrigger className="h-6 text-[10px] w-auto min-w-[100px]">
+                          <UserCheck size={10} className="mr-1" />
+                          <SelectValue placeholder="Assign staff" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {staffList.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <Badge
                   variant="secondary"
