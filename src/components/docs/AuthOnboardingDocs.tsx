@@ -15,15 +15,6 @@ function Sub({ title, children }: { title: string; children: React.ReactNode }) 
   );
 }
 
-function InfoCard({ icon: Icon, title, desc }: { icon: React.ElementType; title: string; desc: string }) {
-  return (
-    <div className="bg-card border border-border rounded-xl p-3 text-center">
-      <Icon size={20} className="mx-auto text-primary mb-1.5" />
-      <p className="text-xs font-semibold text-foreground">{label || title}</p>
-      <p className="text-[10px] text-muted-foreground">{desc}</p>
-    </div>
-  );
-}
 
 function FlowStep({ number, title, desc }: { number: number; title: string; desc: string }) {
   return (

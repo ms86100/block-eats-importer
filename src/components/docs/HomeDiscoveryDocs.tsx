@@ -187,7 +187,7 @@ export function HomeDiscoveryDocs() {
         
         <p><strong>Product Grid:</strong> A 2-column grid showing all products in the group (or filtered sub-category), with an item count displayed above. Tapping any product opens the detail sheet.</p>
         
-        <p><strong>Top Sellers Section:</strong> When products exist and no search query is active, a "Top Sellers in {Group}" section appears at the bottom showing up to 5 relevant sellers with their ratings and details. These are sellers who have products in the current category group, filtered to the user's society.</p>
+        <p><strong>Top Sellers Section:</strong> When products exist and no search query is active, a "Top Sellers" section appears at the bottom showing up to 5 relevant sellers with their ratings and details. These are sellers who have products in the current category group, filtered to the user's society.</p>
         
         <p><strong>Not found:</strong> If the category group doesn't exist, a simple "Category not found" message with a "Go Home" button is shown.</p>
       </Sub>
