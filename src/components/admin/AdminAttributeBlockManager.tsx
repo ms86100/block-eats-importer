@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DynamicIcon } from '@/components/ui/DynamicIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -381,8 +382,8 @@ export function AdminAttributeBlockManager({ searchQuery = '' }: { searchQuery?:
                               onCheckedChange={() => toggleCategory(c.category)}
                             />
                             <span className="flex items-center gap-1.5">
-                              {c.icon && <span>{c.icon}</span>}
-                              <span className="font-medium">{c.display_name || c.category}</span>
+                              {c.icon && <DynamicIcon name={c.icon} size={14} />}
+                              <span className="font-medium">{c.display_name || c.displayName || c.category}</span>
                             </span>
                           </label>
                         ))}
