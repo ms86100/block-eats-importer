@@ -266,7 +266,9 @@ export default function SellerSettingsPage() {
 
           {/* Service Availability — shown if any seller category has layout_type=service */}
           {sellerProfile && sellerFlags.hasServiceLayout && (
-            <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
+            <div id="availability">
+              <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
+            </div>
           )}
 
           {/* Service Staff — shown if any seller category has supports_staff_assignment */}

@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { SellerProfile } from '@/types/database';
-import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck } from 'lucide-react';
+import { Package, Loader2, Eye, Star, Clock, CheckCircle, XCircle, ShieldCheck, CalendarClock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 import { logAudit } from '@/lib/audit';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useQuery } from '@tanstack/react-query';
 
 // Import refactored components
 import { StoreStatusCard } from '@/components/seller/StoreStatusCard';
@@ -47,6 +49,21 @@ export default function SellerDashboardPage() {
   const { pendingAlerts, dismiss: dismissAlert, snooze: snoozeAlert } = useNewOrderAlert(activeSellerId);
   const sellerCategories = useMemo(() => (sellerProfile as any)?.categories ?? [], [sellerProfile]);
   const sellerFlags = useSellerCategoryFlags(sellerCategories);
+
+  // Check if seller has configured availability schedules
+  const { data: hasSchedules } = useQuery({
+    queryKey: ['seller-has-schedules', activeSellerId],
+    queryFn: async () => {
+      if (!activeSellerId) return true;
+      const { count } = await supabase
+        .from('service_availability_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('seller_id', activeSellerId)
+        .eq('is_active', true);
+      return (count ?? 0) > 0;
+    },
+    enabled: !!activeSellerId && sellerFlags.hasServiceLayout,
+  });
 
   // Debug: log auth state for seller dashboard
   useEffect(() => {
@@ -178,6 +195,22 @@ export default function SellerDashboardPage() {
     <AppLayout headerTitle="Seller Dashboard" showLocation={false}>
       <NewOrderAlertOverlay orders={pendingAlerts} onDismiss={dismissAlert} onSnooze={snoozeAlert} />
       <div className="p-4 space-y-5">
+        {/* Service Schedule Setup Warning */}
+        {sellerFlags.hasServiceLayout && hasSchedules === false && (
+          <Alert className="border-warning bg-warning/10">
+            <CalendarClock className="h-4 w-4 text-warning" />
+            <AlertTitle className="text-warning">Set up your service hours</AlertTitle>
+            <AlertDescription className="text-sm">
+              You haven't configured your availability schedule. Buyers can't book your services until you set your working hours.
+              <Link to="/seller/settings#availability" className="block mt-2">
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <CalendarClock size={14} />
+                  Configure Schedule
+                </Button>
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
         <StoreStatusCard
           sellerProfile={sellerProfile}
           sellerProfiles={sellerProfiles}
