@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { LicenseUpload } from '@/components/seller/LicenseUpload';
 import { useSellerSettings } from '@/hooks/useSellerSettings';
 import { ServiceAvailabilityConfig } from '@/components/seller/ServiceAvailabilityConfig';
+import { ServiceStaffManager } from '@/components/seller/ServiceStaffManager';
 
 const SERVICE_PARENT_GROUPS = ['home_services', 'personal_care', 'education_learning', 'professional', 'events', 'pets', 'domestic_help'];
 function isServiceGroup(group: string) {
@@ -249,6 +250,11 @@ export default function SellerSettingsPage() {
           {/* Service Availability */}
           {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
             <ServiceAvailabilityConfig sellerId={sellerProfile.id} />
+          )}
+
+          {/* Service Staff */}
+          {sellerProfile && primaryGroup && isServiceGroup(primaryGroup) && (
+            <ServiceStaffManager sellerId={sellerProfile.id} />
           )}
 
           {/* License */}
