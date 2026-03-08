@@ -110,6 +110,7 @@ export function useSellerSettings() {
           minimum_order_amount: profile.minimum_order_amount?.toString() || '',
           daily_order_limit: profile.daily_order_limit?.toString() || '',
         });
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
