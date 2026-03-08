@@ -31,6 +31,7 @@ export default function CartPage() {
 
   const sellerIds = useMemo(() => c.sellerGroups.map(g => g.sellerId), [c.sellerGroups]);
   const firstOrderSellerIds = useFirstOrderCheck(c.user?.id, sellerIds);
+  const deliveryScores = useDeliveryScoresBatch(sellerIds);
 
   // Calculate total savings for value reinforcement
   const deliverySavings = c.fulfillmentType === 'delivery' && c.totalAmount >= c.settings.freeDeliveryThreshold ? c.settings.baseDeliveryFee : 0;

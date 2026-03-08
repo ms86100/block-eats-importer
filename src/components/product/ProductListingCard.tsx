@@ -386,10 +386,9 @@ function ProductListingCardInner({
               by {product.seller_name}
             </span>
             {/* Seller trust tier badge */}
-            {(product.completed_order_count != null || (product as any).seller_completed_orders != null) && (
+            {product.seller_id && (
               <SellerTrustBadge
-                completedOrders={(product.completed_order_count || (product as any).seller_completed_orders || 0)}
-                rating={(product.seller_rating || 0)}
+                sellerId={product.seller_id}
                 size="sm"
               />
             )}
