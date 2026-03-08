@@ -6,6 +6,7 @@ import { useCategoryConfigs } from '@/hooks/useCategoryBehavior';
 import { ParentGroup } from '@/types/categories';
 import { useSubcategories } from '@/hooks/useSubcategories';
 import { type BlockData } from '@/hooks/useAttributeBlocks';
+import { INITIAL_SERVICE_FIELDS, type ServiceFieldsData } from '@/components/seller/ServiceFieldsSection';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/utils';
 
@@ -55,6 +56,7 @@ export function useSellerProducts() {
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [attributeBlocks, setAttributeBlocks] = useState<BlockData[]>([]);
   const [formData, setFormData] = useState<ProductFormData>(INITIAL_FORM);
+  const [serviceFields, setServiceFields] = useState<ServiceFieldsData>(INITIAL_SERVICE_FIELDS);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   const activeCategoryConfig = useMemo(() => {
@@ -116,9 +118,10 @@ export function useSellerProducts() {
     setFormData({ ...INITIAL_FORM, category: defaultCategory });
     setEditingProduct(null);
     setAttributeBlocks([]);
+    setServiceFields(INITIAL_SERVICE_FIELDS);
   };
 
-  const openEditDialog = (product: Product) => {
+  const openEditDialog = async (product: Product) => {
     setEditingProduct(product);
     setFormData({
       name: product.name, description: product.description || '', price: product.price.toString(),
@@ -133,6 +136,28 @@ export function useSellerProducts() {
     });
     const specs = (product as any).specifications;
     setAttributeBlocks(specs?.blocks && Array.isArray(specs.blocks) ? specs.blocks as BlockData[] : []);
+
+    // Load service listing data if exists
+    const { data: sl } = await supabase
+      .from('service_listings')
+      .select('*')
+      .eq('product_id', product.id)
+      .maybeSingle();
+
+    if (sl) {
+      setServiceFields({
+        service_type: sl.service_type || 'scheduled',
+        location_type: sl.location_type || 'at_seller',
+        duration_minutes: sl.duration_minutes?.toString() || '60',
+        buffer_minutes: sl.buffer_minutes?.toString() || '15',
+        max_bookings_per_slot: sl.max_bookings_per_slot?.toString() || '1',
+        cancellation_notice_hours: sl.cancellation_notice_hours?.toString() || '24',
+        rescheduling_notice_hours: sl.rescheduling_notice_hours?.toString() || '12',
+      });
+    } else {
+      setServiceFields(INITIAL_SERVICE_FIELDS);
+    }
+
     setIsDialogOpen(true);
   };
 
@@ -187,14 +212,34 @@ export function useSellerProducts() {
               approval_status: (sellerProfile as any)?.verification_status === 'approved' ? 'approved' : 'draft',
             }),
       };
+      let savedProductId: string;
       if (editingProduct) {
         const { error } = await supabase.from('products').update(productData as any).eq('id', editingProduct.id);
         if (error) throw error;
+        savedProductId = editingProduct.id;
         toast.success('Product updated');
       } else {
-        const { error } = await supabase.from('products').insert(productData as any);
+        const { data: inserted, error } = await supabase.from('products').insert(productData as any).select('id').single();
         if (error) throw error;
+        savedProductId = inserted.id;
         toast.success('Product added');
+      }
+
+      // Upsert service_listings if this is a service category
+      const isService = isServiceCategory(formData.category, configs);
+      if (isService && savedProductId) {
+        await supabase
+          .from('service_listings')
+          .upsert({
+            product_id: savedProductId,
+            service_type: serviceFields.service_type,
+            location_type: serviceFields.location_type,
+            duration_minutes: parseInt(serviceFields.duration_minutes) || 60,
+            buffer_minutes: parseInt(serviceFields.buffer_minutes) || 0,
+            max_bookings_per_slot: parseInt(serviceFields.max_bookings_per_slot) || 1,
+            cancellation_notice_hours: parseInt(serviceFields.cancellation_notice_hours) || 24,
+            rescheduling_notice_hours: parseInt(serviceFields.rescheduling_notice_hours) || 12,
+          }, { onConflict: 'product_id' });
       }
       setIsDialogOpen(false);
       resetForm();
@@ -224,12 +269,21 @@ export function useSellerProducts() {
     } catch (error) { console.error('Error updating availability:', error); toast.error('Failed to update'); }
   };
 
+  // Determine if current category is a service type
+  const isCurrentCategoryService = useMemo(() => isServiceCategory(formData.category, configs), [formData.category, configs]);
+
   return {
     user, sellerProfile, primaryGroup, products, isLoading, isDialogOpen, setIsDialogOpen,
     editingProduct, isSaving, licenseBlocked, isBulkOpen, setIsBulkOpen,
     attributeBlocks, setAttributeBlocks, formData, setFormData, deleteTarget, setDeleteTarget,
     activeCategoryConfig, showVegToggle, showDurationField, allowedCategories, subcategories,
     configs, sellerProfiles, resetForm, openEditDialog, handleSave, confirmDelete,
-    toggleAvailability, fetchData,
+    toggleAvailability, fetchData, serviceFields, setServiceFields, isCurrentCategoryService,
   };
+}
+
+function isServiceCategory(category: ProductCategory | '', configs: any[]): boolean {
+  if (!category) return false;
+  const config = configs.find((c: any) => c.category === category);
+  return config?.layoutType === 'service';
 }
