@@ -93,9 +93,12 @@ export function UpcomingAppointmentBanner() {
 
   if (!booking) return null;
 
-  const appointmentDate = new Date(`${booking.booking_date}T${booking.start_time}`);
+  // [FIX] Parse as local time, not UTC — append T00:00 to force local interpretation
+  const [bH, bM] = (booking.start_time || '00:00').split(':').map(Number);
+  const appointmentDate = new Date(booking.booking_date + 'T00:00:00');
+  appointmentDate.setHours(bH, bM, 0, 0);
   const hoursAway = differenceInHours(appointmentDate, new Date());
-  const dateLabel = isToday(new Date(booking.booking_date))
+  const dateLabel = isToday(new Date(booking.booking_date + 'T00:00'))
     ? 'Today'
     : isTomorrow(new Date(booking.booking_date))
     ? 'Tomorrow'
