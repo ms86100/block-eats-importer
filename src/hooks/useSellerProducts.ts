@@ -190,7 +190,6 @@ export function useSellerProducts() {
         specifications: attributeBlocks.length > 0 ? { blocks: attributeBlocks } : null,
         ...(editingProduct
           ? {
-              // Only reset to pending if content-significant fields changed
               approval_status: (() => {
                 const ep = editingProduct as any;
                 const contentChanged =
@@ -201,15 +200,14 @@ export function useSellerProducts() {
                   formData.image_url !== ep.image_url ||
                   formData.action_type !== (ep.action_type || 'add_to_cart') ||
                   formData.subcategory_id !== (ep.subcategory_id || '');
-                // For approved sellers, edits don't need re-approval
-                const sellerApproved = (sellerProfile as any)?.verification_status === 'approved';
-                if (sellerApproved) return ep.approval_status === 'rejected' && contentChanged ? 'pending' : ep.approval_status;
-                return contentChanged ? 'pending' : ep.approval_status;
+                // If content changed on an approved/rejected product, require re-approval
+                if (contentChanged && ['approved', 'rejected'].includes(ep.approval_status)) return 'pending';
+                return ep.approval_status;
               })(),
+              rejection_note: null, // Clear rejection note on edit
             }
           : {
-              // Auto-approve products for already-approved sellers
-              approval_status: (sellerProfile as any)?.verification_status === 'approved' ? 'approved' : 'draft',
+              approval_status: 'pending' as const,
             }),
       };
       let savedProductId: string;

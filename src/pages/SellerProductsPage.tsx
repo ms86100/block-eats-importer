@@ -106,7 +106,7 @@ export default function SellerProductsPage() {
 
         <h1 className="text-xl font-bold mb-4">Your Products ({sp.products.length})</h1>
 
-        {sp.products.some(p => (p as any).approval_status === 'draft') && (sp.sellerProfile as any)?.verification_status !== 'approved' && (
+        {sp.products.some(p => (p as any).approval_status === 'draft') && (
           <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
             <div><p className="text-sm font-medium">{sp.products.filter(p => (p as any).approval_status === 'draft').length} draft product(s) ready</p><p className="text-xs text-muted-foreground">Submit for admin review to make them visible to buyers</p></div>
             <Button size="sm" onClick={async () => { const draftIds = sp.products.filter(p => (p as any).approval_status === 'draft').map(p => p.id); const { error } = await supabase.from('products').update({ approval_status: 'pending' } as any).in('id', draftIds); if (error) { toast.error('Failed to submit'); return; } toast.success(`${draftIds.length} product(s) submitted for approval`); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Submit All for Approval</Button>
@@ -116,7 +116,7 @@ export default function SellerProductsPage() {
         {sp.products.length > 0 ? (
           <div className="space-y-3">
             {sp.products.map((product) => {
-              const approvalStatus = (product as any).approval_status || 'approved';
+              const approvalStatus = (product as any).approval_status || 'draft';
               const showPendingHint = approvalStatus === 'pending';
               return (
                 <div key={product.id} className={`bg-card rounded-xl p-4 shadow-sm transition-opacity ${!product.is_available ? 'opacity-60' : ''}`}>
@@ -132,7 +132,7 @@ export default function SellerProductsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-medium truncate">{product.name}</h3>
                             {approvalStatus === 'draft' && <Badge variant="outline" className="text-[10px] px-1 gap-0.5 border-muted-foreground/30"><Clock size={10} /> Draft</Badge>}
-                            {approvalStatus === 'pending' && <Badge className="bg-warning/20 text-warning-foreground text-[10px] px-1 gap-0.5"><Clock size={10} /> Pending</Badge>}
+                            {approvalStatus === 'pending' && <Badge className="bg-warning/20 text-warning-foreground text-[10px] px-1 gap-0.5"><Clock size={10} /> Pending Review</Badge>}
                             {approvalStatus === 'rejected' && <Badge variant="destructive" className="text-[10px] px-1 gap-0.5"><XCircle size={10} /> Rejected</Badge>}
                             {approvalStatus === 'approved' && <Badge className="bg-success/20 text-success text-[10px] px-1 gap-0.5"><CheckCircle2 size={10} /> Live</Badge>}
                             {product.is_bestseller && <Badge className="bg-warning/20 text-warning-foreground text-[10px] px-1"><Star size={10} className="mr-0.5 fill-warning text-warning" />Bestseller</Badge>}
@@ -140,11 +140,18 @@ export default function SellerProductsPage() {
                           <p className="text-sm font-semibold text-primary">{formatPrice(product.price)}</p>
                         </div>
                       </div>
+                      {approvalStatus === 'rejected' && (product as any).rejection_note && (
+                        <div className="mt-1.5 p-2 bg-destructive/5 border border-destructive/20 rounded-lg">
+                          <p className="text-[10px] font-semibold text-destructive">Rejection reason:</p>
+                          <p className="text-xs text-muted-foreground">{(product as any).rejection_note}</p>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Button size="sm" variant="outline" onClick={() => sp.openEditDialog(product)}><Edit size={14} className="mr-1" />Edit</Button>
                         <Button size="sm" variant="ghost" className="text-destructive" onClick={() => sp.setDeleteTarget(product)}><Trash2 size={14} /></Button>
-                        {approvalStatus === 'draft' && (sp.sellerProfile as any)?.verification_status !== 'approved' && <Button size="sm" variant="secondary" onClick={async () => { const { error } = await supabase.from('products').update({ approval_status: 'pending' } as any).eq('id', product.id); if (error) { toast.error('Failed to submit'); return; } toast.success('Submitted for approval'); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Submit</Button>}
-                        {showPendingHint && (sp.sellerProfile as any)?.verification_status !== 'approved' && <span className="text-xs text-muted-foreground italic">Under review — edits are still allowed</span>}
+                        {approvalStatus === 'draft' && <Button size="sm" variant="secondary" onClick={async () => { const { error } = await supabase.from('products').update({ approval_status: 'pending' } as any).eq('id', product.id); if (error) { toast.error('Failed to submit'); return; } toast.success('Submitted for approval'); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Submit for Review</Button>}
+                        {approvalStatus === 'rejected' && <Button size="sm" variant="secondary" onClick={async () => { const { error } = await supabase.from('products').update({ approval_status: 'pending', rejection_note: null } as any).eq('id', product.id); if (error) { toast.error('Failed to resubmit'); return; } toast.success('Resubmitted for approval'); if (sp.sellerProfile) sp.fetchData(sp.sellerProfile.id); }}><Send size={14} className="mr-1" />Resubmit for Review</Button>}
+                        {approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">Under review — edits are still allowed</span>}
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-1"><Switch checked={product.is_available} onCheckedChange={() => sp.toggleAvailability(product)} /><span className="text-[10px] text-muted-foreground">{product.is_available ? 'In Stock' : 'Out'}</span></div>

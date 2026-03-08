@@ -63,7 +63,7 @@ export function AdminProductApprovals() {
 
   const handleReject = async (id: string) => {
     setActionId(id);
-    const { error } = await supabase.from('products').update({ approval_status: 'rejected' } as any).eq('id', id);
+    const { error } = await supabase.from('products').update({ approval_status: 'rejected', rejection_note: rejectionNote.trim() || null } as any).eq('id', id);
     if (error) { toast.error('Failed to reject'); setActionId(null); return; }
     await logAudit('product_rejected', 'product', id, '', { reason: rejectionNote });
     toast.success('Product rejected');
