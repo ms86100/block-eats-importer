@@ -87,7 +87,7 @@ export function TimeSlotPicker({
 
     while (currentSlot < endTime) {
       const slotTime = format(currentSlot, 'HH:mm');
-      const isAvailable = !isToday || isAfter(currentSlot, now);
+      const isAvailable = !isTodayFallback || isAfter(currentSlot, now);
 
       slots.push({
         time: slotTime,
