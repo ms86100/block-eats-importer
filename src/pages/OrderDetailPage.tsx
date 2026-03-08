@@ -197,7 +197,6 @@ export default function OrderDetailPage() {
                     bookingDate={serviceBooking.booking_date}
                     startTime={serviceBooking.start_time}
                     onUpdated={() => {
-                      o.refetchOrder?.();
                       window.dispatchEvent(new Event('booking-changed'));
                     }}
                   />
